@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { TopBar } from '@/components/layout/TopBar'
 import { getAllCredentials } from '@/lib/integrations/credentials'
 import { ConfigCard } from '@/components/configuracoes/ConfigCard'
+import { BlingSyncButton } from '@/components/configuracoes/BlingSyncButton'
 
 export default async function ConfiguracoesPage() {
   const credentials = await getAllCredentials()
@@ -42,6 +43,11 @@ export default async function ConfiguracoesPage() {
           credential={credMap['bling']}
           type="oauth"
         />
+        <div className="bg-white rounded-xl border border-gray-100 p-5">
+          <div className="font-semibold text-gray-900 mb-1">Sincronização Manual</div>
+          <p className="text-sm text-gray-400 mb-3">Busca NF-e de entrada (série 0) e saída (série 2) dos últimos 90 dias no Bling.</p>
+          <BlingSyncButton />
+        </div>
       </div>
     </>
   )
