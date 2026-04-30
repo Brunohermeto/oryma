@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { recalculateLandedCost } from '@/lib/landed-cost/calculator'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,5 +25,14 @@ export async function POST(request: NextRequest) {
   })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Recalculate landed cost and CMP for all products in this order
+  try {
+    await recalculateLandedCost(import_order_id)
+  } catch (calcErr) {
+    // Non-fatal: cost was saved, recalculation failed
+    return NextResponse.json({ ok: true, warning: `Cost saved but recalculation failed: ${calcErr}` })
+  }
+
   return NextResponse.json({ ok: true })
 }
