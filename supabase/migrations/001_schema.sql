@@ -156,7 +156,6 @@ CREATE TABLE sale_costs (
 -- Operational expenses from Conta Azul API
 CREATE TABLE operational_expenses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  conta_azul_id TEXT UNIQUE,
   period DATE NOT NULL,
   dre_category TEXT NOT NULL CHECK (dre_category IN (
     'pessoal',
@@ -202,7 +201,7 @@ CREATE TABLE tax_apurations (
 -- Sync log per integration
 CREATE TABLE sync_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  source TEXT NOT NULL CHECK (source IN ('mercado_livre','shopee','amazon','bling','conta_azul')),
+  source TEXT NOT NULL CHECK (source IN ('mercado_livre','shopee','amazon','bling')),
   sync_type TEXT NOT NULL,
   status TEXT NOT NULL CHECK (status IN ('success','error','running')),
   records_synced INTEGER DEFAULT 0,
