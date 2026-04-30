@@ -158,15 +158,24 @@ CREATE TABLE operational_expenses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   period DATE NOT NULL,
   dre_category TEXT NOT NULL CHECK (dre_category IN (
-    'pessoal',
-    'marketing',
-    'frete_op',
+    -- Pessoal
+    'salarios',
+    'inss_patronal',
+    'fgts',
+    'vale_transporte',
+    'vale_alimentacao',
+    'plano_saude',
+    'ferias_13',
+    'prolabore',
+    -- Operacional
     'aluguel',
-    'sistemas',
-    'consultoria',
-    'impostos',
-    'outro'
+    'frete_operacional',
+    'publicidade_marketing',
+    'sistemas_software',
+    'contabilidade_consultoria',
+    'outras_despesas'
   )),
+  subcategory TEXT,
   description TEXT,
   supplier TEXT,
   amount DECIMAL(15,2) NOT NULL,
