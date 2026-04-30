@@ -168,6 +168,9 @@ CREATE TABLE operational_expenses (
     'ferias_13',
     'prolabore',
     -- Operacional
+    'energia',
+    'agua',
+    'escritorio',
     'aluguel',
     'frete_operacional',
     'publicidade_marketing',

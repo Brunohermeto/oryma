@@ -7,6 +7,7 @@ export type ImportCostType = 'frete_maritimo' | 'seguro' | 'afrmm' | 'armazenage
 export type OperationalExpenseCategory =
   | 'salarios' | 'inss_patronal' | 'fgts' | 'vale_transporte' | 'vale_alimentacao'
   | 'plano_saude' | 'ferias_13' | 'prolabore'
+  | 'energia' | 'agua' | 'escritorio'
   | 'aluguel' | 'frete_operacional' | 'publicidade_marketing'
   | 'sistemas_software' | 'contabilidade_consultoria' | 'outras_despesas'
 export type SyncSource = 'mercado_livre' | 'shopee' | 'amazon' | 'bling'
@@ -250,6 +251,9 @@ export const EXPENSE_CATEGORY_LABELS: Record<OperationalExpenseCategory, string>
   plano_saude: 'Plano de Saúde',
   ferias_13: 'Férias / 13º',
   prolabore: 'Pró-labore',
+  energia: 'Energia Elétrica',
+  agua: 'Água e Saneamento',
+  escritorio: 'Despesas de Escritório',
   aluguel: 'Aluguel / Storage',
   frete_operacional: 'Frete Operacional',
   publicidade_marketing: 'Publicidade e Marketing',
