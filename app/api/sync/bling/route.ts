@@ -5,6 +5,7 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { format, subDays } from 'date-fns'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60 // Vercel: até 60s para este endpoint
 
 export async function POST(request: NextRequest) {
   // Allow manual trigger from dashboard (cookie auth) or cron (secret header)
@@ -31,10 +32,9 @@ export async function POST(request: NextRequest) {
   }).select().single()
 
   try {
-    const [entrada, saida] = await Promise.all([
-      syncNFeEntrada(startDate, endDate),
-      syncNFeSaida(startDate, endDate),
-    ])
+    // Sequencial — evita rate limit duplo no Bling
+    const entrada = await syncNFeEntrada(startDate, endDate)
+    const saida   = await syncNFeSaida(startDate, endDate)
 
     await db.from('sync_logs').update({
       status: 'success',

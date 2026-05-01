@@ -30,12 +30,10 @@ export async function syncNFeSaida(startDate: string, endDate: string): Promise<
   let synced = 0
 
   while (true) {
-    // Busca todas as NF-e autorizadas (situação 100) sem filtro de série
-    // Filtramos no loop para excluir série 4xx (remessa)
+    // Busca NF-e por data — sem filtro de situação ou série (filtramos no loop)
     const list = await blingGet<BlingNFeSaidaList>('/nfe', {
       pagina: String(page),
       limite: '100',
-      situacaoId: '100', // autorizada
       dataEmissaoInicio: startDate,
       dataEmissaoFim: endDate,
     })
