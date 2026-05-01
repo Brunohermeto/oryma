@@ -17,9 +17,10 @@ export async function POST(request: NextRequest) {
 
   const db       = createSupabaseServiceClient()
   const now      = new Date()
-  // Cron usa 90 dias; botão manual usa 30 para não estourar o timeout do Vercel (60s)
-  const isCron   = !!request.headers.get('x-cron-secret')
-  const days     = isCron ? 90 : 7
+  // Cron passa ?days= calculado pelo sync incremental; botão manual usa 7 dias
+  const queryDays = request.nextUrl.searchParams.get('days')
+  const isCron    = !!request.headers.get('x-cron-secret')
+  const days      = queryDays ? Number(queryDays) : (isCron ? 7 : 7)
   const startDate = format(subDays(now, days), 'yyyy-MM-dd')
   const endDate   = format(now, 'yyyy-MM-dd')
 

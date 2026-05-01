@@ -17,8 +17,9 @@ export async function POST(request: NextRequest) {
 
   const db    = createSupabaseServiceClient()
   const now   = new Date()
-  const isCron = !!cronSecret
-  const days  = isCron ? 90 : 7
+  const isCron    = !!cronSecret
+  const queryDays = request.nextUrl.searchParams.get('days')
+  const days      = queryDays ? Number(queryDays) : 7
   const endDate   = format(now, 'yyyy-MM-dd')
   const startDate = format(subDays(now, days), 'yyyy-MM-dd')
 
