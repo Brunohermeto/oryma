@@ -32,6 +32,7 @@ interface Sale {
   marketplace_shipping_fee: number
   ads_cost: number
   cancellation: number
+  discounts: number
   products: { name: string; sku: string } | null
   sale_costs: { unit_cost_applied: number; total_cost: number; margin_pct: number | null } | null
 }
@@ -57,59 +58,84 @@ function MarginBadge({ pct }: { pct: number | null }) {
   )
 }
 
+function Row({ label, value, color, indent = false, bold = false, separator = false }: {
+  label: string; value: number | null; color?: string; indent?: boolean; bold?: boolean; separator?: boolean
+}) {
+  return (
+    <>
+      {separator && <div style={{ height: 1, background: 'oklch(0.92 0.010 258)', margin: '3px 0' }} />}
+      <div className="flex items-center justify-between" style={{ paddingLeft: indent ? 8 : 0 }}>
+        <span style={{
+          fontSize: 10,
+          color: bold ? B.text : B.muted,
+          fontWeight: bold ? 600 : 400,
+        }}>{label}</span>
+        <span style={{
+          fontSize: 11,
+          fontFamily: 'var(--font-geist-mono)',
+          fontWeight: bold ? 700 : 500,
+          color: color ?? (value === null ? B.muted : B.text),
+        }}>
+          {value === null ? '—' : value === 0 ? '—' : fmtR(Math.abs(value))}
+        </span>
+      </div>
+    </>
+  )
+}
+
 function SaleCard({ sale }: { sale: Sale }) {
-  const faturamento = Number(sale.gross_price) - Number(sale.cancellation)
-  const fees = Number(sale.marketplace_commission) + Number(sale.marketplace_shipping_fee) + Number(sale.ads_cost)
-  const cmv = Number(sale.sale_costs?.total_cost ?? 0)
-  const lucro = sale.sale_costs ? faturamento - fees - cmv : null
-  const ch = CHANNELS[sale.marketplace]
+  const grossPrice   = Number(sale.gross_price)
+  const cancellation = Number(sale.cancellation)
+  const discounts    = Number(sale.discounts ?? 0)
+  const commission   = Number(sale.marketplace_commission)
+  const shipping     = Number(sale.marketplace_shipping_fee)
+  const ads          = Number(sale.ads_cost)
+  const cmv          = Number(sale.sale_costs?.total_cost ?? 0)
+
+  const faturamento     = grossPrice - cancellation - discounts
+  const totalFees       = commission + shipping + ads
+  const receitaLiquida  = faturamento - totalFees
+  const lucro           = sale.sale_costs ? receitaLiquida - cmv : null
+  const marginPct       = lucro !== null && receitaLiquida > 0 ? (lucro / receitaLiquida) * 100 : null
 
   return (
-    <div
-      className="rounded-xl p-3"
-      style={{ background: 'white', border: `1px solid ${B.border}` }}
-    >
-      {/* Produto */}
-      <div className="flex items-start justify-between gap-2 mb-2">
+    <div className="rounded-xl p-3" style={{ background: 'white', border: `1px solid ${B.border}` }}>
+
+      {/* Header: produto + margem */}
+      <div className="flex items-start justify-between gap-2 mb-2.5">
         <div className="min-w-0">
           <div className="text-[12px] font-semibold leading-tight truncate" style={{ color: B.text }}>
             {sale.products?.name ?? sale.sku ?? '—'}
           </div>
           <div className="text-[10px] mt-0.5" style={{ color: B.muted }}>
-            {FULFILLMENT[sale.fulfillment_type] ?? sale.fulfillment_type} · {Number(sale.quantity).toFixed(0)} un.
+            {FULFILLMENT[sale.fulfillment_type] ?? sale.fulfillment_type} · {Number(sale.quantity).toFixed(0)} un. · {sale.sale_date}
           </div>
         </div>
-        <MarginBadge pct={sale.sale_costs?.margin_pct ?? null} />
+        <MarginBadge pct={marginPct !== null ? marginPct / 100 : null} />
       </div>
 
-      {/* Financeiro */}
-      <div className="grid grid-cols-3 gap-1.5 text-center">
-        <div className="rounded-lg py-1.5" style={{ background: B.bgSubtle }}>
-          <div className="text-[10px]" style={{ color: B.muted }}>Venda</div>
-          <div className="text-[12px] font-bold num" style={{ color: B.brand, fontFamily: 'var(--font-geist-mono)' }}>
-            {fmtR(faturamento)}
-          </div>
-        </div>
-        <div className="rounded-lg py-1.5" style={{ background: B.bgSubtle }}>
-          <div className="text-[10px]" style={{ color: B.muted }}>CMV</div>
-          <div className="text-[12px] font-bold num" style={{ color: cmv > 0 ? '#dc2626' : B.muted, fontFamily: 'var(--font-geist-mono)' }}>
-            {cmv > 0 ? fmtR(cmv) : '—'}
-          </div>
-        </div>
-        <div className="rounded-lg py-1.5" style={{ background: B.bgSubtle }}>
-          <div className="text-[10px]" style={{ color: B.muted }}>Lucro</div>
-          <div className="text-[12px] font-bold num" style={{
-            color: lucro === null ? B.muted : lucro >= 0 ? '#16a34a' : '#dc2626',
-            fontFamily: 'var(--font-geist-mono)',
-          }}>
-            {lucro !== null ? fmtR(lucro) : '—'}
-          </div>
-        </div>
+      {/* P&L em cascata */}
+      <div className="space-y-1" style={{
+        background: 'oklch(0.97 0.008 258)',
+        borderRadius: 8,
+        padding: '8px 10px',
+      }}>
+        <Row label="Preço de venda"    value={grossPrice}    color={B.brand} bold />
+        {cancellation > 0 && <Row label="(-) Cancelamento" value={-cancellation} color="#dc2626" indent />}
+        {discounts    > 0 && <Row label="(-) Desconto/cupom" value={-discounts}  color="#d97706" indent />}
+        <Row label="(-) Comissão ML"   value={commission > 0 ? -commission : null} color="#dc2626" indent />
+        <Row label="(-) Frete"         value={shipping   > 0 ? -shipping   : null} color="#dc2626" indent />
+        {ads > 0 && <Row label="(-) ADS" value={-ads}  color="#dc2626" indent />}
+        <Row label="= Receita líquida" value={receitaLiquida} color={receitaLiquida >= 0 ? '#0B1023' : '#dc2626'} bold separator />
+        <Row label="(-) CMV"           value={cmv > 0 ? -cmv : null} color="#dc2626" indent />
+        <Row
+          label="= Lucro estimado"
+          value={lucro}
+          color={lucro === null ? B.muted : lucro >= 0 ? '#16a34a' : '#dc2626'}
+          bold separator
+        />
       </div>
 
-      <div className="text-[10px] mt-1.5 text-right" style={{ color: B.muted }}>
-        {sale.sale_date}
-      </div>
     </div>
   )
 }
