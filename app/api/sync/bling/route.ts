@@ -20,7 +20,9 @@ export async function POST(request: NextRequest) {
   // Cron passa ?days= calculado pelo sync incremental; botão manual usa 7 dias
   const queryDays = request.nextUrl.searchParams.get('days')
   const isCron    = !!request.headers.get('x-cron-secret')
-  const days      = queryDays ? Number(queryDays) : (isCron ? 7 : 7)
+  // Manual: 1 dia (300 NF-e/dia × 80ms ≈ 24s, cabe nos 60s)
+  // Cron: usa ?days= calculado pelo sync incremental (1-2 dias normalmente)
+  const days      = queryDays ? Number(queryDays) : 1
   const startDate = format(subDays(now, days), 'yyyy-MM-dd')
   const endDate   = format(now, 'yyyy-MM-dd')
 
