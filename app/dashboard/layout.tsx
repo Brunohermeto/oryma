@@ -5,9 +5,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex min-h-screen" style={{
       background: `
-        radial-gradient(circle at top right, rgba(0, 214, 255, 0.07), transparent 30%),
-        radial-gradient(circle at bottom left, rgba(123, 97, 255, 0.06), transparent 35%),
-        #F4F7FB
+        radial-gradient(ellipse at top right, rgba(0, 214, 255, 0.14) 0%, transparent 45%),
+        radial-gradient(ellipse at bottom left, rgba(123, 97, 255, 0.11) 0%, transparent 50%),
+        #EEF2F8
       `
     }}>
       <Sidebar />

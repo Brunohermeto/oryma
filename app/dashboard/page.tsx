@@ -153,95 +153,96 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
 
           {/* Receita Bruta */}
-          <a
-            href={`/dashboard/vendas?from=${start}&to=${end}`}
-            className="block bg-white rounded-2xl p-5 transition-all hover-card"
-            style={{ border: '1px solid rgba(15,23,42,0.07)', textDecoration: 'none', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'oklch(0.50 0.025 258)' }}>
-                Receita Bruta Sincronizada
-              </span>
-              <DollarSign size={14} style={{ color: '#125BFF' }} />
+          <a href={`/dashboard/vendas?from=${start}&to=${end}`} className="block rounded-2xl p-5 transition-all group" style={{
+            background: 'linear-gradient(135deg, #ffffff 0%, rgba(18,91,255,0.04) 100%)',
+            border: '1px solid rgba(18,91,255,0.12)',
+            boxShadow: '0 2px 12px rgba(18,91,255,0.08)',
+            textDecoration: 'none',
+          }}>
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#64748B' }}>Receita Bruta</span>
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(18,91,255,0.10)' }}>
+                <DollarSign size={15} style={{ color: '#125BFF' }} />
+              </div>
             </div>
-            <div className="num text-2xl font-bold" style={{ color: '#125BFF', fontFamily: 'var(--font-geist-mono)' }}>
+            <div className="font-bold leading-none mb-2" style={{ color: '#125BFF', fontFamily: 'var(--font-sora)', fontSize: 26, letterSpacing: '-0.03em' }}>
               {fmtR(totalRevenue)}
             </div>
             {revenueChange !== 0 && (
-              <div className="flex items-center gap-1 mt-2">
+              <div className="flex items-center gap-1">
                 {revenueChange > 0
-                  ? <TrendingUp size={12} style={{ color: 'oklch(0.50 0.19 145)' }} />
-                  : <TrendingDown size={12} style={{ color: 'oklch(0.52 0.20 25)' }} />
-                }
-                <span className="text-[12px]" style={{ color: revenueChange > 0 ? 'oklch(0.50 0.19 145)' : 'oklch(0.52 0.20 25)' }}>
-                  {Math.abs(revenueChange).toFixed(1)}% vs. mês anterior
+                  ? <TrendingUp size={11} style={{ color: '#22c55e' }} />
+                  : <TrendingDown size={11} style={{ color: '#ef4444' }} />}
+                <span className="text-[11px] font-medium" style={{ color: revenueChange > 0 ? '#22c55e' : '#ef4444' }}>
+                  {Math.abs(revenueChange).toFixed(1)}% vs. período anterior
                 </span>
               </div>
             )}
           </a>
 
           {/* Pedidos */}
-          <a
-            href={`/dashboard/vendas?from=${start}&to=${end}`}
-            className="block bg-white rounded-2xl p-5 transition-all hover-card"
-            style={{ border: '1px solid rgba(15,23,42,0.07)', textDecoration: 'none', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'oklch(0.50 0.025 258)' }}>
-                Pedidos
-              </span>
-              <ShoppingCart size={14} style={{ color: 'oklch(0.50 0.25 258)' }} />
+          <a href={`/dashboard/vendas?from=${start}&to=${end}`} className="block rounded-2xl p-5 transition-all" style={{
+            background: 'linear-gradient(135deg, #ffffff 0%, rgba(0,214,255,0.04) 100%)',
+            border: '1px solid rgba(0,214,255,0.15)',
+            boxShadow: '0 2px 12px rgba(0,214,255,0.06)',
+            textDecoration: 'none',
+          }}>
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#64748B' }}>Pedidos</span>
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(0,214,255,0.10)' }}>
+                <ShoppingCart size={15} style={{ color: '#0097b2' }} />
+              </div>
             </div>
-            <div className="num text-2xl font-bold" style={{ color: 'oklch(0.50 0.25 258)', fontFamily: 'var(--font-geist-mono)' }}>
+            <div className="font-bold leading-none mb-2" style={{ color: '#0097b2', fontFamily: 'var(--font-sora)', fontSize: 34, letterSpacing: '-0.04em' }}>
               {totalOrders}
             </div>
-            <div className="text-[12px] mt-2" style={{ color: 'oklch(0.50 0.025 258)' }}>
+            <div className="text-[11px]" style={{ color: '#64748B' }}>
               Ticket médio: {totalOrders > 0 ? fmtR(totalRevenue / totalOrders) : '—'}
             </div>
           </a>
 
-          {/* Tarifas + ADS */}
-          <a
-            href="/dashboard/dre"
-            className="block bg-white rounded-2xl p-5 transition-all hover-card"
-            style={{ border: '1px solid rgba(15,23,42,0.07)', textDecoration: 'none', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'oklch(0.50 0.025 258)' }}>
-                Taxas, Fretes &amp; Ads
-              </span>
-              <Percent size={14} style={{ color: 'oklch(0.62 0.16 70)' }} />
+          {/* Taxas, Fretes & Ads */}
+          <a href="/dashboard/dre" className="block rounded-2xl p-5 transition-all" style={{
+            background: 'linear-gradient(135deg, #ffffff 0%, rgba(245,158,11,0.04) 100%)',
+            border: '1px solid rgba(245,158,11,0.15)',
+            boxShadow: '0 2px 12px rgba(245,158,11,0.06)',
+            textDecoration: 'none',
+          }}>
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#64748B' }}>Taxas, Fretes & Ads</span>
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(245,158,11,0.10)' }}>
+                <Percent size={15} style={{ color: '#d97706' }} />
+              </div>
             </div>
-            <div className="num text-2xl font-bold" style={{ color: 'oklch(0.62 0.16 70)', fontFamily: 'var(--font-geist-mono)' }}>
+            <div className="font-bold leading-none mb-2" style={{ color: '#d97706', fontFamily: 'var(--font-sora)', fontSize: 26, letterSpacing: '-0.03em' }}>
               {fmtR(totalFees)}
             </div>
-            <div className="text-[12px] mt-2" style={{ color: 'oklch(0.50 0.025 258)' }}>
-              {totalRevenue > 0 ? `${fmtPct((totalFees / totalRevenue) * 100)} da receita` : '—'}
+            <div className="text-[11px]" style={{ color: '#64748B' }}>
+              {totalRevenue > 0 ? `${fmtPct((totalFees / totalRevenue) * 100)} da receita bruta` : '—'}
             </div>
           </a>
 
           {/* Margem Real */}
-          <a
-            href="/dashboard/dre"
-            className="block bg-white rounded-2xl p-5 transition-all hover-card"
-            style={{ border: '1px solid rgba(15,23,42,0.07)', textDecoration: 'none', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'oklch(0.50 0.025 258)' }}>
-                Margem Real
-              </span>
-              <div
-                className="rounded-full px-2 py-0.5 text-[10px] font-bold"
-                style={{ background: marginBg(grossMargin), color: marginColor(grossMargin) }}
-              >
+          <a href="/dashboard/dre" className="block rounded-2xl p-5 transition-all" style={{
+            background: `linear-gradient(135deg, #ffffff 0%, ${grossMargin >= 20 ? 'rgba(34,197,94,0.05)' : 'rgba(239,68,68,0.04)'} 100%)`,
+            border: `1px solid ${grossMargin >= 20 ? 'rgba(34,197,94,0.18)' : 'rgba(239,68,68,0.15)'}`,
+            boxShadow: `0 2px 12px ${grossMargin >= 20 ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.06)'}`,
+            textDecoration: 'none',
+          }}>
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#64748B' }}>Margem Real</span>
+              <span className="text-[10px] font-bold px-2 py-1 rounded-full" style={{
+                background: marginBg(grossMargin),
+                color: marginColor(grossMargin),
+              }}>
                 {grossMargin >= 35 ? 'Boa' : grossMargin >= 20 ? 'Ok' : 'Baixa'}
-              </div>
+              </span>
             </div>
-            <div className="num text-2xl font-bold" style={{ color: marginColor(grossMargin), fontFamily: 'var(--font-geist-mono)' }}>
+            <div className="font-bold leading-none mb-2" style={{ color: marginColor(grossMargin), fontFamily: 'var(--font-sora)', fontSize: 34, letterSpacing: '-0.04em' }}>
               {fmtPct(grossMargin)}
             </div>
-            <div className="text-[12px] mt-2" style={{ color: 'oklch(0.50 0.025 258)' }}>
-              Lucro: {fmtR(grossProfit)}
+            <div className="text-[11px]" style={{ color: '#64748B' }}>
+              Lucro estimado: {fmtR(grossProfit)}
             </div>
           </a>
 
