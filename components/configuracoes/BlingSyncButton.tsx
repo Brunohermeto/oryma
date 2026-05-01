@@ -9,10 +9,21 @@ const B = {
   bg:     'oklch(0.96 0.010 258)',
 }
 
+const STORAGE_KEY = 'bling_sync_id'
+
 export function BlingSyncButton() {
-  const [status, setStatus]   = useState<'idle' | 'running' | 'done' | 'error'>('idle')
-  const [result, setResult]   = useState('')
-  const [syncId, setSyncId]   = useState<string | null>(null)
+  const [status, setStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
+  const [result, setResult] = useState('')
+  const [syncId, setSyncId] = useState<string | null>(null)
+
+  // Ao montar, verifica se há um sync em andamento salvo
+  useEffect(() => {
+    const savedId = localStorage.getItem(STORAGE_KEY)
+    if (savedId) {
+      setSyncId(savedId)
+      setStatus('running')
+    }
+  }, [])
 
   // Polling: verifica o sync_log até terminar
   useEffect(() => {
@@ -25,15 +36,22 @@ export function BlingSyncButton() {
         if (data.status === 'success') {
           setResult(`✓ ${data.nfe_entrada ?? 0} NF-e entrada · ${data.nfe_saida ?? 0} NF-e saída sincronizadas`)
           setStatus('done')
+          localStorage.removeItem(STORAGE_KEY)
           clearInterval(interval)
         } else if (data.status === 'error') {
           setResult(`Erro: ${data.error_message ?? 'desconhecido'}`)
           setStatus('error')
+          localStorage.removeItem(STORAGE_KEY)
+          clearInterval(interval)
+        } else if (data.status === 'not_found') {
+          // sync_id inválido — limpa
+          localStorage.removeItem(STORAGE_KEY)
+          setStatus('idle')
           clearInterval(interval)
         }
         // se ainda 'running', continua polling
       } catch {}
-    }, 3000) // verifica a cada 3s
+    }, 3000)
     return () => clearInterval(interval)
   }, [syncId, status])
 
@@ -41,21 +59,18 @@ export function BlingSyncButton() {
     setStatus('running')
     setResult('')
     setSyncId(null)
+    localStorage.removeItem(STORAGE_KEY)
     try {
       const res = await fetch('/api/sync/bling', { method: 'POST' })
       const data = await res.json()
       if (data.sync_id) {
-        // Background: acompanha pelo polling
         setSyncId(data.sync_id)
-      } else if (data.ok) {
-        // Síncrono (fallback)
-        setResult(`✓ ${data.nfe_entrada} NF-e entrada · ${data.nfe_saida} NF-e saída sincronizadas`)
-        setStatus('done')
+        localStorage.setItem(STORAGE_KEY, data.sync_id) // persiste para retomar após navegação
       } else {
         setResult(data.error ?? 'Erro desconhecido')
         setStatus('error')
       }
-    } catch (e) {
+    } catch {
       setResult('Erro de conexão')
       setStatus('error')
     }
@@ -78,7 +93,7 @@ export function BlingSyncButton() {
         {status === 'running' ? 'Sincronizando… pode navegar' : 'Sincronizar NF-e Bling'}
       </button>
 
-      {status === 'running' && !result && (
+      {status === 'running' && (
         <span className="flex items-center gap-1.5 text-sm" style={{ color: B.muted }}>
           <Clock size={12} />
           Rodando em background — pode navegar normalmente

@@ -9,10 +9,21 @@ const B = {
   bg:     'oklch(0.96 0.010 258)',
 }
 
+const STORAGE_KEY = 'marketplace_sync_id'
+
 export function MarketplaceSyncButton() {
   const [status, setStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
   const [result, setResult] = useState('')
   const [syncId, setSyncId] = useState<string | null>(null)
+
+  // Ao montar, verifica se há um sync em andamento salvo
+  useEffect(() => {
+    const savedId = localStorage.getItem(STORAGE_KEY)
+    if (savedId) {
+      setSyncId(savedId)
+      setStatus('running')
+    }
+  }, [])
 
   // Polling: verifica o sync_log até terminar
   useEffect(() => {
@@ -29,19 +40,24 @@ export function MarketplaceSyncButton() {
           const az = typeof ch.amazon === 'number' ? ch.amazon : 0
           const total = data.records_synced ?? (ml + sh + az)
           const parts = []
-          if (ml > 0 || ch.mercado_livre !== undefined) parts.push(`ML: ${ml}`)
-          if (sh > 0 || ch.shopee !== undefined) parts.push(`Shopee: ${sh}`)
-          if (az > 0 || ch.amazon !== undefined) parts.push(`Amazon: ${az}`)
+          if (ch.mercado_livre !== undefined) parts.push(`ML: ${ml}`)
+          if (ch.shopee !== undefined) parts.push(`Shopee: ${sh}`)
+          if (ch.amazon !== undefined) parts.push(`Amazon: ${az}`)
           setResult(`✓ ${parts.join(' · ')} vendas (total: ${total})`)
           setStatus('done')
+          localStorage.removeItem(STORAGE_KEY)
           clearInterval(interval)
         } else if (data.status === 'error') {
-          const firstError = Object.values(data.errors ?? {})[0] ?? data.error_message ?? 'desconhecido'
+          const firstError = Object.values(data.errors ?? {})[0] ?? 'desconhecido'
           setResult(`Erro: ${String(firstError).replace('error: ', '')}`)
           setStatus('error')
+          localStorage.removeItem(STORAGE_KEY)
+          clearInterval(interval)
+        } else if (data.status === 'not_found') {
+          localStorage.removeItem(STORAGE_KEY)
+          setStatus('idle')
           clearInterval(interval)
         }
-        // se ainda 'running', continua polling
       } catch {}
     }, 3000)
     return () => clearInterval(interval)
@@ -51,11 +67,13 @@ export function MarketplaceSyncButton() {
     setStatus('running')
     setResult('')
     setSyncId(null)
+    localStorage.removeItem(STORAGE_KEY)
     try {
       const res = await fetch('/api/sync/marketplaces', { method: 'POST' })
       const data = await res.json()
       if (data.sync_id) {
         setSyncId(data.sync_id)
+        localStorage.setItem(STORAGE_KEY, data.sync_id)
       } else {
         setResult(data.error ?? 'Erro desconhecido')
         setStatus('error')
@@ -83,7 +101,7 @@ export function MarketplaceSyncButton() {
         {status === 'running' ? 'Sincronizando… pode navegar' : 'Sincronizar Vendas'}
       </button>
 
-      {status === 'running' && !result && (
+      {status === 'running' && (
         <span className="flex items-center gap-1.5 text-sm" style={{ color: B.muted }}>
           <Clock size={12} />
           Rodando em background — pode navegar normalmente

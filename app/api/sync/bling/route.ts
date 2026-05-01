@@ -17,7 +17,10 @@ export async function POST(request: NextRequest) {
 
   const db       = createSupabaseServiceClient()
   const now      = new Date()
-  const startDate = format(subDays(now, 90), 'yyyy-MM-dd')
+  // Cron usa 90 dias; botão manual usa 30 para não estourar o timeout do Vercel (60s)
+  const isCron   = !!request.headers.get('x-cron-secret')
+  const days     = isCron ? 90 : 30
+  const startDate = format(subDays(now, days), 'yyyy-MM-dd')
   const endDate   = format(now, 'yyyy-MM-dd')
 
   // Cria log de sync
