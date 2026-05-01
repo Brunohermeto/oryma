@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { ChevronDown, ChevronRight, ExternalLink, Receipt, Package } from 'lucide-react'
 
 const B = {
@@ -276,9 +276,8 @@ export function SalesTable({ sales }: { sales: SaleRow[] }) {
           const badge      = MP_BADGE[sale.marketplace] ?? { bg: B.bgSubtle, color: B.brand }
 
           return (
-            <>
+            <Fragment key={sale.id}>
               <tr
-                key={sale.id}
                 className="transition-colors cursor-pointer"
                 style={{
                   borderBottom: expanded ? 'none' : `1px solid ${B.bgSubtle}`,
@@ -336,7 +335,7 @@ export function SalesTable({ sales }: { sales: SaleRow[] }) {
                 </td>
               </tr>
               {expanded && <SaleDetailPanel sale={sale} />}
-            </>
+            </Fragment>
           )
         })}
       </tbody>
