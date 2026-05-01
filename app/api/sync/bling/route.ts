@@ -35,8 +35,14 @@ export async function POST(request: NextRequest) {
   // waitUntil garante execução mesmo após resposta enviada (suportado no Vercel)
   const syncWork = async () => {
     try {
-      const entrada = await syncNFeEntrada(startDate, endDate)
-      const saida   = await syncNFeSaida(startDate, endDate)
+      // NF-e saída: vincula impostos (PIS/COFINS/ICMS) às vendas
+      const saida = await syncNFeSaida(startDate, endDate)
+
+      // NF-e entrada (série 0, CFOP 3102): só executa no cron para não atrasar o manual
+      let entrada = 0
+      if (isCron) {
+        entrada = await syncNFeEntrada(startDate, endDate)
+      }
 
       await db.from('sync_logs').update({
         status: 'success',

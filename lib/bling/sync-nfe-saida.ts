@@ -45,7 +45,7 @@ export async function syncNFeSaida(startDate: string, endDate: string): Promise<
       if (!isSerieValida(nfe.serie)) continue
 
       try {
-        await sleep(300) // 300ms entre chamadas — evita rate limit do Bling
+        await sleep(80) // 80ms entre chamadas — rate limit gerenciado pelo retry exponencial
         const xmlRes = await blingGet<{ data: { xml: string } }>(`/nfe/${nfe.id}/xml`)
         const xml = xmlRes.data?.xml
         if (!xml) continue
