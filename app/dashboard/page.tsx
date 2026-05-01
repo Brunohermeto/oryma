@@ -5,6 +5,7 @@ import { RevenueLineChart } from '@/components/charts/RevenueLineChart'
 import { MarketplaceBarChart } from '@/components/charts/MarketplaceBarChart'
 import { TrendingUp, TrendingDown, ShoppingCart, Percent, DollarSign, ExternalLink } from 'lucide-react'
 import { InsightsPanel } from '@/components/dashboard/InsightsPanel'
+import { LiveSalesFeed } from '@/components/dashboard/LiveSalesFeed'
 
 export const dynamic = 'force-dynamic'
 
@@ -396,6 +397,11 @@ export default async function DashboardPage() {
             </div>
           </div>
 
+        </div>
+
+        {/* ── Vendas por Canal em Tempo Real ── */}
+        <div className="bg-white rounded-xl p-5" style={{ border: '1px solid oklch(0.88 0.016 258)' }}>
+          <LiveSalesFeed />
         </div>
 
         {/* Última sync */}
