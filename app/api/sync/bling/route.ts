@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
   const now      = new Date()
   // Cron usa 90 dias; botão manual usa 30 para não estourar o timeout do Vercel (60s)
   const isCron   = !!request.headers.get('x-cron-secret')
-  const days     = isCron ? 90 : 30
+  const days     = isCron ? 90 : 7
   const startDate = format(subDays(now, days), 'yyyy-MM-dd')
   const endDate   = format(now, 'yyyy-MM-dd')
 

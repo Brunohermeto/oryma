@@ -16,28 +16,18 @@ interface MLOrder {
     marketplace_fee: number
     shipping_cost: number
     coupon_amount: number
-    overpaid_amount: number
   }>
   shipping: {
     id?: number
-    receiver_address?: { state?: { id?: string } }
     logistic_type?: string
   }
   tags?: string[]
-  context?: { channel?: string }
 }
 
 interface MLOrdersResponse {
   results: MLOrder[]
   paging: { total: number; offset: number; limit: number }
 }
-
-interface MLShipmentCost {
-  receiver_cost?: number
-  senders_real_cost?: number
-}
-
-const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
 function isFulfillmentFull(order: MLOrder): boolean {
   return (
@@ -52,7 +42,6 @@ export async function syncMercadoLivre(startDate: string, endDate: string): Prom
   let synced = 0
   const limit = 50
 
-  // Usa seller_id armazenado nas credenciais
   const sellerId = await getMercadoLivreSellerId()
   if (!sellerId) throw new Error('Seller ID do Mercado Livre não encontrado — reconecte via OAuth')
 
@@ -74,34 +63,17 @@ export async function syncMercadoLivre(startDate: string, endDate: string): Prom
       if (!payment) continue
 
       const fulfillmentType = isFulfillmentFull(order) ? 'full_ml' : 'galpao'
-
-      // Busca custo de frete do shipment (se disponível)
-      let shippingCost = payment.shipping_cost ?? 0
-      if (order.shipping?.id) {
-        try {
-          await sleep(100)
-          const shipment = await mlGet<MLShipmentCost>(`/shipments/${order.shipping.id}/costs`)
-          // Custo real cobrado do vendedor
-          if (typeof shipment.senders_real_cost === 'number') {
-            shippingCost = shipment.senders_real_cost
-          }
-        } catch {
-          // Fallback para payment.shipping_cost
-        }
-      }
+      // Usa shipping_cost do payment diretamente — sem lookup extra por pedido (evita timeout)
+      const shippingCost = payment.shipping_cost ?? 0
 
       for (const item of order.order_items) {
         const sku = item.item.seller_sku ?? item.item.id
         const qty = item.quantity
         const grossPrice = item.unit_price * qty
-
-        // Comissão ML (sale_fee por item × qtd, ou marketplace_fee do payment)
-        const commissionPerItem = item.sale_fee ?? 0
-        const commission = commissionPerItem > 0
-          ? commissionPerItem * qty
+        const commission = (item.sale_fee ?? 0) > 0
+          ? (item.sale_fee ?? 0) * qty
           : (payment.marketplace_fee ?? 0)
 
-        // Match produto pelo SKU
         const { data: product } = await db
           .from('products')
           .select('id')
@@ -129,8 +101,6 @@ export async function syncMercadoLivre(startDate: string, endDate: string): Prom
 
         synced++
       }
-
-      await sleep(50) // evita rate limit
     }
 
     offset += limit

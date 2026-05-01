@@ -135,7 +135,7 @@ export default async function ConfiguracoesPage() {
             Bling — NF-e
           </div>
           <p className="text-[13px] mb-4" style={{ color: B.muted }}>
-            Busca NF-e de saída (séries 1 e 3) e entrada (série 2, importações CFOP 3102) dos últimos 90 dias.
+            Força sync dos últimos 7 dias. O cron automático (6h e 20h) cobre os últimos 90 dias.
           </p>
           <BlingSyncButton />
         </div>
@@ -145,7 +145,7 @@ export default async function ConfiguracoesPage() {
             Marketplaces — Pedidos e Vendas
           </div>
           <p className="text-[13px] mb-4" style={{ color: B.muted }}>
-            Busca pedidos dos últimos 90 dias em Mercado Livre, Shopee e Amazon.
+            Força sync dos últimos 7 dias. O cron automático (6h e 20h) cobre os últimos 90 dias.
           </p>
           <MarketplaceSyncButton />
         </div>
