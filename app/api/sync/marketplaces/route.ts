@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { waitUntil } from '@vercel/functions'
 import { syncMercadoLivre } from '@/lib/marketplace/sync-ml'
 import { syncShopee } from '@/lib/marketplace/sync-shopee'
 import { syncAmazon } from '@/lib/marketplace/sync-amazon'
@@ -71,8 +72,8 @@ export async function POST(request: NextRequest) {
     }).eq('id', syncId)
   }
 
-  // Fire-and-forget: responde imediatamente
-  syncWork()
+  // waitUntil garante que o Vercel mantém a função viva até o sync terminar
+  waitUntil(syncWork())
 
   return NextResponse.json({ ok: true, sync_id: syncId, message: 'Sincronização iniciada em background' })
 }

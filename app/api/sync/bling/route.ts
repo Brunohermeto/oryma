@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { waitUntil } from '@vercel/functions'
 import { syncNFeEntrada } from '@/lib/bling/sync-nfe-entrada'
 import { syncNFeSaida } from '@/lib/bling/sync-nfe-saida'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
@@ -48,8 +49,8 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Executa em background (não aguarda)
-  syncWork()
+  // waitUntil garante que o Vercel mantém a função viva até o sync terminar
+  waitUntil(syncWork())
 
   // Responde imediatamente com o ID para o cliente fazer polling
   return NextResponse.json({ ok: true, sync_id: syncId, message: 'Sincronização iniciada em background' })
