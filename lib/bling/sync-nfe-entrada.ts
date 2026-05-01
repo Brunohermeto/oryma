@@ -17,6 +17,8 @@ interface BlingNFeList {
 
 // Bling API v3 — NF-e de entrada usa o mesmo endpoint /nfe
 // série 0 = entrada/importação; CFOP 3102 = importação direta
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
+
 export async function syncNFeEntrada(startDate: string, endDate: string): Promise<number> {
   const db = createSupabaseServiceClient()
   let page = 1
@@ -40,6 +42,7 @@ export async function syncNFeEntrada(startDate: string, endDate: string): Promis
       if (String(nfe.serie) !== '0') continue
 
       try {
+        await sleep(300) // evita rate limit do Bling
         const xmlRes = await blingGet<{ data: { xml: string } }>(`/nfe/${nfe.id}/xml`)
         const xml = xmlRes.data?.xml
         if (!xml) continue

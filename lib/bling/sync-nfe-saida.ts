@@ -22,6 +22,8 @@ function isSerieValida(serie: string): boolean {
   return n < 100 // série 1, 2, 3 = válidas; 4xx = remessa, excluir
 }
 
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
+
 export async function syncNFeSaida(startDate: string, endDate: string): Promise<number> {
   const db = createSupabaseServiceClient()
   let page = 1
@@ -45,6 +47,7 @@ export async function syncNFeSaida(startDate: string, endDate: string): Promise<
       if (!isSerieValida(nfe.serie)) continue
 
       try {
+        await sleep(300) // 300ms entre chamadas — evita rate limit do Bling
         const xmlRes = await blingGet<{ data: { xml: string } }>(`/nfe/${nfe.id}/xml`)
         const xml = xmlRes.data?.xml
         if (!xml) continue
