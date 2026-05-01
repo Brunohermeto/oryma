@@ -255,7 +255,7 @@ export function LiveSalesFeed() {
           </div>
           <div className="text-[11px]" style={{ color: B.muted }}>
             {lastUpdated
-              ? `Atualizado às ${lastUpdated.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} · auto-refresh 60s`
+              ? `Atualizado às ${lastUpdated.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', second: '2-digit' })} · auto-refresh 60s`
               : 'Carregando…'
             }
           </div>

@@ -408,7 +408,7 @@ export default async function DashboardPage() {
         {/* Última sync */}
         {lastSync && (
           <div className="text-[12px] text-center" style={{ color: 'oklch(0.50 0.025 258)' }}>
-            Última sincronização: {new Date(lastSync.started_at).toLocaleString('pt-BR')} ({lastSync.source})
+            Última sincronização: {new Date(lastSync.started_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })} ({lastSync.source})
             {' · '}
             <a href="/dashboard/configuracoes" className="underline" style={{ color: '#125BFF' }}>
               Sincronizar agora

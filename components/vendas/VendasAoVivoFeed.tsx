@@ -349,7 +349,7 @@ export function VendasAoVivoFeed() {
         <div className="flex items-center gap-2">
           <span className="text-[11px]" style={{ color: B.muted }}>
             {lastUpdated
-              ? `Atualizado ${lastUpdated.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} · auto 60s`
+              ? `Atualizado ${lastUpdated.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })} · auto 60s`
               : 'Carregando…'}
           </span>
           <button
