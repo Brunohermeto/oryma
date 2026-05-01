@@ -7,9 +7,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-sora);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -44,77 +44,72 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) * 1.4);
   --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* ────────────────────────────────────────────────────────────
+   ORYMA — Manual de Marca Oficial
+   #0B1023 Azul Noite · #125BFF Azul Elétrico
+   #00D6FF Ciano · #7B61FF Violeta · #E6EAF2 Prata
+──────────────────────────────────────────────────────────── */
+
+/* Variáveis de marca como hex — usadas em SVG e inline styles */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
+  --brand-noite:    #0B1023;
+  --brand-eletrico: #125BFF;
+  --brand-ciano:    #00D6FF;
+  --brand-violeta:  #7B61FF;
+  --brand-prata:    #E6EAF2;
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* Superfícies */
+  --background:        oklch(0.96 0.010 258);   /* #E6EAF2-like, levemente azulado */
+  --foreground:        oklch(0.12 0.04 258);    /* #0B1023 */
+  --card:              oklch(1 0 0);
+  --card-foreground:   oklch(0.12 0.04 258);
+  --popover:           oklch(1 0 0);
+  --popover-foreground: oklch(0.12 0.04 258);
+
+  /* Brand primário: Azul Elétrico #125BFF */
+  --primary:           oklch(0.50 0.25 258);
+  --primary-foreground: oklch(1 0 0);
+
+  /* Secundário */
+  --secondary:         oklch(0.93 0.014 258);
+  --secondary-foreground: oklch(0.20 0.08 258);
+
+  /* Muted */
+  --muted:             oklch(0.93 0.014 258);
+  --muted-foreground:  oklch(0.50 0.025 258);
+
+  /* Acento: Ciano #00D6FF */
+  --accent:            oklch(0.84 0.14 204);
+  --accent-foreground: oklch(0.12 0.04 258);
+
+  /* Destrutivo */
+  --destructive:       oklch(0.577 0.245 27.325);
+
+  /* Bordas */
+  --border:            oklch(0.88 0.016 258);
+  --input:             oklch(0.88 0.016 258);
+  --ring:              oklch(0.50 0.25 258);
+
+  /* Charts — paleta de marca */
+  --chart-1:           oklch(0.50 0.25 258);   /* Azul Elétrico */
+  --chart-2:           oklch(0.84 0.14 204);   /* Ciano */
+  --chart-3:           oklch(0.55 0.22 280);   /* Violeta */
+  --chart-4:           oklch(0.63 0.19 145);   /* Esmeralda */
+  --chart-5:           oklch(0.50 0.025 258);  /* Cinza */
+
+  --radius: 0.625rem;
+
+  /* Sidebar: Azul Noite #0B1023 */
+  --sidebar:                    oklch(0.12 0.04 258);
+  --sidebar-foreground:         oklch(0.88 0.018 258);
+  --sidebar-primary:            oklch(0.50 0.25 258);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent:             oklch(0.18 0.06 258);
+  --sidebar-accent-foreground:  oklch(1 0 0);
+  --sidebar-border:             oklch(0.20 0.06 258);
+  --sidebar-ring:               oklch(0.84 0.14 204);
 }
 
 @layer base {
@@ -123,8 +118,20 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-inter), system-ui, sans-serif;
   }
-  html {
-    @apply font-sans;
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-sora), system-ui, sans-serif;
   }
+}
+
+/* Números tabulares — Geist Mono */
+.num {
+  font-family: var(--font-geist-mono), monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Gradiente de marca */
+.brand-gradient {
+  background: linear-gradient(135deg, #125BFF 0%, #00D6FF 50%, #7B61FF 100%);
 }

@@ -5,6 +5,15 @@ import { DespesaForm } from '@/components/despesas/DespesaForm'
 
 export const dynamic = 'force-dynamic'
 
+const B = {
+  border:   'oklch(0.88 0.016 258)',
+  bgSubtle: 'oklch(0.96 0.010 258)',
+  text:     '#0B1023',
+  muted:    'oklch(0.50 0.025 258)',
+  subtle:   'oklch(0.40 0.020 258)',
+  brand:    '#125BFF',
+}
+
 function fmtR(v: number) {
   return `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
 }
@@ -25,36 +34,62 @@ export default async function DespesasPage() {
       <TopBar title="Despesas Operacionais" subtitle="Lançamento manual de despesas por categoria" />
       <div className="px-8 py-6 space-y-6">
         <DespesaForm />
-        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-            <div className="font-semibold text-gray-800 text-sm">Despesas Lançadas</div>
-            <div className="text-sm text-gray-500">Total: <span className="font-semibold text-gray-900">{fmtR(total)}</span></div>
+
+        <div className="bg-white rounded-xl overflow-hidden" style={{ border: `1px solid ${B.border}` }}>
+          <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid ${B.border}` }}>
+            <div className="font-semibold text-sm" style={{ color: B.text, fontFamily: 'var(--font-sora)' }}>
+              Despesas Lançadas
+            </div>
+            <div className="text-sm" style={{ color: B.muted }}>
+              Total:{' '}
+              <span className="font-semibold num" style={{ color: B.text, fontFamily: 'var(--font-geist-mono)' }}>
+                {fmtR(total)}
+              </span>
+            </div>
           </div>
+
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-xs text-gray-400 uppercase border-b border-gray-100">
-              <tr>
-                <th className="text-left px-5 py-3">Competência</th>
-                <th className="text-left px-4 py-3">Categoria</th>
-                <th className="text-left px-4 py-3">Descrição</th>
-                <th className="text-left px-4 py-3">Fornecedor</th>
-                <th className="text-right px-5 py-3">Valor</th>
+            <thead>
+              <tr style={{ background: B.bgSubtle, borderBottom: `1px solid ${B.border}` }}>
+                {['Competência','Categoria','Descrição','Fornecedor','Valor'].map((h, i) => (
+                  <th
+                    key={h}
+                    className={`py-3 text-[11px] font-semibold uppercase tracking-wide ${i === 4 ? 'text-right px-5' : 'text-left px-5'}`}
+                    style={{ color: B.muted }}
+                  >
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody>
               {(expenses ?? []).length === 0 && (
-                <tr><td colSpan={5} className="px-5 py-8 text-center text-gray-400 text-sm">Nenhuma despesa lançada ainda.</td></tr>
+                <tr>
+                  <td colSpan={5} className="px-5 py-8 text-center text-sm" style={{ color: B.muted }}>
+                    Nenhuma despesa lançada ainda.
+                  </td>
+                </tr>
               )}
               {(expenses ?? []).map(exp => (
-                <tr key={exp.id} className="hover:bg-gray-50">
-                  <td className="px-5 py-3 text-gray-500 text-xs">{exp.period?.slice(0, 7)}</td>
-                  <td className="px-4 py-3 text-xs">
-                    <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                <tr
+                  key={exp.id}
+                  className="transition-colors"
+                  style={{ borderBottom: `1px solid ${B.bgSubtle}` }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = B.bgSubtle }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}
+                >
+                  <td className="px-5 py-3 text-xs" style={{ color: B.muted }}>{exp.period?.slice(0, 7)}</td>
+                  <td className="px-5 py-3 text-xs">
+                    <span className="font-semibold px-2 py-0.5 rounded-full"
+                      style={{ background: 'oklch(0.94 0.06 258)', color: B.brand }}>
                       {(EXPENSE_CATEGORY_LABELS as any)[exp.dre_category] ?? exp.dre_category}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-600 text-xs">{exp.description ?? '—'}</td>
-                  <td className="px-4 py-3 text-gray-400 text-xs">{exp.supplier ?? '—'}</td>
-                  <td className="px-5 py-3 text-right font-semibold text-gray-900">{fmtR(Number(exp.amount))}</td>
+                  <td className="px-5 py-3 text-xs" style={{ color: B.subtle }}>{exp.description ?? '—'}</td>
+                  <td className="px-5 py-3 text-xs" style={{ color: B.muted }}>{exp.supplier ?? '—'}</td>
+                  <td className="px-5 py-3 text-right font-semibold num" style={{ color: B.text, fontFamily: 'var(--font-geist-mono)' }}>
+                    {fmtR(Number(exp.amount))}
+                  </td>
                 </tr>
               ))}
             </tbody>

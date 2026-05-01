@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Oryma — Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --brand:       oklch(0.38 0.18 255);   /* deep electric blue */
+    --brand-mid:   oklch(0.48 0.20 255);
+    --brand-light: oklch(0.94 0.06 255);
+    --amber:       oklch(0.72 0.17 65);
+    --amber-light: oklch(0.96 0.06 65);
+    --emerald:     oklch(0.60 0.17 155);
+    --emerald-light: oklch(0.95 0.05 155);
+    --rose:        oklch(0.58 0.20 15);
+    --surface:     oklch(0.99 0.003 255);
+    --surface-2:   oklch(0.97 0.005 255);
+    --border:      oklch(0.90 0.01 255);
+    --text-1:      oklch(0.18 0.02 255);
+    --text-2:      oklch(0.48 0.03 255);
+    --text-3:      oklch(0.65 0.02 255);
+
+    --ml-color:    oklch(0.60 0.18 45);
+    --shopee-color: oklch(0.52 0.22 22);
+    --amazon-color: oklch(0.62 0.15 72);
+  }
+
+  body {
+    font-family: 'Sora', system-ui, sans-serif;
+    background: var(--surface);
+    color: var(--text-1);
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    background: var(--brand);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+
+  .sidebar-logo {
+    padding: 24px 20px 20px;
+    border-bottom: 1px solid oklch(1 0 0 / 0.10);
+  }
+
+  .logo-mark {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-icon {
+    width: 32px;
+    height: 32px;
+    background: var(--amber);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 14px;
+    color: var(--brand);
+    letter-spacing: -0.5px;
+  }
+
+  .logo-text {
+    color: white;
+    font-weight: 700;
+    font-size: 17px;
+    letter-spacing: -0.3px;
+  }
+
+  .logo-sub {
+    color: oklch(1 0 0 / 0.45);
+    font-size: 10px;
+    font-weight: 400;
+    margin-top: 1px;
+    letter-spacing: 0.3px;
+  }
+
+  .sidebar-nav {
+    flex: 1;
+    padding: 12px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow-y: auto;
+  }
+
+  .nav-section {
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: oklch(1 0 0 / 0.35);
+    padding: 12px 10px 6px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    color: oklch(1 0 0 / 0.65);
+    font-size: 12.5px;
+    font-weight: 400;
+    cursor: pointer;
+    transition: all 0.12s;
+    text-decoration: none;
+  }
+
+  .nav-item:hover {
+    background: oklch(1 0 0 / 0.08);
+    color: white;
+  }
+
+  .nav-item.active {
+    background: oklch(1 0 0 / 0.14);
+    color: white;
+    font-weight: 600;
+  }
+
+  .nav-item.active .nav-dot {
+    background: var(--amber);
+  }
+
+  .nav-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: oklch(1 0 0 / 0.25);
+    flex-shrink: 0;
+  }
+
+  .sidebar-footer {
+    padding: 14px 20px;
+    border-top: 1px solid oklch(1 0 0 / 0.10);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .user-avatar {
+    width: 30px;
+    height: 30px;
+    background: var(--amber);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 12px;
+    color: var(--brand);
+    flex-shrink: 0;
+  }
+
+  .user-info { flex: 1; min-width: 0; }
+  .user-name { color: white; font-size: 12px; font-weight: 500; }
+  .user-role { color: oklch(1 0 0 / 0.4); font-size: 10px; }
+
+  /* ── MAIN ── */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  /* TOPBAR */
+  .topbar {
+    height: 56px;
+    background: white;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    flex-shrink: 0;
+  }
+
+  .topbar-left { display: flex; flex-direction: column; gap: 1px; }
+  .topbar-title { font-size: 15px; font-weight: 600; color: var(--text-1); letter-spacing: -0.2px; }
+  .topbar-sub { font-size: 11px; color: var(--text-3); }
+
+  .topbar-right { display: flex; align-items: center; gap: 10px; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    font-family: 'Sora', sans-serif;
+    cursor: pointer;
+    border: none;
+    transition: all 0.12s;
+  }
+
+  .btn-primary {
+    background: var(--brand);
+    color: white;
+  }
+
+  .btn-primary:hover { background: var(--brand-mid); }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-2);
+    border: 1px solid var(--border);
+  }
+
+  .month-nav {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .month-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+    color: var(--text-2);
+    cursor: pointer;
+    background: white;
+    border: none;
+    font-family: 'Sora', sans-serif;
+  }
+
+  .month-btn:hover { background: var(--surface-2); }
+
+  .month-label {
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-1);
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    background: white;
+  }
+
+  /* CONTENT */
+  .content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    background: var(--surface);
+  }
+
+  /* KPI GRID */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
+
+  .kpi-card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .kpi-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 60px;
+    height: 60px;
+    border-radius: 0 14px 0 60px;
+    opacity: 0.08;
+  }
+
+  .kpi-card.blue::after { background: var(--brand); }
+  .kpi-card.amber::after { background: var(--amber); }
+  .kpi-card.emerald::after { background: var(--emerald); }
+  .kpi-card.rose::after { background: var(--rose); }
+
+  .kpi-label {
+    font-size: 10.5px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-3);
+  }
+
+  .kpi-value {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.8px;
+    line-height: 1;
+    color: var(--text-1);
+  }
+
+  .kpi-card.blue .kpi-value { color: var(--brand); }
+  .kpi-card.amber .kpi-value { color: var(--amber); }
+  .kpi-card.emerald .kpi-value { color: var(--emerald); }
+
+  .kpi-delta {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 7px;
+    border-radius: 20px;
+    width: fit-content;
+  }
+
+  .delta-up { background: var(--emerald-light); color: var(--emerald); }
+  .delta-down { background: oklch(0.95 0.04 15); color: var(--rose); }
+  .delta-neutral { background: var(--surface-2); color: var(--text-3); }
+
+  /* CHARTS ROW */
+  .charts-row {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 14px;
+  }
+
+  .card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  .card-header {
+    padding: 16px 20px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+
+  .card-title { font-size: 13px; font-weight: 600; color: var(--text-1); }
+  .card-sub { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+
+  .card-body { padding: 16px 20px; }
+
+  /* MARKETPLACE BREAKDOWN */
+  .mp-list { display: flex; flex-direction: column; gap: 14px; }
+
+  .mp-row { display: flex; flex-direction: column; gap: 5px; }
+
+  .mp-row-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .mp-name {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-1);
+  }
+
+  .mp-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .mp-stats {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .mp-revenue {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-1);
+  }
+
+  .mp-margin {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--emerald);
+    background: var(--emerald-light);
+    padding: 1px 6px;
+    border-radius: 20px;
+  }
+
+  .mp-bar-bg {
+    height: 5px;
+    background: var(--surface-2);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+
+  .mp-bar-fill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width 0.4s ease;
+  }
+
+  /* BOTTOM ROW */
+  .bottom-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  /* TOP PRODUCTS TABLE */
+  .products-table { width: 100%; border-collapse: collapse; }
+
+  .products-table th {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-3);
+    font-weight: 500;
+    padding: 0 0 10px;
+    text-align: left;
+  }
+
+  .products-table th:not(:first-child) { text-align: right; }
+
+  .products-table td {
+    padding: 9px 0;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-1);
+    vertical-align: middle;
+  }
+
+  .products-table td:not(:first-child) { text-align: right; }
+
+  .product-rank {
+    display: inline-flex;
+    width: 20px;
+    height: 20px;
+    align-items: center;
+    justify-content: center;
+    background: var(--brand-light);
+    color: var(--brand);
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: 700;
+    margin-right: 8px;
+  }
+
+  .product-name { font-weight: 500; }
+  .product-sku { font-size: 10px; color: var(--text-3); margin-top: 1px; }
+
+  .margin-badge {
+    display: inline-flex;
+    padding: 2px 7px;
+    border-radius: 20px;
+    font-size: 10.5px;
+    font-weight: 600;
+  }
+
+  .margin-good { background: var(--emerald-light); color: var(--emerald); }
+  .margin-mid { background: var(--amber-light); color: var(--amber); }
+  .margin-bad { background: oklch(0.95 0.04 15); color: var(--rose); }
+
+  /* ALERTS */
+  .alerts-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .alert-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 11px 14px;
+    border-radius: 10px;
+    font-size: 12px;
+  }
+
+  .alert-warning {
+    background: var(--amber-light);
+    color: oklch(0.38 0.12 65);
+  }
+
+  .alert-info {
+    background: var(--brand-light);
+    color: var(--brand);
+  }
+
+  .alert-success {
+    background: var(--emerald-light);
+    color: oklch(0.35 0.12 155);
+  }
+
+  .alert-icon { font-size: 14px; flex-shrink: 0; margin-top: 0px; }
+  .alert-text { flex: 1; line-height: 1.4; }
+  .alert-action { font-weight: 600; text-decoration: underline; cursor: pointer; }
+
+  /* AI BUBBLE */
+  .ai-fab {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 48px;
+    height: 48px;
+    background: var(--brand);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 20px oklch(0.38 0.18 255 / 0.4);
+    font-size: 20px;
+    transition: transform 0.15s;
+    z-index: 100;
+  }
+
+  .ai-fab:hover { transform: scale(1.08); }
+
+  .ai-panel {
+    position: fixed;
+    bottom: 82px;
+    right: 24px;
+    width: 320px;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 8px 40px oklch(0 0 0 / 0.12);
+    z-index: 99;
+    overflow: hidden;
+  }
+
+  .ai-panel-header {
+    background: var(--brand);
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .ai-avatar {
+    width: 28px;
+    height: 28px;
+    background: var(--amber);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+
+  .ai-panel-title { color: white; font-size: 13px; font-weight: 600; }
+  .ai-panel-sub { color: oklch(1 0 0 / 0.55); font-size: 10px; margin-top: 1px; }
+
+  .ai-messages { padding: 14px 14px 10px; display: flex; flex-direction: column; gap: 10px; max-height: 180px; overflow-y: auto; }
+
+  .ai-msg { display: flex; gap: 8px; align-items: flex-start; }
+
+  .ai-msg-bubble {
+    background: var(--surface-2);
+    border-radius: 10px 10px 10px 2px;
+    padding: 8px 11px;
+    font-size: 11.5px;
+    color: var(--text-1);
+    line-height: 1.45;
+    max-width: 240px;
+  }
+
+  .ai-msg.user .ai-msg-bubble {
+    background: var(--brand-light);
+    color: var(--brand);
+    border-radius: 10px 10px 2px 10px;
+    margin-left: auto;
+  }
+
+  .ai-msg.user { flex-direction: row-reverse; }
+
+  .ai-input-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-top: 1px solid var(--border);
+  }
+
+  .ai-input {
+    flex: 1;
+    background: var(--surface-2);
+    border: none;
+    border-radius: 8px;
+    padding: 8px 11px;
+    font-size: 11.5px;
+    font-family: 'Sora', sans-serif;
+    color: var(--text-1);
+    outline: none;
+  }
+
+  .ai-send {
+    width: 30px;
+    height: 30px;
+    background: var(--brand);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: none;
+    font-size: 13px;
+  }
+
+  /* INLINE AI INSIGHT */
+  .insight-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--brand-light);
+    border: 1px solid oklch(0.85 0.08 255);
+    border-radius: 8px;
+    padding: 7px 12px;
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--brand);
+  }
+
+  .insight-icon { font-size: 13px; }
+  .insight-text { flex: 1; }
+  .insight-cta { font-weight: 600; cursor: pointer; white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">
+      <div class="logo-icon">Or</div>
+      <div>
+        <div class="logo-text">Oryma</div>
+        <div class="logo-sub">MCL · RAGALUMA</div>
+      </div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section">Principal</div>
+    <a class="nav-item active">
+      <div class="nav-dot"></div>Dashboard
+    </a>
+    <a class="nav-item">
+      <div class="nav-dot"></div>DRE Gerencial
+    </a>
+    <a class="nav-item">
+      <div class="nav-dot"></div>Painel Tributário
+    </a>
+
+    <div class="nav-section">Produtos</div>
+    <a class="nav-item">
+      <div class="nav-dot"></div>Custo por Produto
+    </a>
+    <a class="nav-item">
+      <div class="nav-dot"></div>Velocidade de Venda
+    </a>
+    <a class="nav-item">
+      <div class="nav-dot"></div>Simulador de Preço
+    </a>
+
+    <div class="nav-section">Operacional</div>
+    <a class="nav-item">
+      <div class="nav-dot"></div>Feed de Vendas
+    </a>
+    <a class="nav-item">
+      <div class="nav-dot"></div>NF-e / Importações
+    </a>
+    <a class="nav-item">
+      <div class="nav-dot"></div>Despesas
+    </a>
+    <a class="nav-item">
+      <div class="nav-dot"></div>Configurações
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="user-avatar">B</div>
+    <div class="user-info">
+      <div class="user-name">Bruno Vinhas</div>
+      <div class="user-role">Administrador</div>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-title">Dashboard</div>
+      <div class="topbar-sub">Visão consolidada · Mercado Livre · Shopee · Amazon</div>
+    </div>
+    <div class="topbar-right">
+      <div class="month-nav">
+        <button class="month-btn">←</button>
+        <span class="month-label">Abril 2026</span>
+        <button class="month-btn">→</button>
+      </div>
+      <button class="btn btn-primary">⟳ Sincronizar</button>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- KPIs -->
+    <div class="kpi-grid">
+      <div class="kpi-card blue">
+        <div class="kpi-label">Receita Bruta</div>
+        <div class="kpi-value">R$ 284k</div>
+        <div class="kpi-delta delta-up">▲ 12,4% vs. março</div>
+      </div>
+      <div class="kpi-card amber">
+        <div class="kpi-label">Tarifas + ADS</div>
+        <div class="kpi-value">R$ 49k</div>
+        <div class="kpi-delta delta-neutral">17,3% da receita</div>
+      </div>
+      <div class="kpi-card emerald">
+        <div class="kpi-label">Margem Bruta</div>
+        <div class="kpi-value">41,2%</div>
+        <div class="kpi-delta delta-up">▲ 2,1pp vs. março</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Resultado Líquido</div>
+        <div class="kpi-value">R$ 68k</div>
+        <div class="kpi-delta delta-up">Margem 23,8%</div>
+        <!-- Inline AI insight -->
+        <div class="insight-bar">
+          <span class="insight-icon">✦</span>
+          <span class="insight-text">Melhor resultado em 6 meses</span>
+          <span class="insight-cta">Ver análise →</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHARTS ROW -->
+    <div class="charts-row">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Receita por Dia — Últimos 30 dias</div>
+            <div class="card-sub">Por marketplace · valores em R$ mil</div>
+          </div>
+        </div>
+        <div class="card-body" style="padding-top: 12px;">
+          <canvas id="revenueChart" height="140"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Receita por Canal</div>
+            <div class="card-sub">Mês atual + margem bruta</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="mp-list">
+            <div class="mp-row">
+              <div class="mp-row-header">
+                <div class="mp-name">
+                  <div class="mp-dot" style="background: var(--ml-color)"></div>
+                  Mercado Livre
+                  <span style="font-size:10px;color:var(--text-3)">482 pedidos</span>
+                </div>
+                <div class="mp-stats">
+                  <span class="mp-revenue">R$ 152k</span>
+                  <span class="mp-margin">43,1%</span>
+                </div>
+              </div>
+              <div class="mp-bar-bg">
+                <div class="mp-bar-fill" style="width:54%;background:var(--ml-color)"></div>
+              </div>
+            </div>
+            <div class="mp-row">
+              <div class="mp-row-header">
+                <div class="mp-name">
+                  <div class="mp-dot" style="background: var(--shopee-color)"></div>
+                  Shopee
+                  <span style="font-size:10px;color:var(--text-3)">318 pedidos</span>
+                </div>
+                <div class="mp-stats">
+                  <span class="mp-revenue">R$ 84k</span>
+                  <span class="mp-margin">39,5%</span>
+                </div>
+              </div>
+              <div class="mp-bar-bg">
+                <div class="mp-bar-fill" style="width:30%;background:var(--shopee-color)"></div>
+              </div>
+            </div>
+            <div class="mp-row">
+              <div class="mp-row-header">
+                <div class="mp-name">
+                  <div class="mp-dot" style="background: var(--amazon-color)"></div>
+                  Amazon
+                  <span style="font-size:10px;color:var(--text-3)">196 pedidos</span>
+                </div>
+                <div class="mp-stats">
+                  <span class="mp-revenue">R$ 48k</span>
+                  <span class="mp-margin">44,8%</span>
+                </div>
+              </div>
+              <div class="mp-bar-bg">
+                <div class="mp-bar-fill" style="width:17%;background:var(--amazon-color)"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM ROW -->
+    <div class="bottom-row">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Top Produtos por Receita</div>
+            <div class="card-sub">Mês atual · custo landed + margem real</div>
+          </div>
+          <a style="font-size:11px;color:var(--brand);cursor:pointer;font-weight:600;text-decoration:none">Ver todos →</a>
+        </div>
+        <div class="card-body">
+          <table class="products-table">
+            <thead>
+              <tr>
+                <th>Produto</th>
+                <th>Receita</th>
+                <th>Custo</th>
+                <th>Margem</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <span class="product-rank">1</span>
+                  <span>
+                    <div class="product-name">Berço SLEEPGUARD</div>
+                    <div class="product-sku">RAGA001</div>
+                  </span>
+                </td>
+                <td><strong>R$ 94k</strong></td>
+                <td>R$ 312/un</td>
+                <td><span class="margin-badge margin-good">43,2%</span></td>
+              </tr>
+              <tr>
+                <td>
+                  <span class="product-rank">2</span>
+                  <span>
+                    <div class="product-name">Cadeira LUPPA 12em1</div>
+                    <div class="product-sku">RAGA002</div>
+                  </span>
+                </td>
+                <td><strong>R$ 76k</strong></td>
+                <td>R$ 487/un</td>
+                <td><span class="margin-badge margin-good">41,7%</span></td>
+              </tr>
+              <tr>
+                <td>
+                  <span class="product-rank">3</span>
+                  <span>
+                    <div class="product-name">Berço Bedside COBED</div>
+                    <div class="product-sku">RAGA003</div>
+                  </span>
+                </td>
+                <td><strong>R$ 58k</strong></td>
+                <td>R$ 264/un</td>
+                <td><span class="margin-badge margin-mid">38,4%</span></td>
+              </tr>
+              <tr>
+                <td>
+                  <span class="product-rank">4</span>
+                  <span>
+                    <div class="product-name">Cadeirinha GIO ISOFIX</div>
+                    <div class="product-sku">RAGA004</div>
+                  </span>
+                </td>
+                <td><strong>R$ 56k</strong></td>
+                <td>R$ 198/un</td>
+                <td><span class="margin-badge margin-good">46,1%</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Alertas e Insights</div>
+          <div class="card-sub">Oryma Intelligence</div>
+        </div>
+        <div class="card-body">
+          <div class="alerts-list">
+            <div class="alert-item alert-warning">
+              <div class="alert-icon">⚠</div>
+              <div class="alert-text">
+                <strong>RAGA003</strong> — estoque para <strong>18 dias</strong> no ritmo atual. Pedido deveria ter sido feito há 2 dias.
+                <div><a class="alert-action">Planejar importação →</a></div>
+              </div>
+            </div>
+            <div class="alert-item alert-info">
+              <div class="alert-icon">✦</div>
+              <div class="alert-text">
+                Margem do <strong>RAGA001</strong> subiu 4,2pp após ajuste de preço na Shopee. Potencial de replicar no Mercado Livre.
+                <div><a class="alert-action">Ver análise →</a></div>
+              </div>
+            </div>
+            <div class="alert-item alert-warning">
+              <div class="alert-icon">📄</div>
+              <div class="alert-text">
+                <strong>2 NF-e</strong> de importação aguardando lançamento de despesas tardias. Custo landed incompleto.
+                <div><a class="alert-action">Completar →</a></div>
+              </div>
+            </div>
+            <div class="alert-item alert-success">
+              <div class="alert-icon">✓</div>
+              <div class="alert-text">
+                Sincronização concluída — 996 pedidos, 14 NF-e importadas. <span style="opacity:0.7">há 23 min</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- AI CHAT -->
+<div class="ai-panel">
+  <div class="ai-panel-header">
+    <div class="ai-avatar">✦</div>
+    <div>
+      <div class="ai-panel-title">Oryma Intelligence</div>
+      <div class="ai-panel-sub">Contexto: Dashboard · Abril 2026</div>
+    </div>
+  </div>
+  <div class="ai-messages">
+    <div class="ai-msg">
+      <div class="ai-msg-bubble">
+        Boa tarde, Bruno! Sua margem bruta de 41,2% está acima da meta de 38%. O RAGA003 precisa de atenção — estoque crítico.
+      </div>
+    </div>
+    <div class="ai-msg user">
+      <div class="ai-msg-bubble">
+        qual produto devo priorizar na próxima importação?
+      </div>
+    </div>
+    <div class="ai-msg">
+      <div class="ai-msg-bubble">
+        RAGA003 (Bedside COBED) — apenas 18 dias de estoque. Sugiro pedido de 400 unidades. Custo máximo para manter 40% de margem: <strong>R$ 298/un FOB</strong>.
+      </div>
+    </div>
+  </div>
+  <div class="ai-input-row">
+    <input class="ai-input" type="text" placeholder="Pergunte qualquer coisa sobre seus dados..."/>
+    <button class="ai-send">↑</button>
+  </div>
+</div>
+
+<div class="ai-fab">✦</div>
+
+<script>
+// Revenue line chart
+const ctx = document.getElementById('revenueChart').getContext('2d');
+const labels = Array.from({length: 30}, (_, i) => {
+  const d = new Date(); d.setDate(d.getDate() - 29 + i);
+  return d.getDate() + '/' + (d.getMonth()+1);
+}).filter((_, i) => i % 5 === 0 || i === 29);
+
+const allLabels = Array.from({length: 30}, (_, i) => {
+  const d = new Date(); d.setDate(d.getDate() - 29 + i);
+  return d.getDate() + '/' + (d.getMonth()+1);
+});
+
+function rand(base, variance) {
+  return Array.from({length: 30}, () => Math.max(0, base + (Math.random() - 0.5) * variance));
+}
+
+new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: allLabels,
+    datasets: [
+      {
+        label: 'Mercado Livre',
+        data: rand(5.2, 3),
+        borderColor: 'oklch(0.60 0.18 45)',
+        backgroundColor: 'oklch(0.60 0.18 45 / 0.08)',
+        borderWidth: 2,
+        pointRadius: 0,
+        fill: true,
+        tension: 0.4,
+      },
+      {
+        label: 'Shopee',
+        data: rand(3.1, 2),
+        borderColor: 'oklch(0.52 0.22 22)',
+        backgroundColor: 'oklch(0.52 0.22 22 / 0.06)',
+        borderWidth: 2,
+        pointRadius: 0,
+        fill: true,
+        tension: 0.4,
+      },
+      {
+        label: 'Amazon',
+        data: rand(1.8, 1.5),
+        borderColor: 'oklch(0.62 0.15 72)',
+        backgroundColor: 'oklch(0.62 0.15 72 / 0.06)',
+        borderWidth: 2,
+        pointRadius: 0,
+        fill: true,
+        tension: 0.4,
+      },
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: {
+          font: { family: 'Sora', size: 11 },
+          boxWidth: 10,
+          boxHeight: 10,
+          borderRadius: 5,
+          padding: 14,
+        }
+      },
+      tooltip: {
+        callbacks: {
+          label: ctx => ` R$ ${ctx.raw.toFixed(1)}k`
+        },
+        bodyFont: { family: 'Sora', size: 11 },
+        titleFont: { family: 'Sora', size: 11 },
+      }
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: {
+          font: { family: 'Sora', size: 10 },
+          color: 'oklch(0.65 0.02 255)',
+          maxTicksLimit: 8,
+        },
+        border: { display: false },
+      },
+      y: {
+        grid: { color: 'oklch(0.90 0.01 255)' },
+        ticks: {
+          font: { family: 'Sora', size: 10 },
+          color: 'oklch(0.65 0.02 255)',
+          callback: v => `R$${v}k`
+        },
+        border: { display: false },
+      }
+    }
+  }
+});
+</script>
+</body>
+</html>

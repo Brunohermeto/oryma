@@ -6,6 +6,16 @@ const MP_COLS = [
   { key: 'amazon' as const, label: 'Amazon' },
 ]
 
+// Oryma brand
+const B = {
+  border:   'oklch(0.88 0.016 258)',
+  bgSubtle: 'oklch(0.96 0.010 258)',
+  bgBlue:   'oklch(0.94 0.06 258)',
+  text:     '#0B1023',
+  muted:    'oklch(0.50 0.025 258)',
+  brand:    '#125BFF',
+}
+
 function fmt(v: number): string {
   if (v === 0) return '—'
   const abs = Math.abs(v)
@@ -15,23 +25,25 @@ function fmt(v: number): string {
 
 export function DRETable({ rows }: { rows: DRERow[] }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+    <div className="bg-white rounded-xl overflow-hidden" style={{ border: `1px solid ${B.border}` }}>
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-gray-100 bg-gray-50">
-            <th className="text-left px-5 py-3 text-xs text-gray-400 font-medium w-72">Linha DRE</th>
+          <tr style={{ borderBottom: `1px solid ${B.border}`, background: B.bgSubtle }}>
+            <th className="text-left px-5 py-3 text-xs font-medium w-72" style={{ color: B.muted }}>Linha DRE</th>
             {MP_COLS.map(mp => (
-              <th key={mp.key} className="text-right px-4 py-3 text-xs font-semibold text-gray-600">{mp.label}</th>
+              <th key={mp.key} className="text-right px-4 py-3 text-xs font-semibold" style={{ color: 'oklch(0.35 0.020 258)' }}>
+                {mp.label}
+              </th>
             ))}
-            <th className="text-right px-5 py-3 text-xs font-bold text-gray-900">TOTAL</th>
+            <th className="text-right px-5 py-3 text-xs font-bold" style={{ color: B.text }}>TOTAL</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row, i) => {
             if (row.isHeader) {
               return (
-                <tr key={i} className="bg-gray-50/80">
-                  <td colSpan={5} className="px-5 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                <tr key={i} style={{ background: B.bgSubtle }}>
+                  <td colSpan={5} className="px-5 py-2 text-xs font-semibold uppercase tracking-wider" style={{ color: B.muted }}>
                     {row.label}
                   </td>
                 </tr>
@@ -39,17 +51,18 @@ export function DRETable({ rows }: { rows: DRERow[] }) {
             }
 
             if (row.isTotal || row.isHighlight) {
-              const bg = row.isHighlight ? 'bg-blue-50' : 'bg-slate-50'
-              const textColor = (v: number) => v < 0 ? 'text-red-600' : row.isHighlight ? 'text-blue-800' : 'text-slate-700'
+              const bg = row.isHighlight ? B.bgBlue : B.bgSubtle
+              const valueColor = (v: number) =>
+                v < 0 ? '#dc2626' : row.isHighlight ? B.brand : 'oklch(0.30 0.02 258)'
               return (
-                <tr key={i} className={`${bg} border-t border-b border-gray-200`}>
-                  <td className="px-5 py-3 font-bold text-gray-900 text-sm">{row.label}</td>
+                <tr key={i} style={{ background: bg, borderTop: `1px solid ${B.border}`, borderBottom: `1px solid ${B.border}` }}>
+                  <td className="px-5 py-3 font-bold text-sm" style={{ color: B.text }}>{row.label}</td>
                   {MP_COLS.map(mp => (
-                    <td key={mp.key} className={`text-right px-4 py-3 font-bold ${textColor(row[mp.key])}`}>
+                    <td key={mp.key} className="text-right px-4 py-3 font-bold num" style={{ color: valueColor(row[mp.key]), fontFamily: 'var(--font-geist-mono)' }}>
                       {fmt(row[mp.key])}
                     </td>
                   ))}
-                  <td className={`text-right px-5 py-3 font-bold text-base ${textColor(row.total)}`}>
+                  <td className="text-right px-5 py-3 font-bold text-base num" style={{ color: valueColor(row.total), fontFamily: 'var(--font-geist-mono)' }}>
                     {fmt(row.total)}
                   </td>
                 </tr>
@@ -57,14 +70,23 @@ export function DRETable({ rows }: { rows: DRERow[] }) {
             }
 
             return (
-              <tr key={i} className="border-b border-gray-50 hover:bg-gray-50/50">
-                <td className="px-5 py-2.5 text-gray-600 pl-8">{row.label}</td>
+              <tr key={i} className="transition-colors" style={{ borderBottom: `1px solid ${B.bgSubtle}` }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = B.bgSubtle }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}
+              >
+                <td className="px-5 py-2.5 pl-8" style={{ color: 'oklch(0.40 0.020 258)' }}>{row.label}</td>
                 {MP_COLS.map(mp => (
-                  <td key={mp.key} className={`text-right px-4 py-2.5 text-sm ${row[mp.key] < 0 ? 'text-red-500' : 'text-gray-700'}`}>
+                  <td key={mp.key} className="text-right px-4 py-2.5 text-sm num" style={{
+                    color: row[mp.key] < 0 ? '#dc2626' : 'oklch(0.35 0.020 258)',
+                    fontFamily: 'var(--font-geist-mono)',
+                  }}>
                     {fmt(row[mp.key])}
                   </td>
                 ))}
-                <td className={`text-right px-5 py-2.5 font-semibold ${row.total < 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                <td className="text-right px-5 py-2.5 font-semibold num" style={{
+                  color: row.total < 0 ? '#dc2626' : B.text,
+                  fontFamily: 'var(--font-geist-mono)',
+                }}>
                   {fmt(row.total)}
                 </td>
               </tr>
