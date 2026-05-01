@@ -10,26 +10,36 @@ export async function GET(request: NextRequest) {
   const db = createSupabaseServiceClient()
   const { data: log } = await db
     .from('sync_logs')
-    .select('status, records_synced, error_message, finished_at')
+    .select('status, records_synced, error_message, finished_at, started_at')
     .eq('id', id)
     .single()
 
   if (!log) return NextResponse.json({ status: 'not_found' }, { status: 404 })
 
-  // Parseia resultados por canal
+  // Se está "running" há mais de 90s, provavelmente atingiu o timeout do Vercel
+  let status = log.status
+  if (status === 'running' && log.started_at) {
+    const elapsed = Date.now() - new Date(log.started_at).getTime()
+    if (elapsed > 90_000) {
+      status = 'error'
+      await db.from('sync_logs').update({
+        status: 'error',
+        error_message: 'Timeout: sincronização excedeu o limite de tempo. Tente novamente.',
+        finished_at: new Date().toISOString(),
+      }).eq('id', id)
+    }
+  }
+
   let channelResults: Record<string, number | string> = {}
   try {
-    if (log.error_message) {
-      channelResults = JSON.parse(log.error_message)
-    }
+    if (log.error_message) channelResults = JSON.parse(log.error_message)
   } catch {}
 
   return NextResponse.json({
-    status: log.status,
+    status,
     records_synced: log.records_synced,
     finished_at: log.finished_at,
     channels: channelResults,
-    // Se há erros específicos por canal
     errors: Object.fromEntries(
       Object.entries(channelResults)
         .filter(([, v]) => typeof v === 'string' && v.startsWith('error:'))
