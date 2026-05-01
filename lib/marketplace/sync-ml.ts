@@ -41,9 +41,8 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
 function isFulfillmentFull(order: MLOrder): boolean {
   return (
-    order.tags?.includes('delivered_by_mercadolibre') ??
-    order.shipping?.logistic_type === 'fulfillment' ??
-    false
+    order.tags?.includes('delivered_by_mercadolibre') === true ||
+    order.shipping?.logistic_type === 'fulfillment'
   )
 }
 
