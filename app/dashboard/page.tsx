@@ -3,7 +3,7 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { format, startOfMonth, endOfMonth, subMonths, subDays, eachDayOfInterval } from 'date-fns'
 import { RevenueLineChart } from '@/components/charts/RevenueLineChart'
 import { MarketplaceBarChart } from '@/components/charts/MarketplaceBarChart'
-import { TrendingUp, TrendingDown, ShoppingCart, Percent, DollarSign } from 'lucide-react'
+import { TrendingUp, TrendingDown, ShoppingCart, Percent, DollarSign, ExternalLink } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -112,12 +112,12 @@ export default async function DashboardPage() {
   })
 
   // ── Top produtos ──
-  const productMap: Record<string, { name: string; sku: string; revenue: number; marginPcts: number[] }> = {}
+  const productMap: Record<string, { id: string; name: string; sku: string; revenue: number; marginPcts: number[] }> = {}
   for (const s of topProductSales ?? []) {
     const p = s.products as any
     if (!p) continue
     const id = s.product_id as string
-    if (!productMap[id]) productMap[id] = { name: p.name, sku: p.sku, revenue: 0, marginPcts: [] }
+    if (!productMap[id]) productMap[id] = { id, name: p.name, sku: p.sku, revenue: 0, marginPcts: [] }
     productMap[id].revenue += Number(s.gross_price)
     const mp = (s.sale_costs as any)?.[0]?.margin_pct
     if (mp !== null && mp !== undefined) productMap[id].marginPcts.push(Number(mp))
@@ -150,7 +150,13 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-4 gap-4">
 
           {/* Receita Bruta */}
-          <div className="bg-white rounded-xl p-5" style={{ border: '1px solid oklch(0.88 0.016 258)' }}>
+          <a
+            href={`/dashboard/vendas?from=${start}&to=${end}`}
+            className="block bg-white rounded-xl p-5 transition-all"
+            style={{ border: '1px solid oklch(0.88 0.016 258)', textDecoration: 'none' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'oklch(0.94 0.010 258)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}
+          >
             <div className="flex items-center justify-between mb-3">
               <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'oklch(0.50 0.025 258)' }}>
                 Receita Bruta
@@ -171,10 +177,16 @@ export default async function DashboardPage() {
                 </span>
               </div>
             )}
-          </div>
+          </a>
 
           {/* Pedidos */}
-          <div className="bg-white rounded-xl p-5" style={{ border: '1px solid oklch(0.88 0.016 258)' }}>
+          <a
+            href={`/dashboard/vendas?from=${start}&to=${end}`}
+            className="block bg-white rounded-xl p-5 transition-all"
+            style={{ border: '1px solid oklch(0.88 0.016 258)', textDecoration: 'none' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'oklch(0.94 0.010 258)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}
+          >
             <div className="flex items-center justify-between mb-3">
               <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'oklch(0.50 0.025 258)' }}>
                 Pedidos
@@ -187,10 +199,16 @@ export default async function DashboardPage() {
             <div className="text-[12px] mt-2" style={{ color: 'oklch(0.50 0.025 258)' }}>
               Ticket médio: {totalOrders > 0 ? fmtR(totalRevenue / totalOrders) : '—'}
             </div>
-          </div>
+          </a>
 
           {/* Tarifas + ADS */}
-          <div className="bg-white rounded-xl p-5" style={{ border: '1px solid oklch(0.88 0.016 258)' }}>
+          <a
+            href="/dashboard/dre"
+            className="block bg-white rounded-xl p-5 transition-all"
+            style={{ border: '1px solid oklch(0.88 0.016 258)', textDecoration: 'none' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'oklch(0.94 0.010 258)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}
+          >
             <div className="flex items-center justify-between mb-3">
               <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'oklch(0.50 0.025 258)' }}>
                 Tarifas + ADS
@@ -203,10 +221,16 @@ export default async function DashboardPage() {
             <div className="text-[12px] mt-2" style={{ color: 'oklch(0.50 0.025 258)' }}>
               {totalRevenue > 0 ? `${fmtPct((totalFees / totalRevenue) * 100)} da receita` : '—'}
             </div>
-          </div>
+          </a>
 
           {/* Margem Bruta */}
-          <div className="bg-white rounded-xl p-5" style={{ border: '1px solid oklch(0.88 0.016 258)' }}>
+          <a
+            href="/dashboard/dre"
+            className="block bg-white rounded-xl p-5 transition-all"
+            style={{ border: '1px solid oklch(0.88 0.016 258)', textDecoration: 'none' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'oklch(0.94 0.010 258)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}
+          >
             <div className="flex items-center justify-between mb-3">
               <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'oklch(0.50 0.025 258)' }}>
                 Margem Bruta
@@ -224,7 +248,7 @@ export default async function DashboardPage() {
             <div className="text-[12px] mt-2" style={{ color: 'oklch(0.50 0.025 258)' }}>
               Lucro: {fmtR(grossProfit)}
             </div>
-          </div>
+          </a>
 
         </div>
 
@@ -309,7 +333,14 @@ export default async function DashboardPage() {
                 const margin = net > 0 ? ((net - d.cmv) / net) * 100 : 0
                 const pct = totalRevenue > 0 ? (d.revenue / totalRevenue) * 100 : 0
                 return (
-                  <div key={mp}>
+                  <a
+                    key={mp}
+                    href={`/dashboard/vendas?mp=${mp}&from=${start}&to=${end}`}
+                    className="block transition-all rounded-lg px-2 py-1.5 -mx-2"
+                    style={{ textDecoration: 'none' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'oklch(0.94 0.010 258)' }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}
+                  >
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: MP_COLORS[mp] ?? 'oklch(0.50 0.025 258)' }} />
@@ -330,6 +361,7 @@ export default async function DashboardPage() {
                         >
                           {fmtPct(margin)}
                         </span>
+                        <span className="text-[11px]" style={{ color: 'oklch(0.50 0.025 258)' }}>→</span>
                       </div>
                     </div>
                     <div className="h-1 rounded-full overflow-hidden" style={{ background: 'oklch(0.93 0.014 258)' }}>
@@ -338,7 +370,7 @@ export default async function DashboardPage() {
                         style={{ width: `${pct}%`, background: MP_COLORS[mp] ?? '#125BFF' }}
                       />
                     </div>
-                  </div>
+                  </a>
                 )
               })}
             </div>
@@ -355,10 +387,11 @@ export default async function DashboardPage() {
               </div>
               <a
                 href="/dashboard/produtos"
-                className="text-[12px] font-medium underline"
+                className="text-[12px] font-medium underline flex items-center gap-1"
                 style={{ color: '#125BFF' }}
               >
                 Ver todos →
+                <ExternalLink size={11} />
               </a>
             </div>
             <div className="space-y-3">
@@ -366,7 +399,14 @@ export default async function DashboardPage() {
                 <p className="text-[13px]" style={{ color: 'oklch(0.70 0.012 258)' }}>Sem dados suficientes.</p>
               )}
               {topProducts.map((p, i) => (
-                <div key={i} className="flex items-center gap-3">
+                <a
+                  key={i}
+                  href={`/dashboard/vendas?product=${p.id}&from=${start}&to=${end}`}
+                  className="flex items-center gap-3 rounded-lg px-2 py-1.5 -mx-2 transition-all"
+                  style={{ textDecoration: 'none' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'oklch(0.94 0.010 258)' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}
+                >
                   <div
                     className="w-6 h-6 rounded-lg flex items-center justify-center text-[11px] font-bold flex-shrink-0"
                     style={{
@@ -393,7 +433,7 @@ export default async function DashboardPage() {
                       </div>
                     )}
                   </div>
-                </div>
+                </a>
               ))}
             </div>
           </div>

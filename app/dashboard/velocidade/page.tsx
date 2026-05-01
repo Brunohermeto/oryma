@@ -3,6 +3,7 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { MARKETPLACE_LABELS } from '@/types'
 import { subDays, format, eachDayOfInterval } from 'date-fns'
 import { SalesCurveChart } from '@/components/charts/SalesCurveChart'
+import { ExternalLink } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -93,12 +94,22 @@ export default async function VelocidadePage() {
             {/* Header */}
             <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid ${B.border}` }}>
               <div className="flex items-center gap-3">
-                <div className="w-2.5 h-2.5 rounded-full mt-0.5" style={{
+                <div className="w-2.5 h-2.5 rounded-full mt-0.5 flex-shrink-0" style={{
                   background: trend === 'up' ? '#22c55e' : trend === 'down' ? '#ef4444' : B.muted
                 }} />
                 <div>
                   <div className="font-semibold" style={{ color: B.text, fontFamily: 'var(--font-sora)' }}>{product.name}</div>
-                  <div className="text-xs mt-0.5" style={{ color: B.muted }}>SKU: {product.sku}</div>
+                  <div className="flex items-center gap-3 mt-0.5">
+                    <span className="text-xs" style={{ color: B.muted }}>SKU: {product.sku}</span>
+                    <a
+                      href={`/dashboard/vendas?product=${product.id}`}
+                      className="flex items-center gap-1 text-xs underline"
+                      style={{ color: B.brand }}
+                    >
+                      <ExternalLink size={10} />
+                      Ver vendas
+                    </a>
+                  </div>
                 </div>
               </div>
 

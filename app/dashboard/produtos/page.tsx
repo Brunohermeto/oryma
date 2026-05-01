@@ -1,5 +1,6 @@
 import { TopBar } from '@/components/layout/TopBar'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { ExternalLink } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,8 +59,26 @@ export default async function ProdutosPage() {
                 <div className="font-semibold" style={{ color: B.text, fontFamily: 'var(--font-sora)' }}>
                   {product.name}
                 </div>
-                <div className="text-xs mt-0.5" style={{ color: B.muted }}>
-                  SKU: {product.sku} · Estoque: {Number(product.stock_quantity).toFixed(0)} un.
+                <div className="flex items-center gap-3 mt-0.5">
+                  <span className="text-xs" style={{ color: B.muted }}>
+                    SKU: {product.sku} · Estoque: {Number(product.stock_quantity).toFixed(0)} un.
+                  </span>
+                  <a
+                    href={`/dashboard/vendas?product=${product.id}`}
+                    className="flex items-center gap-1 text-xs underline"
+                    style={{ color: B.brand }}
+                  >
+                    <ExternalLink size={10} />
+                    Ver vendas
+                  </a>
+                  <a
+                    href="/dashboard/importacoes"
+                    className="flex items-center gap-1 text-xs underline"
+                    style={{ color: 'oklch(0.50 0.025 258)' }}
+                  >
+                    <ExternalLink size={10} />
+                    Ver importações
+                  </a>
                 </div>
               </div>
               <div className="text-right">
