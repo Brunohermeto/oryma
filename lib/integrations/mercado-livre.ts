@@ -59,15 +59,35 @@ export async function getValidMercadoLivreToken(): Promise<string | null> {
   return data.access_token
 }
 
-export async function mlGet<T>(path: string, params?: Record<string, string>): Promise<T> {
+export async function getMercadoLivreSellerId(): Promise<string | null> {
+  const cred = await getCredential('mercado_livre')
+  const extra = cred?.extra as Record<string, unknown> | null
+  return extra?.seller_id ? String(extra.seller_id) : null
+}
+
+export async function mlGet<T>(path: string, params?: Record<string, string>, retries = 3): Promise<T> {
   const token = await getValidMercadoLivreToken()
   if (!token) throw new Error('Mercado Livre não conectado')
   const url = new URL(`${ML_BASE}${path}`)
   if (params) Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
-  const res = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${token}` },
-    next: { revalidate: 0 },
-  })
-  if (!res.ok) throw new Error(`ML API error ${res.status}: ${path}`)
-  return res.json()
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${token}` },
+      next: { revalidate: 0 },
+    })
+
+    // Rate limit — espera e tenta novamente
+    if (res.status === 429) {
+      if (attempt === retries) throw new Error(`ML API error 429: ${path}`)
+      const wait = Math.pow(2, attempt) * 1000 + Math.random() * 500
+      await new Promise(r => setTimeout(r, wait))
+      continue
+    }
+
+    if (!res.ok) throw new Error(`ML API error ${res.status}: ${path}`)
+    return res.json()
+  }
+
+  throw new Error(`ML API error: max retries exceeded for ${path}`)
 }

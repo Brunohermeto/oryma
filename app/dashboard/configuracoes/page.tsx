@@ -5,7 +5,8 @@ import { getAllCredentials } from '@/lib/integrations/credentials'
 import { ConfigCard } from '@/components/configuracoes/ConfigCard'
 import { BlingSyncButton } from '@/components/configuracoes/BlingSyncButton'
 import { MarketplaceSyncButton } from '@/components/configuracoes/MarketplaceSyncButton'
-import { RefreshCw } from 'lucide-react'
+import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { Clock, CheckCircle2, AlertCircle } from 'lucide-react'
 
 const B = {
   border:   'oklch(0.88 0.016 258)',
@@ -15,17 +16,74 @@ const B = {
   brand:    '#125BFF',
 }
 
+function formatRelativeTime(isoDate: string | null): string {
+  if (!isoDate) return 'nunca'
+  const diff = Date.now() - new Date(isoDate).getTime()
+  const mins = Math.floor(diff / 60_000)
+  if (mins < 1) return 'agora mesmo'
+  if (mins < 60) return `há ${mins} min`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `há ${hours}h`
+  const days = Math.floor(hours / 24)
+  return `há ${days} dia${days > 1 ? 's' : ''}`
+}
+
 export default async function ConfiguracoesPage() {
   const credentials = await getAllCredentials()
   const credMap = Object.fromEntries(credentials.map(c => [c.id, c]))
+
+  // Último sync automático (cron) e manual por fonte
+  const db = createSupabaseServiceClient()
+  const { data: recentLogs } = await db
+    .from('sync_logs')
+    .select('source, sync_type, status, finished_at, records_synced')
+    .eq('status', 'success')
+    .order('finished_at', { ascending: false })
+    .limit(20)
+
+  const lastSync = {
+    bling: recentLogs?.find(l => l.source === 'bling') ?? null,
+    marketplaces: recentLogs?.find(l => l.source === 'marketplaces') ?? null,
+  }
 
   return (
     <>
       <TopBar title="Configurações" subtitle="Conexões com marketplaces e sistemas" />
       <div className="px-8 py-6 space-y-4 max-w-2xl">
 
+        {/* Sincronização automática — status */}
+        <div
+          className="rounded-xl px-5 py-4 flex items-start gap-3"
+          style={{ background: 'oklch(0.95 0.03 258)', border: `1px solid oklch(0.85 0.04 258)` }}
+        >
+          <Clock size={16} className="mt-0.5 flex-shrink-0" style={{ color: B.brand }} />
+          <div>
+            <div className="text-[13px] font-semibold" style={{ color: B.text }}>
+              Sincronização automática ativa
+            </div>
+            <div className="text-[12px] mt-0.5" style={{ color: B.muted }}>
+              O Oryma sincroniza NF-e e pedidos automaticamente às <strong>6h</strong> e <strong>20h</strong> todos os dias.
+              Use os botões abaixo apenas se precisar forçar uma atualização imediata.
+            </div>
+            <div className="flex gap-4 mt-2">
+              <span className="flex items-center gap-1 text-[11px]" style={{ color: B.muted }}>
+                {lastSync.bling
+                  ? <><CheckCircle2 size={11} style={{ color: '#16a34a' }} /> Bling: {formatRelativeTime(lastSync.bling.finished_at)} · {lastSync.bling.records_synced} NF-e</>
+                  : <><AlertCircle size={11} style={{ color: '#d97706' }} /> Bling: nunca sincronizado</>
+                }
+              </span>
+              <span className="flex items-center gap-1 text-[11px]" style={{ color: B.muted }}>
+                {lastSync.marketplaces
+                  ? <><CheckCircle2 size={11} style={{ color: '#16a34a' }} /> Marketplaces: {formatRelativeTime(lastSync.marketplaces.finished_at)} · {lastSync.marketplaces.records_synced} vendas</>
+                  : <><AlertCircle size={11} style={{ color: '#d97706' }} /> Marketplaces: nunca sincronizado</>
+                }
+              </span>
+            </div>
+          </div>
+        </div>
+
         {/* Integrações */}
-        <div className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: B.muted }}>
+        <div className="text-[11px] font-bold uppercase tracking-widest mt-4 mb-2" style={{ color: B.muted }}>
           Integrações
         </div>
 
@@ -69,7 +127,7 @@ export default async function ConfiguracoesPage() {
 
         {/* Sincronização manual */}
         <div className="text-[11px] font-bold uppercase tracking-widest mt-6 mb-2" style={{ color: B.muted }}>
-          Sincronização Manual
+          Forçar Sincronização
         </div>
 
         <div className="bg-white rounded-xl p-5" style={{ border: `1px solid ${B.border}` }}>
@@ -77,7 +135,7 @@ export default async function ConfiguracoesPage() {
             Bling — NF-e
           </div>
           <p className="text-[13px] mb-4" style={{ color: B.muted }}>
-            Busca NF-e de entrada (série 0, CFOP 3102) e saída (série 2) dos últimos 90 dias.
+            Busca NF-e de saída (séries 1 e 3) e entrada (série 2, importações CFOP 3102) dos últimos 90 dias.
           </p>
           <BlingSyncButton />
         </div>
