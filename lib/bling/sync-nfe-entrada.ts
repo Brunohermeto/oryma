@@ -30,7 +30,7 @@ export async function syncNFeEntrada(startDate: string, endDate: string): Promis
       limite: '100',
       dataEmissaoInicio: startDate,
       dataEmissaoFim: endDate,
-      tipo: 'E',         // E = Entrada na API v3
+      // sem filtro de tipo — filtramos por série no loop abaixo
     })
 
     if (!list.data?.length) break
