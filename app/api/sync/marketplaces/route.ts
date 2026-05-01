@@ -36,8 +36,13 @@ export async function POST(request: NextRequest) {
 
   const syncId = log.id
 
+  // Cron busca frete real por shipment (mais lento mas completo)
+  // Sync manual é rápido — sem lookup de frete
+  const mlSync = (s: string, e: string) =>
+    syncMercadoLivre(s, e, { fetchShipmentCosts: isCron })
+
   const syncFns: Record<string, (s: string, e: string) => Promise<number>> = {
-    mercado_livre: syncMercadoLivre,
+    mercado_livre: mlSync,
     shopee:        syncShopee,
     amazon:        syncAmazon,
   }

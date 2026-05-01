@@ -28,6 +28,7 @@ interface Sale {
   sale_date: string
   quantity: number
   gross_price: number
+  shipping_received: number
   marketplace_commission: number
   marketplace_shipping_fee: number
   ads_cost: number
@@ -84,16 +85,17 @@ function Row({ label, value, color, indent = false, bold = false, separator = fa
 }
 
 function SaleCard({ sale }: { sale: Sale }) {
-  const grossPrice   = Number(sale.gross_price)
-  const cancellation = Number(sale.cancellation)
-  const discounts    = Number(sale.discounts ?? 0)
-  const commission   = Number(sale.marketplace_commission)
-  const shipping     = Number(sale.marketplace_shipping_fee)
-  const ads          = Number(sale.ads_cost)
-  const cmv          = Number(sale.sale_costs?.total_cost ?? 0)
+  const grossPrice      = Number(sale.gross_price)
+  const shippingRec     = Number(sale.shipping_received ?? 0)
+  const cancellation    = Number(sale.cancellation)
+  const discounts       = Number(sale.discounts ?? 0)
+  const commission      = Number(sale.marketplace_commission)
+  const shippingFee     = Number(sale.marketplace_shipping_fee)  // custo frete ao vendedor
+  const ads             = Number(sale.ads_cost)
+  const cmv             = Number(sale.sale_costs?.total_cost ?? 0)
 
-  const faturamento     = grossPrice - cancellation - discounts
-  const totalFees       = commission + shipping + ads
+  const faturamento     = grossPrice + shippingRec - cancellation - discounts
+  const totalFees       = commission + shippingFee + ads
   const receitaLiquida  = faturamento - totalFees
   const lucro           = sale.sale_costs ? receitaLiquida - cmv : null
   const marginPct       = lucro !== null && receitaLiquida > 0 ? (lucro / receitaLiquida) * 100 : null
@@ -120,12 +122,13 @@ function SaleCard({ sale }: { sale: Sale }) {
         borderRadius: 8,
         padding: '8px 10px',
       }}>
-        <Row label="Preço de venda"    value={grossPrice}    color={B.brand} bold />
-        {cancellation > 0 && <Row label="(-) Cancelamento" value={-cancellation} color="#dc2626" indent />}
-        {discounts    > 0 && <Row label="(-) Desconto/cupom" value={-discounts}  color="#d97706" indent />}
-        <Row label="(-) Comissão ML"   value={commission > 0 ? -commission : null} color="#dc2626" indent />
-        <Row label="(-) Frete"         value={shipping   > 0 ? -shipping   : null} color="#dc2626" indent />
-        {ads > 0 && <Row label="(-) ADS" value={-ads}  color="#dc2626" indent />}
+        <Row label="Preço de venda"        value={grossPrice}                    color={B.brand}   bold />
+        {shippingRec  > 0 && <Row label="(+) Frete cobrado cliente" value={shippingRec}  color="#16a34a" indent />}
+        {cancellation > 0 && <Row label="(-) Cancelamento"          value={-cancellation} color="#dc2626" indent />}
+        {discounts    > 0 && <Row label="(-) Desconto/cupom"         value={-discounts}    color="#d97706" indent />}
+        <Row label="(-) Comissão ML"       value={commission  > 0 ? -commission  : null} color="#dc2626" indent />
+        <Row label="(-) Frete ao vendedor" value={shippingFee > 0 ? -shippingFee : null} color="#dc2626" indent />
+        {ads > 0 && <Row label="(-) ADS"   value={-ads}                                  color="#dc2626" indent />}
         <Row label="= Receita líquida" value={receitaLiquida} color={receitaLiquida >= 0 ? '#0B1023' : '#dc2626'} bold separator />
         <Row label="(-) CMV"           value={cmv > 0 ? -cmv : null} color="#dc2626" indent />
         <Row

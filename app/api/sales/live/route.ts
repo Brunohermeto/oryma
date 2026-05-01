@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     .from('sales')
     .select(`
       id, marketplace, fulfillment_type, sku, sale_date, quantity,
-      gross_price, marketplace_commission, marketplace_shipping_fee, ads_cost, cancellation, discounts,
+      gross_price, shipping_received, marketplace_commission, marketplace_shipping_fee, ads_cost, cancellation, discounts,
       products(name, sku),
       sale_costs(unit_cost_applied, total_cost, margin_pct)
     `)
