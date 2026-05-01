@@ -38,7 +38,7 @@ export default async function ImportacoesPage() {
   return (
     <>
       <TopBar title="NF-e / Importações" subtitle="Landed cost de 14 componentes por lote de importação" />
-      <div className="px-8 py-6 space-y-6">
+      <div className="px-4 md:px-8 py-6 space-y-6">
 
         {/* Upload zone */}
         <div className="bg-white rounded-xl p-6" style={{ border: `1px solid ${B.border}` }}>
@@ -66,6 +66,7 @@ export default async function ImportacoesPage() {
             </div>
           </div>
 
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr style={{ background: B.bgSubtle, borderBottom: `1px solid ${B.border}` }}>
@@ -130,6 +131,7 @@ export default async function ImportacoesPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
 
         {/* Landed cost form */}

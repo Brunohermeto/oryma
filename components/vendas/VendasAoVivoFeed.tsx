@@ -238,7 +238,7 @@ function Totals({ sales }: { sales: Sale[] }) {
   ]
 
   return (
-    <div className="grid grid-cols-6 gap-3 mb-4">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
       {cards.map(card => (
         <div key={card.label} className="bg-white rounded-xl p-4" style={{ border: `1px solid ${B.border}` }}>
           <div className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: B.muted }}>{card.label}</div>

@@ -1,6 +1,6 @@
 'use client'
 import { useRouter } from 'next/navigation'
-import { LogOut } from 'lucide-react'
+import { LogOut, Menu } from 'lucide-react'
 
 interface TopBarProps {
   title: string
@@ -18,24 +18,33 @@ export function TopBar({ title, subtitle, actions }: TopBarProps) {
 
   return (
     <div
-      className="sticky top-0 z-10 px-8 py-4 flex items-center justify-between"
+      className="sticky top-0 z-10 px-4 md:px-8 py-4 flex items-center justify-between"
       style={{
         background: 'oklch(1 0 0)',
         borderBottom: '1px solid oklch(0.88 0.016 258)',
       }}
     >
-      <div>
-        <h1
-          className="text-base font-semibold leading-tight"
-          style={{ color: 'oklch(0.12 0.04 258)', fontFamily: 'var(--font-sora)' }}
+      <div className="flex items-center">
+        <button
+          className="md:hidden mr-3 p-1.5 rounded-lg"
+          style={{ color: 'oklch(0.50 0.025 258)' }}
+          onClick={() => window.dispatchEvent(new CustomEvent('sidebar-toggle'))}
         >
-          {title}
-        </h1>
-        {subtitle && (
-          <p className="text-[13px] mt-0.5" style={{ color: 'oklch(0.50 0.025 258)' }}>
-            {subtitle}
-          </p>
-        )}
+          <Menu size={18} />
+        </button>
+        <div>
+          <h1
+            className="text-base font-semibold leading-tight"
+            style={{ color: 'oklch(0.12 0.04 258)', fontFamily: 'var(--font-sora)' }}
+          >
+            {title}
+          </h1>
+          {subtitle && (
+            <p className="text-[13px] mt-0.5" style={{ color: 'oklch(0.50 0.025 258)' }}>
+              {subtitle}
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center gap-3">

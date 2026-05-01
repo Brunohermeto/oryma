@@ -42,7 +42,7 @@ export default async function ProdutosPage() {
   return (
     <>
       <TopBar title="Custo por Produto" subtitle="Landed cost real — FOB + impostos + despesas de importação" />
-      <div className="px-8 py-6 space-y-4">
+      <div className="px-4 md:px-8 py-6 space-y-4">
 
         {productData.length === 0 && (
           <div className="bg-white rounded-xl p-8 text-center text-sm" style={{ border: `1px solid ${B.border}`, color: B.muted }}>
@@ -100,7 +100,7 @@ export default async function ProdutosPage() {
                 <div className="text-[11px] font-semibold uppercase tracking-widest mb-3" style={{ color: B.muted }}>
                   Composição do Custo — Último Lote
                 </div>
-                <div className="grid grid-cols-5 gap-3 text-xs">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
                   {[
                     { label: 'FOB',              value: latestBatch.fob_unit_cost,           kind: 'normal' },
                     { label: 'Impostos NF',       value: latestBatch.taxes_unit_cost,         kind: 'normal' },

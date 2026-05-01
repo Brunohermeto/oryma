@@ -147,10 +147,10 @@ export default async function DashboardPage() {
   return (
     <>
       <TopBar title="Dashboard" subtitle={`Visão consolidada — ${currentMonth}`} />
-      <div className="px-8 py-6 space-y-5">
+      <div className="px-4 md:px-8 py-6 space-y-5">
 
         {/* ── KPI Cards ── */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
 
           {/* Receita Bruta */}
           <a
@@ -251,7 +251,7 @@ export default async function DashboardPage() {
         <InsightsPanel />
 
         {/* ── Gráficos ── */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div
             className="col-span-2 bg-white rounded-xl p-5"
             style={{ border: '1px solid oklch(0.88 0.016 258)' }}
@@ -278,7 +278,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* ── Resultado por marketplace + Top produtos ── */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
           {/* Por marketplace */}
           <div

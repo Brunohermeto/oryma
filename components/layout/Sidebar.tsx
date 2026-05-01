@@ -1,6 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard,
@@ -14,6 +15,7 @@ import {
   FolderOpen,
   ClipboardList,
   Settings,
+  X,
 } from 'lucide-react'
 
 // Manual de marca Oryma
@@ -95,6 +97,13 @@ function OrymaIcon({ size = 32 }: { size?: number }) {
 
 export function Sidebar() {
   const pathname = usePathname()
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    const handler = () => setOpen(o => !o)
+    window.addEventListener('sidebar-toggle', handler)
+    return () => window.removeEventListener('sidebar-toggle', handler)
+  }, [])
 
   function isActive(item: { href: string; exact?: boolean }) {
     if (item.exact) return pathname === item.href
@@ -102,10 +111,31 @@ export function Sidebar() {
   }
 
   return (
-    <aside
-      className="w-[220px] flex-shrink-0 flex flex-col min-h-screen"
-      style={{ background: C.bg }}
-    >
+    <>
+      {/* Mobile overlay */}
+      {open && (
+        <div
+          className="fixed inset-0 bg-black/40 z-40 md:hidden"
+          onClick={() => setOpen(false)}
+        />
+      )}
+
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 w-[220px] flex-shrink-0 flex flex-col min-h-screen md:relative md:translate-x-0 transition-transform duration-200",
+          open ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        )}
+        style={{ background: C.bg }}
+      >
+      {/* X close button — mobile only */}
+      <button
+        className="md:hidden absolute top-3 right-3"
+        onClick={() => setOpen(false)}
+        style={{ color: C.text }}
+      >
+        <X size={16} />
+      </button>
+
       {/* Logo */}
       <div
         className="px-4 py-4 flex items-center gap-2.5"
@@ -143,6 +173,7 @@ export function Sidebar() {
                   <Link
                     key={item.href}
                     href={item.href}
+                    onClick={() => setOpen(false)}
                     className={cn('flex items-center gap-2.5 px-3 py-[7px] rounded-lg text-[13px] transition-all duration-150')}
                     style={active
                       ? { background: C.active, color: C.textActive, fontWeight: 600 }
@@ -190,5 +221,6 @@ export function Sidebar() {
         </div>
       </div>
     </aside>
+    </>
   )
 }

@@ -189,7 +189,7 @@ function ChannelColumn({ channel, sales, total }: {
           Sem vendas neste período
         </div>
       ) : (
-        <div className="flex flex-col gap-2 max-h-[500px] overflow-y-auto pr-0.5">
+        <div className="flex flex-col gap-2 max-h-[400px] md:max-h-[500px] overflow-y-auto pr-0.5">
           {sales.map(sale => <SaleCard key={sale.id} sale={sale} />)}
         </div>
       )}
@@ -291,7 +291,7 @@ export function LiveSalesFeed() {
       </div>
 
       {/* Colunas por canal */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {Object.entries(byChannel).map(([channel, channelSales]) => (
           <ChannelColumn
             key={channel}
