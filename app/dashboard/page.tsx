@@ -4,6 +4,7 @@ import { format, startOfMonth, endOfMonth, subMonths, subDays, eachDayOfInterval
 import { RevenueLineChart } from '@/components/charts/RevenueLineChart'
 import { MarketplaceBarChart } from '@/components/charts/MarketplaceBarChart'
 import { TrendingUp, TrendingDown, ShoppingCart, Percent, DollarSign, ExternalLink } from 'lucide-react'
+import { InsightsPanel } from '@/components/dashboard/InsightsPanel'
 
 export const dynamic = 'force-dynamic'
 
@@ -252,39 +253,8 @@ export default async function DashboardPage() {
 
         </div>
 
-        {/* ── Alertas ── */}
-        {((pendingNFe ?? 0) > 0 || !lastSync) && (
-          <div className="space-y-2">
-            {(pendingNFe ?? 0) > 0 && (
-              <div
-                className="rounded-xl px-5 py-3 text-[13px] flex items-center gap-2"
-                style={{
-                  background: 'oklch(0.97 0.06 70)',
-                  border: '1px solid oklch(0.88 0.10 70)',
-                  color: 'oklch(0.38 0.12 70)',
-                }}
-              >
-                <span>⚠</span>
-                <span><strong>{pendingNFe} NF-e</strong> com despesas de importação pendentes — custo landed incompleto.</span>
-                <a href="/dashboard/importacoes" className="ml-auto font-semibold underline">Completar →</a>
-              </div>
-            )}
-            {!lastSync && (
-              <div
-                className="rounded-xl px-5 py-3 text-[13px] flex items-center gap-2"
-                style={{
-                  background: 'oklch(0.93 0.014 258)',
-                  border: '1px solid oklch(0.88 0.016 258)',
-                  color: 'oklch(0.50 0.025 258)',
-                }}
-              >
-                <span>○</span>
-                <span>Nenhuma sincronização realizada.</span>
-                <a href="/dashboard/configuracoes" className="ml-auto font-semibold underline">Configurar integrações →</a>
-              </div>
-            )}
-          </div>
-        )}
+        {/* ── Oryma Insights ── */}
+        <InsightsPanel />
 
         {/* ── Gráficos ── */}
         <div className="grid grid-cols-3 gap-4">
