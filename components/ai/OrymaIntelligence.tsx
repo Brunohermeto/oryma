@@ -110,13 +110,15 @@ export function OrymaIntelligence() {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-105"
+          className="fixed bottom-6 right-6 z-50 w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-200 hover:scale-105 hover:shadow-2xl"
           style={{
-            background: 'linear-gradient(135deg, #125BFF 0%, #00D6FF 50%, #7B61FF 100%)',
+            background: 'linear-gradient(135deg, #125BFF, #7B61FF)',
+            boxShadow: '0 4px 20px rgba(18,91,255,0.35)',
+            animation: 'oryma-pulse 3s ease-in-out infinite',
           }}
-          title="Oryma Intelligence"
+          title="Pergunte à Oryma"
         >
-          <Sparkles size={22} color="white" />
+          <Sparkles size={18} color="white" />
         </button>
       )}
 

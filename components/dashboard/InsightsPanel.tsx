@@ -1,6 +1,6 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { format, subDays, startOfMonth, endOfMonth, subMonths } from 'date-fns'
-import { AlertTriangle, TrendingDown, TrendingUp, Package, Receipt, Zap, CheckCircle } from 'lucide-react'
+import { AlertTriangle, TrendingDown, TrendingUp, Package, Receipt, Zap, CheckCircle, Sparkles } from 'lucide-react'
 
 // ────────────────────────────────────────────────────────────
 // Oryma Intelligence — Insights Proativos
@@ -337,8 +337,12 @@ export async function InsightsPanel() {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <div className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'oklch(0.50 0.025 258)' }}>
-          Oryma Insights
+        <div className="flex items-center gap-2">
+          <Sparkles size={13} style={{ color: '#7B61FF' }} />
+          <div className="text-[13px] font-semibold" style={{ color: '#0B1023', fontFamily: 'var(--font-sora)' }}>
+            Insights Oryma
+          </div>
+          <span className="text-[11px]" style={{ color: 'oklch(0.50 0.025 258)' }}>— Análise automática da sua operação</span>
         </div>
         {insights.length > 4 && (
           <div className="text-[11px]" style={{ color: 'oklch(0.50 0.025 258)' }}>

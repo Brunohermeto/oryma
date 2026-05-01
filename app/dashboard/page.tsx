@@ -146,7 +146,7 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <TopBar title="Dashboard" subtitle={`Visão consolidada — ${currentMonth}`} />
+      <TopBar title="Visão Geral" subtitle="Inteligência financeira consolidada · Ragaluma" />
       <div className="px-4 md:px-8 py-6 space-y-5">
 
         {/* ── KPI Cards ── */}
@@ -155,12 +155,12 @@ export default async function DashboardPage() {
           {/* Receita Bruta */}
           <a
             href={`/dashboard/vendas?from=${start}&to=${end}`}
-            className="block bg-white rounded-xl p-5 transition-all hover-card"
-            style={{ border: '1px solid oklch(0.88 0.016 258)', textDecoration: 'none' }}
+            className="block bg-white rounded-2xl p-5 transition-all hover-card"
+            style={{ border: '1px solid rgba(15,23,42,0.07)', textDecoration: 'none', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}
           >
             <div className="flex items-center justify-between mb-3">
               <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'oklch(0.50 0.025 258)' }}>
-                Receita Bruta
+                Receita Bruta Sincronizada
               </span>
               <DollarSign size={14} style={{ color: '#125BFF' }} />
             </div>
@@ -183,8 +183,8 @@ export default async function DashboardPage() {
           {/* Pedidos */}
           <a
             href={`/dashboard/vendas?from=${start}&to=${end}`}
-            className="block bg-white rounded-xl p-5 transition-all hover-card"
-            style={{ border: '1px solid oklch(0.88 0.016 258)', textDecoration: 'none' }}
+            className="block bg-white rounded-2xl p-5 transition-all hover-card"
+            style={{ border: '1px solid rgba(15,23,42,0.07)', textDecoration: 'none', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}
           >
             <div className="flex items-center justify-between mb-3">
               <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'oklch(0.50 0.025 258)' }}>
@@ -203,12 +203,12 @@ export default async function DashboardPage() {
           {/* Tarifas + ADS */}
           <a
             href="/dashboard/dre"
-            className="block bg-white rounded-xl p-5 transition-all hover-card"
-            style={{ border: '1px solid oklch(0.88 0.016 258)', textDecoration: 'none' }}
+            className="block bg-white rounded-2xl p-5 transition-all hover-card"
+            style={{ border: '1px solid rgba(15,23,42,0.07)', textDecoration: 'none', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}
           >
             <div className="flex items-center justify-between mb-3">
               <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'oklch(0.50 0.025 258)' }}>
-                Tarifas + ADS
+                Taxas, Fretes &amp; Ads
               </span>
               <Percent size={14} style={{ color: 'oklch(0.62 0.16 70)' }} />
             </div>
@@ -220,15 +220,15 @@ export default async function DashboardPage() {
             </div>
           </a>
 
-          {/* Margem Bruta */}
+          {/* Margem Real */}
           <a
             href="/dashboard/dre"
-            className="block bg-white rounded-xl p-5 transition-all hover-card"
-            style={{ border: '1px solid oklch(0.88 0.016 258)', textDecoration: 'none' }}
+            className="block bg-white rounded-2xl p-5 transition-all hover-card"
+            style={{ border: '1px solid rgba(15,23,42,0.07)', textDecoration: 'none', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}
           >
             <div className="flex items-center justify-between mb-3">
               <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'oklch(0.50 0.025 258)' }}>
-                Margem Bruta
+                Margem Real
               </span>
               <div
                 className="rounded-full px-2 py-0.5 text-[10px] font-bold"
@@ -253,21 +253,21 @@ export default async function DashboardPage() {
         {/* ── Gráficos ── */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div
-            className="col-span-2 bg-white rounded-xl p-5"
-            style={{ border: '1px solid oklch(0.88 0.016 258)' }}
+            className="col-span-2 bg-white rounded-2xl p-5"
+            style={{ border: '1px solid rgba(15,23,42,0.07)', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}
           >
             <div className="mb-4">
               <div className="text-sm font-semibold" style={{ color: 'oklch(0.12 0.04 258)', fontFamily: 'var(--font-sora)' }}>
                 Receita por Dia — Últimos 30 dias
               </div>
-              <div className="text-[12px] mt-0.5" style={{ color: 'oklch(0.50 0.025 258)' }}>Por marketplace</div>
+              <div className="text-[12px] mt-0.5" style={{ color: 'oklch(0.50 0.025 258)' }}>Canais: ML · Shopee · Amazon</div>
             </div>
             <RevenueLineChart data={trendData} />
           </div>
 
           <div
-            className="bg-white rounded-xl p-5"
-            style={{ border: '1px solid oklch(0.88 0.016 258)' }}
+            className="bg-white rounded-2xl p-5"
+            style={{ border: '1px solid rgba(15,23,42,0.07)', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}
           >
             <div className="text-sm font-semibold mb-1" style={{ color: 'oklch(0.12 0.04 258)', fontFamily: 'var(--font-sora)' }}>
               Margem por Canal
@@ -282,15 +282,15 @@ export default async function DashboardPage() {
 
           {/* Por marketplace */}
           <div
-            className="bg-white rounded-xl p-5"
-            style={{ border: '1px solid oklch(0.88 0.016 258)' }}
+            className="bg-white rounded-2xl p-5"
+            style={{ border: '1px solid rgba(15,23,42,0.07)', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}
           >
             <div className="text-sm font-semibold mb-4" style={{ color: 'oklch(0.12 0.04 258)', fontFamily: 'var(--font-sora)' }}>
-              Resultado por Marketplace
+              Resultado Real por Canal
             </div>
             <div className="space-y-4">
               {Object.entries(byMP).length === 0 && (
-                <p className="text-sm" style={{ color: 'oklch(0.70 0.012 258)' }}>Sem vendas sincronizadas ainda.</p>
+                <p className="text-sm" style={{ color: 'oklch(0.70 0.012 258)' }}>Conecte seus marketplaces para ver o resultado real por canal.</p>
               )}
               {Object.entries(byMP).sort((a, b) => b[1].revenue - a[1].revenue).map(([mp, d]) => {
                 const net = d.revenue - d.fees
@@ -340,12 +340,12 @@ export default async function DashboardPage() {
 
           {/* Top produtos */}
           <div
-            className="bg-white rounded-xl p-5"
-            style={{ border: '1px solid oklch(0.88 0.016 258)' }}
+            className="bg-white rounded-2xl p-5"
+            style={{ border: '1px solid rgba(15,23,42,0.07)', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}
           >
             <div className="flex items-center justify-between mb-4">
               <div className="text-sm font-semibold" style={{ color: 'oklch(0.12 0.04 258)', fontFamily: 'var(--font-sora)' }}>
-                Top Produtos por Receita
+                Produtos com Maior Resultado
               </div>
               <a
                 href="/dashboard/produtos"
@@ -358,7 +358,7 @@ export default async function DashboardPage() {
             </div>
             <div className="space-y-3">
               {topProducts.length === 0 && (
-                <p className="text-[13px]" style={{ color: 'oklch(0.70 0.012 258)' }}>Sem dados suficientes.</p>
+                <p className="text-[13px]" style={{ color: 'oklch(0.70 0.012 258)' }}>Assim que houver vendas sincronizadas, os produtos com maior resultado aparecerão aqui.</p>
               )}
               {topProducts.map((p, i) => (
                 <a
@@ -401,7 +401,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* ── Vendas por Canal em Tempo Real ── */}
-        <div className="bg-white rounded-xl p-5" style={{ border: '1px solid oklch(0.88 0.016 258)' }}>
+        <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid rgba(15,23,42,0.07)', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}>
           <LiveSalesFeed />
         </div>
 

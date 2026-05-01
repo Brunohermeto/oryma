@@ -6,7 +6,6 @@ import { cn } from '@/lib/utils'
 import {
   LayoutDashboard,
   BarChart3,
-  Receipt,
   Package,
   Zap,
   Target,
@@ -16,6 +15,8 @@ import {
   ClipboardList,
   Settings,
   X,
+  BellRing,
+  GitMerge,
 } from 'lucide-react'
 
 // Manual de marca Oryma
@@ -36,27 +37,33 @@ const navGroups = [
   {
     label: 'Principal',
     items: [
-      { href: '/dashboard',            label: 'Dashboard',           icon: LayoutDashboard, exact: true },
-      { href: '/dashboard/dre',        label: 'DRE Gerencial',       icon: BarChart3 },
-      { href: '/dashboard/tributario', label: 'Painel Tributário',   icon: Receipt },
+      { href: '/dashboard',              label: 'Visão Geral',          icon: LayoutDashboard, exact: true },
+      { href: '/dashboard/tributario',   label: 'Alertas & Insights',   icon: BellRing },
+      { href: '/dashboard/dre',          label: 'Conciliação',          icon: GitMerge },
+    ],
+  },
+  {
+    label: 'Financeiro',
+    items: [
+      { href: '/dashboard/dre',          label: 'DRE Gerencial',        icon: BarChart3 },
+      { href: '/dashboard/despesas',     label: 'Despesas Operacionais',icon: ClipboardList },
     ],
   },
   {
     label: 'Produtos',
     items: [
-      { href: '/dashboard/produtos',     label: 'Custo por Produto',   icon: Package },
-      { href: '/dashboard/velocidade',   label: 'Velocidade de Venda', icon: Zap },
-      { href: '/dashboard/precificacao', label: 'Simulador de Preço',  icon: Target },
+      { href: '/dashboard/produtos',     label: 'Custo Real por Produto', icon: Package },
+      { href: '/dashboard/velocidade',   label: 'Giro e Velocidade',    icon: Zap },
+      { href: '/dashboard/precificacao', label: 'Simulador de Margem',  icon: Target },
     ],
   },
   {
-    label: 'Operacional',
+    label: 'Operação',
     items: [
-      { href: '/dashboard/vendas',        label: 'Feed de Vendas',         icon: ShoppingBag },
-      { href: '/dashboard/vendas-ao-vivo', label: 'Vendas ao Vivo',        icon: Activity },
-      { href: '/dashboard/importacoes',   label: 'NF-e / Importações',     icon: FolderOpen },
-      { href: '/dashboard/despesas',      label: 'Despesas Operacionais',  icon: ClipboardList },
-      { href: '/dashboard/configuracoes', label: 'Configurações',          icon: Settings },
+      { href: '/dashboard/vendas',         label: 'Feed de Vendas',      icon: ShoppingBag },
+      { href: '/dashboard/vendas-ao-vivo', label: 'Vendas ao Vivo',      icon: Activity },
+      { href: '/dashboard/importacoes',    label: 'NF-e / Importações',  icon: FolderOpen },
+      { href: '/dashboard/configuracoes',  label: 'Configurações',       icon: Settings },
     ],
   },
 ]
@@ -138,7 +145,7 @@ export function Sidebar() {
 
       {/* Logo */}
       <div
-        className="px-4 py-4 flex items-center gap-2.5"
+        className="px-4 py-5 flex items-center gap-2.5"
         style={{ borderBottom: `1px solid ${C.border}` }}
       >
         <OrymaIcon size={36} />
@@ -176,8 +183,8 @@ export function Sidebar() {
                     onClick={() => setOpen(false)}
                     className={cn('flex items-center gap-2.5 px-3 py-[7px] rounded-lg text-[13px] transition-all duration-150')}
                     style={active
-                      ? { background: C.active, color: C.textActive, fontWeight: 600 }
-                      : { color: C.text }
+                      ? { background: 'linear-gradient(90deg, rgba(18,91,255,0.20), rgba(0,214,255,0.10))', color: C.textActive, fontWeight: 600, position: 'relative' }
+                      : { color: C.text, position: 'relative' }
                     }
                     onMouseEnter={e => {
                       if (!active) {
@@ -196,10 +203,7 @@ export function Sidebar() {
                   >
                     {/* Indicador ativo */}
                     {active && (
-                      <span
-                        className="absolute left-2.5 w-[3px] h-5 rounded-full"
-                        style={{ background: '#125BFF' }}
-                      />
+                      <div style={{ position: 'absolute', left: 0, top: '20%', height: '60%', width: 3, borderRadius: 2, background: 'linear-gradient(180deg, #125BFF, #00D6FF)' }} />
                     )}
                     <Icon size={14} strokeWidth={active ? 2.5 : 1.75} className="flex-shrink-0" />
                     <span className="truncate">{item.label}</span>
@@ -211,13 +215,26 @@ export function Sidebar() {
         ))}
       </nav>
 
+      {/* User section */}
+      <div className="px-3 py-3" style={{ borderTop: `1px solid ${C.border}` }}>
+        <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)' }}>
+          <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold" style={{ background: 'linear-gradient(135deg, #125BFF, #7B61FF)', color: 'white' }}>
+            R
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[11px] font-semibold truncate" style={{ color: 'rgba(255,255,255,0.85)' }}>RAGALUMA</div>
+            <div className="text-[10px]" style={{ color: C.label }}>Plano Ativo</div>
+          </div>
+        </div>
+      </div>
+
       {/* Footer */}
       <div
-        className="px-5 py-4"
+        className="px-5 py-3"
         style={{ borderTop: `1px solid ${C.border}` }}
       >
-        <div className="text-[11px] text-center" style={{ color: C.footer }}>
-          MCL Informática LTDA
+        <div className="text-[10px] text-center" style={{ color: C.label }}>
+          v1.0 · Oryma Intelligence
         </div>
       </div>
     </aside>

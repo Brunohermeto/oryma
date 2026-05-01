@@ -112,12 +112,20 @@
   --sidebar-ring:               oklch(0.84 0.14 204);
 }
 
+body {
+  background:
+    radial-gradient(circle at top right, rgba(0, 214, 255, 0.06), transparent 30%),
+    radial-gradient(circle at bottom left, rgba(123, 97, 255, 0.05), transparent 35%),
+    #F4F7FB;
+  min-height: 100vh;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
     font-family: var(--font-inter), system-ui, sans-serif;
   }
   h1, h2, h3, h4, h5, h6 {
@@ -134,6 +142,12 @@
 /* Gradiente de marca */
 .brand-gradient {
   background: linear-gradient(135deg, #125BFF 0%, #00D6FF 50%, #7B61FF 100%);
+}
+
+/* Oryma floating button pulse */
+@keyframes oryma-pulse {
+  0%, 100% { box-shadow: 0 4px 20px rgba(18,91,255,0.35); }
+  50%       { box-shadow: 0 4px 28px rgba(123,97,255,0.50); }
 }
 
 /* Hover utilitário para cards e linhas — evita event handlers em Server Components */
