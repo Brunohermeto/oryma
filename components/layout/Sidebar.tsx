@@ -10,6 +10,7 @@ import {
   Zap,
   Target,
   ShoppingBag,
+  Activity,
   FolderOpen,
   ClipboardList,
   Settings,
@@ -50,6 +51,7 @@ const navGroups = [
     label: 'Operacional',
     items: [
       { href: '/dashboard/vendas',        label: 'Feed de Vendas',         icon: ShoppingBag },
+      { href: '/dashboard/vendas-ao-vivo', label: 'Vendas ao Vivo',        icon: Activity },
       { href: '/dashboard/importacoes',   label: 'NF-e / Importações',     icon: FolderOpen },
       { href: '/dashboard/despesas',      label: 'Despesas Operacionais',  icon: ClipboardList },
       { href: '/dashboard/configuracoes', label: 'Configurações',          icon: Settings },

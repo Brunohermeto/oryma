@@ -84,6 +84,7 @@ function Row({ label, value, color, indent = false, bold = false, separator = fa
   )
 }
 
+// Card simplificado para o dashboard
 function SaleCard({ sale }: { sale: Sale }) {
   const grossPrice      = Number(sale.gross_price)
   const shippingRec     = Number(sale.shipping_received ?? 0)
@@ -100,46 +101,50 @@ function SaleCard({ sale }: { sale: Sale }) {
   const lucro           = sale.sale_costs ? receitaLiquida - cmv : null
   const marginPct       = lucro !== null && receitaLiquida > 0 ? (lucro / receitaLiquida) * 100 : null
 
-  return (
-    <div className="rounded-xl p-3" style={{ background: 'white', border: `1px solid ${B.border}` }}>
+  const totalCosts = totalFees + cmv
 
-      {/* Header: produto + margem */}
-      <div className="flex items-start justify-between gap-2 mb-2.5">
+  return (
+    <a
+      href="/dashboard/vendas-ao-vivo"
+      className="block rounded-xl p-3 transition-all hover-card"
+      style={{ background: 'white', border: `1px solid ${B.border}`, textDecoration: 'none' }}
+    >
+      <div className="flex items-start justify-between gap-2 mb-2">
         <div className="min-w-0">
           <div className="text-[12px] font-semibold leading-tight truncate" style={{ color: B.text }}>
             {sale.products?.name ?? sale.sku ?? '—'}
           </div>
           <div className="text-[10px] mt-0.5" style={{ color: B.muted }}>
-            {FULFILLMENT[sale.fulfillment_type] ?? sale.fulfillment_type} · {Number(sale.quantity).toFixed(0)} un. · {sale.sale_date}
+            {FULFILLMENT[sale.fulfillment_type]} · {Number(sale.quantity).toFixed(0)} un.
           </div>
         </div>
         <MarginBadge pct={marginPct !== null ? marginPct / 100 : null} />
       </div>
 
-      {/* P&L em cascata */}
-      <div className="space-y-1" style={{
-        background: 'oklch(0.97 0.008 258)',
-        borderRadius: 8,
-        padding: '8px 10px',
-      }}>
-        <Row label="Preço de venda"        value={grossPrice}                    color={B.brand}   bold />
-        {shippingRec  > 0 && <Row label="(+) Frete cobrado cliente" value={shippingRec}  color="#16a34a" indent />}
-        {cancellation > 0 && <Row label="(-) Cancelamento"          value={-cancellation} color="#dc2626" indent />}
-        {discounts    > 0 && <Row label="(-) Desconto/cupom"         value={-discounts}    color="#d97706" indent />}
-        <Row label="(-) Comissão ML"       value={commission  > 0 ? -commission  : null} color="#dc2626" indent />
-        <Row label="(-) Frete ao vendedor" value={shippingFee > 0 ? -shippingFee : null} color="#dc2626" indent />
-        {ads > 0 && <Row label="(-) ADS"   value={-ads}                                  color="#dc2626" indent />}
-        <Row label="= Receita líquida" value={receitaLiquida} color={receitaLiquida >= 0 ? '#0B1023' : '#dc2626'} bold separator />
-        <Row label="(-) CMV"           value={cmv > 0 ? -cmv : null} color="#dc2626" indent />
-        <Row
-          label="= Lucro estimado"
-          value={lucro}
-          color={lucro === null ? B.muted : lucro >= 0 ? '#16a34a' : '#dc2626'}
-          bold separator
-        />
+      <div className="grid grid-cols-2 gap-1.5">
+        <div className="rounded-lg py-1.5 px-2" style={{ background: B.bgSubtle }}>
+          <div className="text-[9px] uppercase tracking-wide" style={{ color: B.muted }}>Preço venda</div>
+          <div className="text-[12px] font-bold num" style={{ color: B.brand, fontFamily: 'var(--font-geist-mono)' }}>{fmtR(faturamento)}</div>
+        </div>
+        <div className="rounded-lg py-1.5 px-2" style={{ background: B.bgSubtle }}>
+          <div className="text-[9px] uppercase tracking-wide" style={{ color: B.muted }}>Total custos</div>
+          <div className="text-[12px] font-bold num" style={{ color: totalCosts > 0 ? '#dc2626' : B.muted, fontFamily: 'var(--font-geist-mono)' }}>
+            {totalCosts > 0 ? fmtR(totalCosts) : '—'}
+          </div>
+        </div>
+        <div className="rounded-lg py-1.5 px-2" style={{ background: B.bgSubtle }}>
+          <div className="text-[9px] uppercase tracking-wide" style={{ color: B.muted }}>Lucro</div>
+          <div className="text-[12px] font-bold num" style={{ color: lucro === null ? B.muted : lucro >= 0 ? '#16a34a' : '#dc2626', fontFamily: 'var(--font-geist-mono)' }}>
+            {lucro !== null ? fmtR(lucro) : '—'}
+          </div>
+        </div>
+        <div className="rounded-lg py-1.5 px-2 flex items-center justify-between" style={{ background: B.bgSubtle }}>
+          <div className="text-[9px] uppercase tracking-wide" style={{ color: B.muted }}>Margem</div>
+          <MarginBadge pct={marginPct !== null ? marginPct / 100 : null} />
+        </div>
       </div>
-
-    </div>
+      <div className="text-[9px] mt-1.5 text-right" style={{ color: B.muted }}>{sale.sale_date} · ver detalhes →</div>
+    </a>
   )
 }
 
