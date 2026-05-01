@@ -21,15 +21,15 @@ import {
 
 // Manual de marca Oryma
 const C = {
-  bg:         '#0B1023',   // Azul Noite
-  border:     'rgba(255,255,255,0.08)',
+  bg:         '#1C2540',   // Azul Noite — um pouco mais claro
+  border:     'rgba(255,255,255,0.09)',
   hover:      'rgba(255,255,255,0.07)',
-  active:     'rgba(18,91,255,0.25)',
+  active:     'rgba(18,91,255,0.28)',
   activeDot:  '#125BFF',
-  text:       'rgba(255,255,255,0.55)',
-  textHover:  'rgba(255,255,255,0.90)',
+  text:       'rgba(255,255,255,0.60)',
+  textHover:  'rgba(255,255,255,0.92)',
   textActive: '#ffffff',
-  label:      'rgba(255,255,255,0.28)',
+  label:      'rgba(255,255,255,0.32)',
   footer:     'rgba(255,255,255,0.22)',
 }
 
