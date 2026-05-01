@@ -15,44 +15,38 @@ export async function POST(request: NextRequest) {
   const isAuthorized = authCookie === process.env.APP_PASSWORD || cronSecret === process.env.CRON_SECRET
   if (!isAuthorized) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const db       = createSupabaseServiceClient()
-  const now      = new Date()
+  const db    = createSupabaseServiceClient()
+  const now   = new Date()
+  const isCron = !!cronSecret
+  const days  = isCron ? 90 : 30
   const endDate   = format(now, 'yyyy-MM-dd')
-  const startDate = format(subDays(now, 90), 'yyyy-MM-dd')
+  const startDate = format(subDays(now, days), 'yyyy-MM-dd')
 
-  // Body pode especificar quais marketplaces sincronizar
-  let channels: string[] = ['mercado_livre', 'shopee', 'amazon']
-  try {
-    const body = await request.json()
-    if (Array.isArray(body.channels)) channels = body.channels
-  } catch {}
-
-  // Cria log de sync
-  const { data: log } = await db.from('sync_logs').insert({
+  // Cria log de sync — sem error_message inicial para evitar conflito
+  const { data: log, error: logError } = await db.from('sync_logs').insert({
     source: 'marketplaces',
     sync_type: 'sales',
     status: 'running',
     started_at: now.toISOString(),
-    error_message: JSON.stringify({ channels }),
-  }).select().single()
+  }).select('id').single()
 
-  const syncId = log?.id
-
-  // Mapa de funções por canal
-  const syncFns: Record<string, (s: string, e: string) => Promise<number>> = {
-    mercado_livre: syncMercadoLivre,
-    shopee: syncShopee,
-    amazon: syncAmazon,
+  if (logError || !log?.id) {
+    return NextResponse.json({ error: `Falha ao criar log de sync: ${logError?.message ?? 'id nulo'}` }, { status: 500 })
   }
 
-  // Roda em background — não bloqueia a resposta
+  const syncId = log.id
+
+  const syncFns: Record<string, (s: string, e: string) => Promise<number>> = {
+    mercado_livre: syncMercadoLivre,
+    shopee:        syncShopee,
+    amazon:        syncAmazon,
+  }
+
   const syncWork = async () => {
     const results: Record<string, number | string> = {}
     let totalSynced = 0
 
-    for (const channel of channels) {
-      const fn = syncFns[channel]
-      if (!fn) continue
+    for (const [channel, fn] of Object.entries(syncFns)) {
       try {
         const count = await fn(startDate, endDate)
         results[channel] = count
@@ -62,17 +56,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const hasError = Object.values(results).some(v => typeof v === 'string' && v.startsWith('error:'))
+    const hasError = Object.values(results).every(v => typeof v === 'string' && v.startsWith('error:'))
 
     await db.from('sync_logs').update({
-      status: hasError && totalSynced === 0 ? 'error' : 'success',
+      status: hasError ? 'error' : 'success',
       records_synced: totalSynced,
       error_message: JSON.stringify(results),
       finished_at: new Date().toISOString(),
     }).eq('id', syncId)
   }
 
-  // waitUntil garante que o Vercel mantém a função viva até o sync terminar
   waitUntil(syncWork())
 
   return NextResponse.json({ ok: true, sync_id: syncId, message: 'Sincronização iniciada em background' })
