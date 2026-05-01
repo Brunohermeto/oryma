@@ -135,3 +135,13 @@
 .brand-gradient {
   background: linear-gradient(135deg, #125BFF 0%, #00D6FF 50%, #7B61FF 100%);
 }
+
+/* Hover utilitário para cards e linhas — evita event handlers em Server Components */
+.hover-card:hover {
+  background: oklch(0.94 0.010 258) !important;
+  transition: background 150ms ease;
+}
+.hover-row:hover {
+  background: oklch(0.96 0.010 258) !important;
+  transition: background 150ms ease;
+}

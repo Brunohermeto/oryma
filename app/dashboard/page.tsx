@@ -153,10 +153,8 @@ export default async function DashboardPage() {
           {/* Receita Bruta */}
           <a
             href={`/dashboard/vendas?from=${start}&to=${end}`}
-            className="block bg-white rounded-xl p-5 transition-all"
+            className="block bg-white rounded-xl p-5 transition-all hover-card"
             style={{ border: '1px solid oklch(0.88 0.016 258)', textDecoration: 'none' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'oklch(0.94 0.010 258)' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}
           >
             <div className="flex items-center justify-between mb-3">
               <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'oklch(0.50 0.025 258)' }}>
@@ -183,10 +181,8 @@ export default async function DashboardPage() {
           {/* Pedidos */}
           <a
             href={`/dashboard/vendas?from=${start}&to=${end}`}
-            className="block bg-white rounded-xl p-5 transition-all"
+            className="block bg-white rounded-xl p-5 transition-all hover-card"
             style={{ border: '1px solid oklch(0.88 0.016 258)', textDecoration: 'none' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'oklch(0.94 0.010 258)' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}
           >
             <div className="flex items-center justify-between mb-3">
               <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'oklch(0.50 0.025 258)' }}>
@@ -205,10 +201,8 @@ export default async function DashboardPage() {
           {/* Tarifas + ADS */}
           <a
             href="/dashboard/dre"
-            className="block bg-white rounded-xl p-5 transition-all"
+            className="block bg-white rounded-xl p-5 transition-all hover-card"
             style={{ border: '1px solid oklch(0.88 0.016 258)', textDecoration: 'none' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'oklch(0.94 0.010 258)' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}
           >
             <div className="flex items-center justify-between mb-3">
               <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'oklch(0.50 0.025 258)' }}>
@@ -227,10 +221,8 @@ export default async function DashboardPage() {
           {/* Margem Bruta */}
           <a
             href="/dashboard/dre"
-            className="block bg-white rounded-xl p-5 transition-all"
+            className="block bg-white rounded-xl p-5 transition-all hover-card"
             style={{ border: '1px solid oklch(0.88 0.016 258)', textDecoration: 'none' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'oklch(0.94 0.010 258)' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}
           >
             <div className="flex items-center justify-between mb-3">
               <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'oklch(0.50 0.025 258)' }}>
@@ -306,10 +298,8 @@ export default async function DashboardPage() {
                   <a
                     key={mp}
                     href={`/dashboard/vendas?mp=${mp}&from=${start}&to=${end}`}
-                    className="block transition-all rounded-lg px-2 py-1.5 -mx-2"
+                    className="block transition-all rounded-lg px-2 py-1.5 -mx-2 hover-card"
                     style={{ textDecoration: 'none' }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'oklch(0.94 0.010 258)' }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}
                   >
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-2">
@@ -372,10 +362,8 @@ export default async function DashboardPage() {
                 <a
                   key={i}
                   href={`/dashboard/vendas?product=${p.id}&from=${start}&to=${end}`}
-                  className="flex items-center gap-3 rounded-lg px-2 py-1.5 -mx-2 transition-all"
+                  className="flex items-center gap-3 rounded-lg px-2 py-1.5 -mx-2 transition-all hover-card"
                   style={{ textDecoration: 'none' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'oklch(0.94 0.010 258)' }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}
                 >
                   <div
                     className="w-6 h-6 rounded-lg flex items-center justify-center text-[11px] font-bold flex-shrink-0"

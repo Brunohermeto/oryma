@@ -1,3 +1,4 @@
+'use client'
 import type { DRERow } from '@/types'
 
 const MP_COLS = [
