@@ -26,11 +26,12 @@ const MP_COLORS: Record<string, string> = {
 export default async function DashboardPage() {
   const db = createSupabaseServiceClient()
   const now = new Date()
-  const start = format(startOfMonth(now), 'yyyy-MM-dd')
-  const end = format(endOfMonth(now), 'yyyy-MM-dd')
-  const prevStart = format(startOfMonth(subMonths(now, 1)), 'yyyy-MM-dd')
-  const prevEnd = format(endOfMonth(subMonths(now, 1)), 'yyyy-MM-dd')
-  const last30Start = format(subDays(now, 29), 'yyyy-MM-dd')
+  // Usa últimos 30 dias como período principal (mais relevante que "mês atual")
+  const start = format(subDays(now, 29), 'yyyy-MM-dd')
+  const end = format(now, 'yyyy-MM-dd')
+  const prevStart = format(subDays(now, 59), 'yyyy-MM-dd')
+  const prevEnd = format(subDays(now, 30), 'yyyy-MM-dd')
+  const last30Start = start
 
   const { data: sales } = await db
     .from('sales')
@@ -129,7 +130,7 @@ export default async function DashboardPage() {
     .sort((a, b) => b.revenue - a.revenue)
     .slice(0, 5)
 
-  const currentMonth = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  const currentMonth = 'Últimos 30 dias'
 
   // Margin color helper
   function marginColor(m: number) {
