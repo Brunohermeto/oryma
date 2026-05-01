@@ -14,17 +14,26 @@ interface BlingNFeSaidaList {
   data: BlingNFeSaidaItem[]
 }
 
+// Séries válidas para NF-e ao consumidor de marketplace
+// Exclui série 4xx (remessa Full ML) e 420 (FBA) — não têm impostos ao consumidor
+function isSerieValida(serie: string): boolean {
+  const n = Number(serie)
+  if (isNaN(n)) return false
+  return n < 100 // série 1, 2, 3 = válidas; 4xx = remessa, excluir
+}
+
 export async function syncNFeSaida(startDate: string, endDate: string): Promise<number> {
   const db = createSupabaseServiceClient()
   let page = 1
   let synced = 0
 
   while (true) {
+    // Busca todas as NF-e autorizadas (situação 100) sem filtro de série
+    // Filtramos no loop para excluir série 4xx (remessa)
     const list = await blingGet<BlingNFeSaidaList>('/nfe', {
       pagina: String(page),
       limite: '100',
-      situacao: '2', // authorized
-      serie: '2',    // ONLY série 2 — excludes Full ML (4) and FBA (420)
+      situacaoId: '100', // autorizada
       dataEmissaoInicio: startDate,
       dataEmissaoFim: endDate,
     })
@@ -32,20 +41,20 @@ export async function syncNFeSaida(startDate: string, endDate: string): Promise<
     if (!list.data?.length) break
 
     for (const nfe of list.data) {
-      // Double-check: skip anything not série 2
-      if (String(nfe.serie) !== '2') continue
+      // Aceita série 1, 2, 3 — exclui série 4xx (Full ML/FBA remessa)
+      if (!isSerieValida(nfe.serie)) continue
 
       try {
         const xmlRes = await blingGet<{ data: { xml: string } }>(`/nfe/${nfe.id}/xml`)
         const xml = xmlRes.data?.xml
         if (!xml) continue
 
+        // Guarda XML no Storage
         const storagePath = `nfe-saida/${nfe.id}.xml`
         await db.storage
           .from('nfe-xml')
           .upload(storagePath, new Blob([xml], { type: 'text/xml' }), { upsert: true })
 
-        // Extract tax totals from XML (ICMSTot block)
         function extractTotal(tag: string): number {
           const m = xml.match(new RegExp(`<${tag}>([^<]+)<\/${tag}>`))
           return parseFloat(m?.[1] ?? '0')
@@ -54,23 +63,55 @@ export async function syncNFeSaida(startDate: string, endDate: string): Promise<
         const chave = nfe.chaveAcesso ?? xml.match(/<chNFe>([^<]+)<\/chNFe>/)?.[1] ?? null
         if (!chave) continue
 
-        // Link taxes to the sale that has this NF-e key
+        const pisTot    = extractTotal('vPIS')
+        const cofinsTot = extractTotal('vCOFINS')
+        const icmsTot   = extractTotal('vICMS')
+        const difalTot  = extractTotal('vICMSUFDest') + extractTotal('vICMSUFRemet')
+        const ipiTot    = extractTotal('vIPI')
+
+        // Tenta vincular à venda pelo nfe_saida_key
         const { data: sale } = await db
           .from('sales')
           .select('id')
           .eq('nfe_saida_key', chave)
-          .single()
+          .maybeSingle()
 
         if (sale) {
           await db.from('sale_taxes').upsert({
             sale_id: sale.id,
             nfe_key: chave,
-            pis: extractTotal('vPIS'),
-            cofins: extractTotal('vCOFINS'),
-            icms: extractTotal('vICMS'),
-            icms_difal: extractTotal('vICMSUFDest') + extractTotal('vICMSUFRemet'),
-            ipi: extractTotal('vIPI'),
+            pis: pisTot,
+            cofins: cofinsTot,
+            icms: icmsTot,
+            icms_difal: difalTot,
+            ipi: ipiTot,
           }, { onConflict: 'sale_id' })
+        } else {
+          // Se não encontrou pela chave, tenta pelo número da NF-e + data
+          // Extrai data de emissão e valor total do XML para matching aproximado
+          const vNF = extractTotal('vNF')
+          const dhEmi = xml.match(/<dhEmi>([^<]+)<\/dhEmi>/)?.[1]?.slice(0, 10) ?? nfe.dataEmissao.slice(0, 10)
+
+          const { data: saleByDate } = await db
+            .from('sales')
+            .select('id')
+            .eq('sale_date', dhEmi)
+            .is('nfe_saida_key', null)
+            .maybeSingle()
+
+          if (saleByDate && vNF > 0) {
+            // Atualiza a venda com a chave NF-e e insere os impostos
+            await db.from('sales').update({ nfe_saida_key: chave }).eq('id', saleByDate.id)
+            await db.from('sale_taxes').upsert({
+              sale_id: saleByDate.id,
+              nfe_key: chave,
+              pis: pisTot,
+              cofins: cofinsTot,
+              icms: icmsTot,
+              icms_difal: difalTot,
+              ipi: ipiTot,
+            }, { onConflict: 'sale_id' })
+          }
         }
 
         synced++
