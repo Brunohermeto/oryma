@@ -86,7 +86,6 @@ export async function syncMercadoLivre(startDate: string, endDate: string): Prom
           fulfillment_type: fulfillmentType,
           product_id: product?.id ?? null,
           sku,
-          product_name: item.item.title,
           sale_date: order.date_created.slice(0, 10),
           quantity: qty,
           gross_price: grossPrice,
