@@ -37,9 +37,10 @@ export async function POST(request: NextRequest) {
 
   const syncId = log.id
 
-  // Ambos buscam frete real por shipment — 7 dias manual tem poucos pedidos, cabe nos 60s
+  // Frete agora vem da NF-e saída (campo vFrete no XML) — não precisa chamar API de shipments
+  // fetchShipmentCosts: false poupa tempo e evita timeout
   const mlSync = (s: string, e: string) =>
-    syncMercadoLivre(s, e, { fetchShipmentCosts: true })
+    syncMercadoLivre(s, e, { fetchShipmentCosts: false })
 
   const syncFns: Record<string, (s: string, e: string) => Promise<number>> = {
     mercado_livre: mlSync,

@@ -23,9 +23,55 @@ function isSerieValida(serie: string): boolean {
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
-function extractTotal(xml: string, tag: string): number {
+function extractTag(xml: string, tag: string): number {
   const m = xml.match(new RegExp(`<${tag}>([^<]+)<\\/${tag}>`))
   return parseFloat(m?.[1] ?? '0')
+}
+
+function extractStr(xml: string, tag: string): string | null {
+  const m = xml.match(new RegExp(`<${tag}>([^<]+)<\\/${tag}>`))
+  return m?.[1] ?? null
+}
+
+/**
+ * Extrai dados do campo "Dados Adicionais" (infCpl) da NF-e.
+ * Exemplo: "Canal: Mercado Livre Numero Pedido Loja: 2000012748588981 Quem recebe: ..."
+ * Exemplo: "Canal: Shopee Numero Pedido Loja: 260501A6ANR8A7 Quem recebe: ..."
+ */
+function parseInfoAdicionais(xml: string): { canal: string | null; numeroPedido: string | null } {
+  const infCpl = extractStr(xml, 'infCpl') ?? ''
+
+  // Canal: Mercado Livre | Shopee | Amazon
+  const canalMatch = infCpl.match(/Canal:\s*(Mercado Livre|Shopee|Amazon)/i)
+  const canal = canalMatch?.[1]?.toLowerCase()
+    .replace('mercado livre', 'mercado_livre') ?? null
+
+  // Numero Pedido Loja: XXXXXX
+  const pedidoMatch = infCpl.match(/Numero Pedido Loja:\s*([^\s]+)/i)
+  const numeroPedido = pedidoMatch?.[1] ?? null
+
+  return { canal, numeroPedido }
+}
+
+/**
+ * Tenta vincular a NF-e a uma venda pelo número do pedido do marketplace.
+ * Este é o matching mais preciso — usa o próprio número do pedido gravado na NF-e.
+ */
+async function findSaleByOrderNumber(
+  db: ReturnType<typeof import('@/lib/supabase/server').createSupabaseServiceClient>,
+  canal: string,
+  numeroPedido: string
+): Promise<string | null> {
+  // external_order_id tem formato: ml_ORDERID_ITEMID ou shopee_ORDERID_ITEMID
+  const prefix = canal === 'mercado_livre' ? `ml_${numeroPedido}` : `${canal}_${numeroPedido}`
+
+  const { data } = await db
+    .from('sales')
+    .select('id')
+    .like('external_order_id', `${prefix}%`)
+    .maybeSingle()
+
+  return data?.id ?? null
 }
 
 export async function syncNFeSaida(startDate: string, endDate: string): Promise<number> {
@@ -52,59 +98,82 @@ export async function syncNFeSaida(startDate: string, endDate: string): Promise<
         const xml = xmlRes.data?.xml
         if (!xml) continue
 
-        // NÃO faz upload para Storage — só extrai os dados em memória
-        // (Storage é lento demais: ~300ms extra por NF-e com 300 notas/dia)
-
+        // Chave de acesso
         const chave = nfe.chaveAcesso ?? xml.match(/<chNFe>([^<]+)<\/chNFe>/)?.[1] ?? null
         if (!chave) continue
 
-        const pisTot    = extractTotal(xml, 'vPIS')
-        const cofinsTot = extractTotal(xml, 'vCOFINS')
-        const icmsTot   = extractTotal(xml, 'vICMS')
-        const difalTot  = extractTotal(xml, 'vICMSUFDest') + extractTotal(xml, 'vICMSUFRemet')
-        const ipiTot    = extractTotal(xml, 'vIPI')
-        const vNF       = extractTotal(xml, 'vNF')
-        const dhEmi     = xml.match(/<dhEmi>([^<]+)<\/dhEmi>/)?.[1]?.slice(0, 10) ?? nfe.dataEmissao.slice(0, 10)
+        // ── Impostos ──
+        const pisTot    = extractTag(xml, 'vPIS')
+        const cofinsTot = extractTag(xml, 'vCOFINS')
+        const icmsTot   = extractTag(xml, 'vICMS')
+        const difalTot  = extractTag(xml, 'vICMSUFDest') + extractTag(xml, 'vICMSUFRemet')
+        const ipiTot    = extractTag(xml, 'vIPI')
+        const freteTot  = extractTag(xml, 'vFrete') // frete da NF-e (CIF)
 
-        // 1. Tenta vincular pela chave NF-e já cadastrada na venda
-        const { data: saleByKey } = await db
-          .from('sales')
-          .select('id')
-          .eq('nfe_saida_key', chave)
-          .maybeSingle()
+        // ── Dados adicionais: canal + número do pedido ──
+        const { canal, numeroPedido } = parseInfoAdicionais(xml)
 
-        if (saleByKey) {
-          await db.from('sale_taxes').upsert({
-            sale_id: saleByKey.id, nfe_key: chave,
-            pis: pisTot, cofins: cofinsTot, icms: icmsTot,
-            icms_difal: difalTot, ipi: ipiTot,
-          }, { onConflict: 'sale_id' })
-          synced++
-          continue
+        let saleId: string | null = null
+
+        // Estratégia 1: matching pelo número do pedido na NF-e (mais preciso)
+        if (canal && numeroPedido) {
+          saleId = await findSaleByOrderNumber(db, canal, numeroPedido)
         }
 
-        // 2. Fallback: match por data + valor total (vNF próximo ao gross_price)
-        if (vNF > 0) {
-          const tolerance = vNF * 0.02 // 2% de tolerância
-          const { data: saleByValue } = await db
+        // Estratégia 2: matching pela chave NF-e já cadastrada
+        if (!saleId) {
+          const { data: saleByKey } = await db
             .from('sales')
             .select('id')
-            .eq('sale_date', dhEmi)
-            .is('nfe_saida_key', null)
-            .gte('gross_price', vNF - tolerance)
-            .lte('gross_price', vNF + tolerance)
+            .eq('nfe_saida_key', chave)
             .maybeSingle()
+          saleId = saleByKey?.id ?? null
+        }
 
-          if (saleByValue) {
-            await db.from('sales').update({ nfe_saida_key: chave }).eq('id', saleByValue.id)
-            await db.from('sale_taxes').upsert({
-              sale_id: saleByValue.id, nfe_key: chave,
-              pis: pisTot, cofins: cofinsTot, icms: icmsTot,
-              icms_difal: difalTot, ipi: ipiTot,
-            }, { onConflict: 'sale_id' })
-            synced++
+        // Estratégia 3: fallback por data + valor total (tolerância 2%)
+        if (!saleId) {
+          const vNF    = extractTag(xml, 'vNF')
+          const dhEmi  = xml.match(/<dhEmi>([^<]+)<\/dhEmi>/)?.[1]?.slice(0, 10)
+            ?? nfe.dataEmissao.slice(0, 10)
+
+          if (vNF > 0) {
+            const tol = vNF * 0.02
+            const { data: saleByVal } = await db
+              .from('sales')
+              .select('id')
+              .eq('sale_date', dhEmi)
+              .is('nfe_saida_key', null)
+              .gte('gross_price', vNF - tol)
+              .lte('gross_price', vNF + tol)
+              .maybeSingle()
+            saleId = saleByVal?.id ?? null
           }
         }
+
+        if (!saleId) continue
+
+        // Vincula a chave NF-e à venda
+        const updates: Record<string, unknown> = { nfe_saida_key: chave }
+
+        // Atualiza o frete se a NF-e tiver (CIF — remetente paga)
+        if (freteTot > 0) {
+          updates.marketplace_shipping_fee = freteTot
+        }
+
+        await db.from('sales').update(updates).eq('id', saleId)
+
+        // Salva os impostos
+        await db.from('sale_taxes').upsert({
+          sale_id: saleId,
+          nfe_key: chave,
+          pis:        pisTot,
+          cofins:     cofinsTot,
+          icms:       icmsTot,
+          icms_difal: difalTot,
+          ipi:        ipiTot,
+        }, { onConflict: 'sale_id' })
+
+        synced++
       } catch {
         continue
       }
