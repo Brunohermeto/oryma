@@ -43,27 +43,31 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Testa chamada simples à API do Bling com timeout de 8s
-  let apiResult: string | null = null
-  let apiMs: number | null = null
-  if (cred?.access_token && !isTokenExpired(cred.expires_at)) {
+  // Testa múltiplos endpoints para identificar qual módulo está bloqueado
+  async function testEndpoint(path: string): Promise<string> {
+    if (!cred?.access_token || isTokenExpired(cred.expires_at)) return 'token inválido'
     const t0 = Date.now()
     try {
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 8000)
-
-      const res = await fetch('https://www.bling.com.br/Api/v3/situacoes/modulos', {
+      const res = await fetch(`https://www.bling.com.br/Api/v3${path}`, {
         signal: controller.signal,
-        headers: { Authorization: `Bearer ${cred.access_token}` },
+        headers: { Authorization: `Bearer ${cred!.access_token}` },
       })
       clearTimeout(timeout)
-      apiMs = Date.now() - t0
-      apiResult = `HTTP ${res.status} — ${apiMs}ms`
+      let body = ''
+      try { const j = await res.json(); body = JSON.stringify(j).slice(0, 100) } catch {}
+      return `HTTP ${res.status} — ${Date.now() - t0}ms${body ? ` — ${body}` : ''}`
     } catch (e) {
-      apiMs = Date.now() - t0
-      apiResult = `ERRO: ${String(e)} (${apiMs}ms)`
+      return `ERRO: ${String(e)} (${Date.now() - t0}ms)`
     }
   }
+
+  const [usuariosMe, nfeList, nfeCategoria] = await Promise.all([
+    testEndpoint('/usuarios/me'),
+    testEndpoint('/nfe?pagina=1&limite=1'),
+    testEndpoint('/situacoes/modulos'),
+  ])
 
   return NextResponse.json({
     credentials: {
@@ -74,6 +78,10 @@ export async function GET(request: NextRequest) {
       updated_at: cred?.updated_at,
     },
     token_refresh_test: isTokenExpired(cred?.expires_at ?? null) ? refreshResult : 'não necessário (token válido)',
-    api_test: apiResult ?? 'não executado (token expirado)',
+    api_tests: {
+      '/usuarios/me': usuariosMe,
+      '/nfe?pagina=1&limite=1': nfeList,
+      '/situacoes/modulos': nfeCategoria,
+    },
   })
 }
