@@ -63,6 +63,26 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Pega primeiro NF-e completo para ver todos os campos retornados
+  let nfeFullObject: unknown = null
+  if (cred?.access_token && !isTokenExpired(cred.expires_at)) {
+    try {
+      const now = new Date()
+      const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1)
+      const startDate = yesterday.toISOString().slice(0, 10)
+      const endDate = now.toISOString().slice(0, 10)
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 8000)
+      const res = await fetch(
+        `https://www.bling.com.br/Api/v3/nfe?pagina=1&limite=1&dataEmissaoInicio=${startDate}&dataEmissaoFim=${endDate}`,
+        { signal: controller.signal, headers: { Authorization: `Bearer ${cred.access_token}` } }
+      )
+      clearTimeout(timeout)
+      const json = await res.json()
+      nfeFullObject = json?.data?.[0] ?? null  // objeto completo do primeiro NF-e
+    } catch {}
+  }
+
   const [usuariosMe, nfeList, nfeCategoria] = await Promise.all([
     testEndpoint('/usuarios/me'),
     testEndpoint('/nfe?pagina=1&limite=1'),
@@ -83,5 +103,6 @@ export async function GET(request: NextRequest) {
       '/nfe?pagina=1&limite=1': nfeList,
       '/situacoes/modulos': nfeCategoria,
     },
+    nfe_first_object: nfeFullObject,  // todos os campos do primeiro NF-e
   })
 }
