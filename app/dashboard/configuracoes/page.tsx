@@ -145,7 +145,7 @@ export default async function ConfiguracoesPage() {
             Marketplaces — Pedidos e Vendas
           </div>
           <p className="text-[13px] mb-4" style={{ color: B.muted }}>
-            Força sync de hoje. O cron automático (6h e 20h) cobre o histórico completo.
+            Processa 20 NF-e por clique (~18s). Para cobrir o dia completo (~300 NF-e), clique cerca de 15 vezes. O cron automático (6h e 20h) mantém tudo atualizado após o carregamento inicial.
           </p>
           <MarketplaceSyncButton />
         </div>
