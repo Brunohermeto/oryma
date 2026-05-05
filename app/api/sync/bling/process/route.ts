@@ -92,7 +92,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (!saleId) return NextResponse.json({ ok: true, matched: false, reason: 'no_sale_match' })
+    if (!saleId) {
+      const vNF2  = extractTag(xml, 'vNF')
+      const dhEmi2 = xml.match(/<dhEmi>([^<]+)<\/dhEmi>/)?.[1]?.slice(0, 10) ?? ''
+      return NextResponse.json({
+        ok: true, matched: false, reason: 'no_sale_match',
+        debug: { infCpl: infCpl.slice(0, 200), canal, numeroPedido, vNF: vNF2, dhEmi: dhEmi2 },
+      })
+    }
 
     // Salva em paralelo
     const updates: Record<string, unknown> = { nfe_saida_key: chave }

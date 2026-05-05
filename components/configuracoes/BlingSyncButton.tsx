@@ -34,7 +34,7 @@ export function BlingSyncButton() {
 
     try {
       // ── Fase 1: pega a lista de NF-e pendentes ────────────────────────
-      const startRes = await fetch('/api/sync/bling/start', { method: 'POST' })
+      const startRes = await fetch('/api/sync/bling/start?days=30&limit=100', { method: 'POST' })
       if (!startRes.ok) {
         const err = await startRes.json().catch(() => ({}))
         throw new Error(err.error ?? `HTTP ${startRes.status}`)
@@ -72,6 +72,10 @@ export function BlingSyncButton() {
         if (res.ok) {
           const data = await res.json()
           if (data.matched) synced++
+          // Log debug info para diagnosticar falhas de matching
+          if (!data.matched && data.debug) {
+            console.warn(`NF-e ${nfe.id} não vinculada:`, data.reason, data.debug)
+          }
         }
         // Se der erro numa NF-e específica, continua para a próxima
       }

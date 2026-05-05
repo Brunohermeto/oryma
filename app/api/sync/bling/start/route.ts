@@ -40,7 +40,8 @@ export async function POST(request: NextRequest) {
 
   const db  = createSupabaseServiceClient()
   const now = new Date()
-  const days      = Number(request.nextUrl.searchParams.get('days') ?? '1')
+  const days      = Number(request.nextUrl.searchParams.get('days') ?? '7')
+  const limit     = Number(request.nextUrl.searchParams.get('limit') ?? '50')
   const startDate = format(subDays(now, days), 'yyyy-MM-dd')
   const endDate   = format(now, 'yyyy-MM-dd')
 
@@ -57,19 +58,25 @@ export async function POST(request: NextRequest) {
       .from('sales').select('nfe_saida_key').not('nfe_saida_key', 'is', null)
     const linkedChaves = new Set((linked ?? []).map(s => s.nfe_saida_key as string))
 
-    // Lista de NF-e do Bling (sem baixar XMLs)
-    const list = await blingGet<{ data: BlingNFeSaidaItem[] }>('/nfe', {
-      pagina: '1', limite: '100',
-      dataEmissaoInicio: startDate, dataEmissaoFim: endDate,
-    }, 1)
+    // Lista de NF-e do Bling com paginação (máx. 5 páginas = 500 NF-e)
+    const allNfe: BlingNFeSaidaItem[] = []
+    for (let page = 1; page <= 5; page++) {
+      const list = await blingGet<{ data: BlingNFeSaidaItem[] }>('/nfe', {
+        pagina: String(page), limite: '100',
+        dataEmissaoInicio: startDate, dataEmissaoFim: endDate,
+      }, 1)
+      const items = list.data ?? []
+      allNfe.push(...items)
+      if (items.length < 100) break  // última página
+    }
 
     // Filtra: só séries válidas e não processadas ainda
-    const pending = (list.data ?? [])
+    const pending = allNfe
       .filter(nfe => nfe.tipo === 1)                           // só NF-e saída (não entrada/compras)
       .filter(nfe => nfe.situacao === 5)                       // só Autorizadas (não canceladas/pendentes)
       .filter(nfe => isSerieValida(nfe.chaveAcesso))           // série via chaveAcesso (< 100, exclui remessa Full)
       .filter(nfe => !nfe.chaveAcesso || !linkedChaves.has(nfe.chaveAcesso)) // pula já processadas
-      .slice(0, 20)  // máximo 20 por rodada de clique
+      .slice(0, limit)  // máximo `limit` por rodada
       .map(nfe => ({ id: nfe.id, chaveAcesso: nfe.chaveAcesso }))
 
     return NextResponse.json({ ok: true, sync_id: syncId, pending, startDate, endDate })
