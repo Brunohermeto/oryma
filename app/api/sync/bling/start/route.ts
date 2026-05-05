@@ -21,9 +21,14 @@ interface BlingNFeSaidaItem {
   chaveAcesso: string | null
 }
 
-function isSerieValida(serie: string): boolean {
-  const n = Number(serie)
-  return !isNaN(n) && n < 100
+// A API de listagem do Bling NÃO retorna o campo "serie".
+// A série está codificada na chaveAcesso (posições 22-24 do código de 44 dígitos).
+// Exemplo: "31260508072288000111550020000267461323092135" → posições 22-24 = "002" = série 2
+// Série >= 100 = remessa Full ML/FBA (excluir)
+function isSerieValida(chaveAcesso: string | null): boolean {
+  if (!chaveAcesso || chaveAcesso.length !== 44) return true  // sem chave: inclui, o process filtra
+  const serie = parseInt(chaveAcesso.slice(22, 25), 10)
+  return !isNaN(serie) && serie < 100
 }
 
 export async function POST(request: NextRequest) {
@@ -59,7 +64,7 @@ export async function POST(request: NextRequest) {
 
     // Filtra: só séries válidas e não processadas ainda
     const pending = (list.data ?? [])
-      .filter(nfe => isSerieValida(nfe.serie))
+      .filter(nfe => isSerieValida(nfe.chaveAcesso))           // série via chaveAcesso (série não vem no response)
       .filter(nfe => !nfe.chaveAcesso || !linkedChaves.has(nfe.chaveAcesso))
       .slice(0, 20)  // máximo 20 por rodada de clique
       .map(nfe => ({ id: nfe.id, chaveAcesso: nfe.chaveAcesso }))
