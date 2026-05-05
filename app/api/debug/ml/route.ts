@@ -23,6 +23,17 @@ export async function GET(request: NextRequest) {
     const startDate = format(subDays(now, 7), 'yyyy-MM-dd')
     const endDate = format(now, 'yyyy-MM-dd')
 
+    // 2. Checa quem é o usuário autenticado
+    let userInfo = null
+    let userError = null
+    try {
+      const u = await mlGet<{ id: number; nickname: string; first_name: string; last_name: string; email: string; permalink: string }>('/users/me')
+      userInfo = { id: u.id, nickname: u.nickname, name: `${u.first_name} ${u.last_name}`, permalink: u.permalink }
+    } catch (e) {
+      userError = String(e)
+    }
+
+    // 3. Testa busca de pedidos dos últimos 7 dias
     let ordersResult = null
     let ordersError = null
     try {
@@ -47,6 +58,10 @@ export async function GET(request: NextRequest) {
         seller_id: extra?.seller_id,
         seller_id_resolved: sellerId,
         updated_at: cred?.updated_at,
+      },
+      account: {
+        info: userInfo,
+        error: userError,
       },
       orders_test: {
         date_range: `${startDate} → ${endDate}`,
