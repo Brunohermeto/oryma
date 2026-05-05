@@ -16,7 +16,8 @@ export const preferredRegion = 'gru1'
 
 interface BlingNFeSaidaItem {
   id: number
-  serie: string
+  tipo: number          // 1 = saída | 2 = entrada
+  situacao: number      // 5 = Autorizada | outros = cancelada/pendente
   dataEmissao: string
   chaveAcesso: string | null
 }
@@ -64,8 +65,10 @@ export async function POST(request: NextRequest) {
 
     // Filtra: só séries válidas e não processadas ainda
     const pending = (list.data ?? [])
-      .filter(nfe => isSerieValida(nfe.chaveAcesso))           // série via chaveAcesso (série não vem no response)
-      .filter(nfe => !nfe.chaveAcesso || !linkedChaves.has(nfe.chaveAcesso))
+      .filter(nfe => nfe.tipo === 1)                           // só NF-e saída (não entrada/compras)
+      .filter(nfe => nfe.situacao === 5)                       // só Autorizadas (não canceladas/pendentes)
+      .filter(nfe => isSerieValida(nfe.chaveAcesso))           // série via chaveAcesso (< 100, exclui remessa Full)
+      .filter(nfe => !nfe.chaveAcesso || !linkedChaves.has(nfe.chaveAcesso)) // pula já processadas
       .slice(0, 20)  // máximo 20 por rodada de clique
       .map(nfe => ({ id: nfe.id, chaveAcesso: nfe.chaveAcesso }))
 
