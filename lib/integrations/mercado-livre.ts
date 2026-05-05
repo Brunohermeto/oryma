@@ -8,6 +8,7 @@ export function getMercadoLivreAuthUrl(): string {
     response_type: 'code',
     client_id: process.env.ML_CLIENT_ID!,
     redirect_uri: process.env.ML_REDIRECT_URI!,
+    scope: 'offline_access read write',  // offline_access = refresh token de longa duração
   })
   return `${ML_AUTH_URL}/authorization?${params}`
 }
