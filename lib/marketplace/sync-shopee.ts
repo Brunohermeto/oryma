@@ -52,6 +52,10 @@ export async function syncShopee(startDate: string, endDate: string): Promise<nu
   const cred = await getCredential('shopee')
   if (!cred?.access_token) return 0
 
+  // Pré-carrega produtos
+  const { data: allProducts } = await db.from('products').select('id, sku')
+  const productMap = Object.fromEntries((allProducts ?? []).map(p => [p.sku, p.id]))
+
   let cursor = ''
   let synced = 0
   const fromTs = Math.floor(new Date(startDate).getTime() / 1000)
@@ -92,14 +96,14 @@ export async function syncShopee(startDate: string, endDate: string): Promise<nu
       for (const item of orderDetail.item_list ?? []) {
         const sku = item.item_sku
         const grossPrice = (item.model_discounted_price || item.model_original_price) * item.model_quantity_purchased
-        const { data: product } = await db.from('products').select('id').eq('sku', sku).single()
+        const productId = productMap[sku] ?? null
 
         const income = escrow?.order_income
         await db.from('sales').upsert({
           external_order_id: `shopee_${orderDetail.order_sn}_${sku}`,
           marketplace: 'shopee',
           fulfillment_type: 'galpao',
-          product_id: product?.id ?? null,
+          product_id: productId,
           sku,
           sale_date: new Date(orders.find(o => o.order_sn === orderDetail.order_sn)!.create_time * 1000).toISOString().slice(0, 10),
           quantity: item.model_quantity_purchased,

@@ -145,7 +145,7 @@ export default async function ConfiguracoesPage() {
             Marketplaces — Pedidos e Vendas
           </div>
           <p className="text-[13px] mb-4" style={{ color: B.muted }}>
-            Força sync dos últimos 7 dias. O cron automático (6h e 20h) cobre os últimos 90 dias.
+            Força sync de hoje. O cron automático (6h e 20h) cobre o histórico completo.
           </p>
           <MarketplaceSyncButton />
         </div>

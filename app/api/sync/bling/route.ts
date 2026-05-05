@@ -38,7 +38,10 @@ export async function POST(request: NextRequest) {
   const syncWork = async () => {
     try {
       // NF-e saída: vincula impostos (PIS/COFINS/ICMS) às vendas
-      const saida = await syncNFeSaida(startDate, endDate)
+      // Manual: 100 NF-e por rodada (seguro dentro de 60s) — rode 3x para cobrir 300/dia
+      // Cron: 500 NF-e (maioria já processada, skip rápido)
+      const maxNFe = isCron ? 500 : 100
+      const saida = await syncNFeSaida(startDate, endDate, maxNFe)
 
       // NF-e entrada (série 0, CFOP 3102): só executa no cron para não atrasar o manual
       let entrada = 0

@@ -34,11 +34,12 @@ export async function exchangeMercadoLivreCode(code: string): Promise<void> {
   })
 }
 
-export async function getValidMercadoLivreToken(): Promise<string | null> {
+export async function getValidMercadoLivreToken(): Promise<string> {
   const cred = await getCredential('mercado_livre')
-  if (!cred?.access_token) return null
+  if (!cred?.access_token) throw new Error('Mercado Livre não conectado — acesse Configurações e clique em Conectar')
   if (!isTokenExpired(cred.expires_at)) return cred.access_token
 
+  // Token expirado — tenta renovar
   const res = await fetch(`${ML_BASE}/oauth/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
@@ -49,7 +50,9 @@ export async function getValidMercadoLivreToken(): Promise<string | null> {
       refresh_token: cred.refresh_token!,
     }),
   })
-  if (!res.ok) return null
+  if (!res.ok) {
+    throw new Error(`Token do Mercado Livre expirado — acesse Configurações e clique em Reconectar (status: ${res.status})`)
+  }
   const data = await res.json()
   await saveCredential('mercado_livre', {
     access_token: data.access_token,
@@ -66,8 +69,7 @@ export async function getMercadoLivreSellerId(): Promise<string | null> {
 }
 
 export async function mlGet<T>(path: string, params?: Record<string, string>, retries = 3): Promise<T> {
-  const token = await getValidMercadoLivreToken()
-  if (!token) throw new Error('Mercado Livre não conectado')
+  const token = await getValidMercadoLivreToken() // já lança erro se não conectado ou expirado
   const url = new URL(`${ML_BASE}${path}`)
   if (params) Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
 

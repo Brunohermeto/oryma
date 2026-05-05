@@ -76,6 +76,10 @@ export async function syncMercadoLivre(
   const sellerId = await getMercadoLivreSellerId()
   if (!sellerId) throw new Error('Seller ID do Mercado Livre não encontrado — reconecte via OAuth')
 
+  // Pré-carrega todos os produtos uma única vez para evitar 1 query por pedido
+  const { data: allProducts } = await db.from('products').select('id, sku')
+  const productMap = Object.fromEntries((allProducts ?? []).map(p => [p.sku, p.id]))
+
   while (true) {
     const response = await mlGet<MLOrdersResponse>('/orders/search', {
       seller: sellerId,
@@ -114,22 +118,19 @@ export async function syncMercadoLivre(
         const qty = item.quantity
         const grossPrice = item.unit_price * qty
 
-        // Comissão: usa sale_fee por item (mais preciso) ou marketplace_fee do pagamento
+        // Comissão: sale_fee já é o valor TOTAL do item (não por unidade)
+        // Multiplicar por qty seria erro — sale_fee já inclui a quantidade
         const commission = (item.sale_fee ?? 0) > 0
-          ? (item.sale_fee ?? 0) * qty
+          ? (item.sale_fee ?? 0)
           : (payment.marketplace_fee ?? 0)
 
-        const { data: product } = await db
-          .from('products')
-          .select('id')
-          .eq('sku', sku)
-          .maybeSingle()
+        const productId = productMap[sku] ?? null
 
         await db.from('sales').upsert({
           external_order_id: `ml_${order.id}_${item.item.id}`,
           marketplace: 'mercado_livre',
           fulfillment_type: fulfillmentType,
-          product_id: product?.id ?? null,
+          product_id: productId,
           sku,
           sale_date: order.date_created.slice(0, 10),
           quantity: qty,

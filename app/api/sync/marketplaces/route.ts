@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
   const now   = new Date()
   const isCron    = !!cronSecret
   const queryDays = request.nextUrl.searchParams.get('days')
-  const days      = queryDays ? Number(queryDays) : 7
+  const days      = queryDays ? Number(queryDays) : 1  // manual sync = 1 dia; cron passa ?days=N
   const endDate   = format(now, 'yyyy-MM-dd')
   const startDate = format(subDays(now, days), 'yyyy-MM-dd')
 

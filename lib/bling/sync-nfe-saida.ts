@@ -41,12 +41,10 @@ function extractStr(xml: string, tag: string): string | null {
 function parseInfoAdicionais(xml: string): { canal: string | null; numeroPedido: string | null } {
   const infCpl = extractStr(xml, 'infCpl') ?? ''
 
-  // Canal: Mercado Livre | Shopee | Amazon
   const canalMatch = infCpl.match(/Canal:\s*(Mercado Livre|Shopee|Amazon)/i)
   const canal = canalMatch?.[1]?.toLowerCase()
     .replace('mercado livre', 'mercado_livre') ?? null
 
-  // Numero Pedido Loja: XXXXXX
   const pedidoMatch = infCpl.match(/Numero Pedido Loja:\s*([^\s]+)/i)
   const numeroPedido = pedidoMatch?.[1] ?? null
 
@@ -55,29 +53,44 @@ function parseInfoAdicionais(xml: string): { canal: string | null; numeroPedido:
 
 /**
  * Tenta vincular a NF-e a uma venda pelo número do pedido do marketplace.
- * Este é o matching mais preciso — usa o próprio número do pedido gravado na NF-e.
+ * Usa .limit(1) em vez de .maybeSingle() para suportar pedidos com múltiplos itens
+ * (ex: ml_ORDERID_ITEM1 e ml_ORDERID_ITEM2 — ambos têm o mesmo ORDERID).
  */
 async function findSaleByOrderNumber(
   db: ReturnType<typeof import('@/lib/supabase/server').createSupabaseServiceClient>,
   canal: string,
   numeroPedido: string
 ): Promise<string | null> {
-  // external_order_id tem formato: ml_ORDERID_ITEMID ou shopee_ORDERID_ITEMID
   const prefix = canal === 'mercado_livre' ? `ml_${numeroPedido}` : `${canal}_${numeroPedido}`
 
   const { data } = await db
     .from('sales')
     .select('id')
     .like('external_order_id', `${prefix}%`)
-    .maybeSingle()
+    .limit(1)
 
-  return data?.id ?? null
+  return data?.[0]?.id ?? null
 }
 
-export async function syncNFeSaida(startDate: string, endDate: string): Promise<number> {
+/**
+ * maxItems: limite de NF-e a processar por rodada (evita timeout no Vercel)
+ * - Manual: 100 (safe dentro de 60s)
+ * - Cron:   500 (incremental — maioria já processada, poucas novas)
+ */
+export async function syncNFeSaida(startDate: string, endDate: string, maxItems = 100): Promise<number> {
   const db = createSupabaseServiceClient()
   let page = 1
   let synced = 0
+  let processed = 0  // NF-e examinadas (incluindo as puladas por skip)
+
+  // ── Pré-carrega chaves de NF-e já vinculadas ──────────────────────────────
+  // Evita baixar o XML de NF-e já processadas — maior ganho de performance
+  const { data: linked } = await db
+    .from('sales')
+    .select('nfe_saida_key')
+    .not('nfe_saida_key', 'is', null)
+  const linkedChaves = new Set((linked ?? []).map(s => s.nfe_saida_key as string))
+  // ─────────────────────────────────────────────────────────────────────────
 
   while (true) {
     const list = await blingGet<BlingNFeSaidaList>('/nfe', {
@@ -92,8 +105,15 @@ export async function syncNFeSaida(startDate: string, endDate: string): Promise<
     for (const nfe of list.data) {
       if (!isSerieValida(nfe.serie)) continue
 
+      // ── Atalho: se já temos a chave e ela já está vinculada, pula o XML ──
+      if (nfe.chaveAcesso && linkedChaves.has(nfe.chaveAcesso)) continue
+
+      // ── Limite de segurança: para não estourar o timeout do Vercel ──
+      if (processed >= maxItems) break
+      processed++
+
       try {
-        await sleep(80)
+        await sleep(60)
         const xmlRes = await blingGet<{ data: { xml: string } }>(`/nfe/${nfe.id}/xml`)
         const xml = xmlRes.data?.xml
         if (!xml) continue
@@ -102,13 +122,16 @@ export async function syncNFeSaida(startDate: string, endDate: string): Promise<
         const chave = nfe.chaveAcesso ?? xml.match(/<chNFe>([^<]+)<\/chNFe>/)?.[1] ?? null
         if (!chave) continue
 
+        // Segunda checagem: chave extraída do XML pode já estar vinculada
+        if (linkedChaves.has(chave)) continue
+
         // ── Impostos ──
         const pisTot    = extractTag(xml, 'vPIS')
         const cofinsTot = extractTag(xml, 'vCOFINS')
         const icmsTot   = extractTag(xml, 'vICMS')
         const difalTot  = extractTag(xml, 'vICMSUFDest') + extractTag(xml, 'vICMSUFRemet')
         const ipiTot    = extractTag(xml, 'vIPI')
-        const freteTot  = extractTag(xml, 'vFrete') // frete da NF-e (CIF)
+        const freteTot  = extractTag(xml, 'vFrete')
 
         // ── Dados adicionais: canal + número do pedido ──
         const { canal, numeroPedido } = parseInfoAdicionais(xml)
@@ -126,14 +149,14 @@ export async function syncNFeSaida(startDate: string, endDate: string): Promise<
             .from('sales')
             .select('id')
             .eq('nfe_saida_key', chave)
-            .maybeSingle()
-          saleId = saleByKey?.id ?? null
+            .limit(1)
+          saleId = saleByKey?.[0]?.id ?? null
         }
 
         // Estratégia 3: fallback por data + valor total (tolerância 2%)
         if (!saleId) {
-          const vNF    = extractTag(xml, 'vNF')
-          const dhEmi  = xml.match(/<dhEmi>([^<]+)<\/dhEmi>/)?.[1]?.slice(0, 10)
+          const vNF   = extractTag(xml, 'vNF')
+          const dhEmi = xml.match(/<dhEmi>([^<]+)<\/dhEmi>/)?.[1]?.slice(0, 10)
             ?? nfe.dataEmissao.slice(0, 10)
 
           if (vNF > 0) {
@@ -145,8 +168,8 @@ export async function syncNFeSaida(startDate: string, endDate: string): Promise<
               .is('nfe_saida_key', null)
               .gte('gross_price', vNF - tol)
               .lte('gross_price', vNF + tol)
-              .maybeSingle()
-            saleId = saleByVal?.id ?? null
+              .limit(1)
+            saleId = saleByVal?.[0]?.id ?? null
           }
         }
 
@@ -154,11 +177,7 @@ export async function syncNFeSaida(startDate: string, endDate: string): Promise<
 
         // Vincula a chave NF-e à venda
         const updates: Record<string, unknown> = { nfe_saida_key: chave }
-
-        // Atualiza o frete se a NF-e tiver (CIF — remetente paga)
-        if (freteTot > 0) {
-          updates.marketplace_shipping_fee = freteTot
-        }
+        if (freteTot > 0) updates.marketplace_shipping_fee = freteTot
 
         await db.from('sales').update(updates).eq('id', saleId)
 
@@ -173,6 +192,8 @@ export async function syncNFeSaida(startDate: string, endDate: string): Promise<
           ipi:        ipiTot,
         }, { onConflict: 'sale_id' })
 
+        // Adiciona ao set local para não processar novamente nesta mesma execução
+        linkedChaves.add(chave)
         synced++
       } catch {
         continue
@@ -180,6 +201,7 @@ export async function syncNFeSaida(startDate: string, endDate: string): Promise<
     }
 
     if (list.data.length < 100) break
+    if (processed >= maxItems) break  // atingiu o limite — para sem buscar mais páginas
     page++
   }
 
