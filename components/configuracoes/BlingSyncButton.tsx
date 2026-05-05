@@ -1,6 +1,7 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { RefreshCw, CheckCircle, XCircle, Clock } from 'lucide-react'
+import { useState } from 'react'
+import { RefreshCw, CheckCircle, XCircle } from 'lucide-react'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
 const B = {
   brand:  '#125BFF',
@@ -9,71 +10,89 @@ const B = {
   bg:     'oklch(0.96 0.010 258)',
 }
 
-const STORAGE_KEY = 'bling_sync_id'
-
+/**
+ * Arquitetura em duas fases (Vercel Hobby — limite ~10s por função):
+ *
+ * Fase 1 — /api/sync/bling/start (~500ms)
+ *   Cria sync_log + lista NF-e pendentes do Bling. Sem XML.
+ *
+ * Fase 2 — /api/sync/bling/process (1 chamada por NF-e, ~400ms cada)
+ *   Baixa 1 XML + vincula à venda. Nunca estoura o timeout.
+ *
+ * Cada chamada individual cabe facilmente nos 10s. O browser orquestra
+ * todas as chamadas em sequência e mostra o progresso em tempo real.
+ */
 export function BlingSyncButton() {
   const [status, setStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
   const [result, setResult] = useState('')
-  const [syncId, setSyncId] = useState<string | null>(null)
-
-  // Ao montar, verifica se há um sync em andamento salvo
-  useEffect(() => {
-    const savedId = localStorage.getItem(STORAGE_KEY)
-    if (savedId) {
-      setSyncId(savedId)
-      setStatus('running')
-    }
-  }, [])
-
-  // Polling: verifica o sync_log até terminar
-  useEffect(() => {
-    if (!syncId || status !== 'running') return
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/sync/bling/status?id=${syncId}`)
-        if (!res.ok) return
-        const data = await res.json()
-        if (data.status === 'success') {
-          setResult(`✓ ${data.nfe_entrada ?? 0} NF-e entrada · ${data.nfe_saida ?? 0} NF-e saída sincronizadas`)
-          setStatus('done')
-          localStorage.removeItem(STORAGE_KEY)
-          clearInterval(interval)
-        } else if (data.status === 'error') {
-          setResult(`Erro: ${data.error_message ?? 'desconhecido'}`)
-          setStatus('error')
-          localStorage.removeItem(STORAGE_KEY)
-          clearInterval(interval)
-        } else if (data.status === 'not_found') {
-          // sync_id inválido — limpa
-          localStorage.removeItem(STORAGE_KEY)
-          setStatus('idle')
-          clearInterval(interval)
-        }
-        // se ainda 'running', continua polling
-      } catch {}
-    }, 3000)
-    return () => clearInterval(interval)
-  }, [syncId, status])
+  const [progress, setProgress] = useState('')
 
   async function handleSync() {
     setStatus('running')
     setResult('')
-    setSyncId(null)
-    localStorage.removeItem(STORAGE_KEY)
+    setProgress('Carregando lista de NF-e...')
+
     try {
-      const res = await fetch('/api/sync/bling', { method: 'POST' })
-      const data = await res.json()
-      if (data.sync_id) {
-        setSyncId(data.sync_id)
-        localStorage.setItem(STORAGE_KEY, data.sync_id) // persiste para retomar após navegação
-      } else {
-        setResult(data.error ?? 'Erro desconhecido')
-        setStatus('error')
+      // ── Fase 1: pega a lista de NF-e pendentes ────────────────────────
+      const startRes = await fetch('/api/sync/bling/start', { method: 'POST' })
+      if (!startRes.ok) {
+        const err = await startRes.json().catch(() => ({}))
+        throw new Error(err.error ?? `HTTP ${startRes.status}`)
       }
-    } catch {
-      setResult('Erro de conexão')
+      const { sync_id, pending } = await startRes.json() as {
+        sync_id: string
+        pending: Array<{ id: number; chaveAcesso: string | null }>
+      }
+
+      if (!pending || pending.length === 0) {
+        // Nada a processar — marca como sucesso
+        const db = createSupabaseBrowserClient()
+        await db.from('sync_logs').update({
+          status: 'success', records_synced: 0,
+          error_message: JSON.stringify({ nfe_entrada: 0, nfe_saida: 0 }),
+          finished_at: new Date().toISOString(),
+        }).eq('id', sync_id)
+        setResult('✓ 0 NF-e novas (tudo já sincronizado)')
+        setStatus('done')
+        return
+      }
+
+      // ── Fase 2: processa cada NF-e individualmente ───────────────────
+      let synced = 0
+      for (let i = 0; i < pending.length; i++) {
+        const nfe = pending[i]
+        setProgress(`Processando ${i + 1} de ${pending.length}...`)
+
+        const res = await fetch('/api/sync/bling/process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nfe_id: nfe.id, nfe_chave_acesso: nfe.chaveAcesso }),
+        })
+
+        if (res.ok) {
+          const data = await res.json()
+          if (data.matched) synced++
+        }
+        // Se der erro numa NF-e específica, continua para a próxima
+      }
+
+      // ── Fase 3: fecha o sync_log ──────────────────────────────────────
+      const db = createSupabaseBrowserClient()
+      await db.from('sync_logs').update({
+        status: 'success',
+        records_synced: synced,
+        error_message: JSON.stringify({ nfe_entrada: 0, nfe_saida: synced }),
+        finished_at: new Date().toISOString(),
+      }).eq('id', sync_id)
+
+      setResult(`✓ ${synced} NF-e saída vinculadas (de ${pending.length} processadas)`)
+      setStatus('done')
+    } catch (err) {
+      setResult(`Erro: ${String(err).replace('Error: ', '')}`)
       setStatus('error')
     }
+
+    setProgress('')
   }
 
   return (
@@ -90,14 +109,11 @@ export function BlingSyncButton() {
         }}
       >
         <RefreshCw size={13} className={status === 'running' ? 'animate-spin' : ''} />
-        {status === 'running' ? 'Sincronizando… pode navegar' : 'Sincronizar NF-e Bling'}
+        {status === 'running' ? 'Sincronizando…' : 'Sincronizar NF-e Bling'}
       </button>
 
-      {status === 'running' && (
-        <span className="flex items-center gap-1.5 text-sm" style={{ color: B.muted }}>
-          <Clock size={12} />
-          Rodando em background — pode navegar normalmente
-        </span>
+      {status === 'running' && progress && (
+        <span className="text-sm" style={{ color: B.muted }}>{progress}</span>
       )}
 
       {status === 'done' && (
