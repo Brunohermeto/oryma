@@ -108,12 +108,13 @@ export async function syncNFeSaida(startDate: string, endDate: string, maxItems 
   let processed = 0
 
   while (true) {
+    // retries=1: máximo 1 segundo de espera em rate limit (não 7s com retries=3)
     const list = await blingGet<BlingNFeSaidaList>('/nfe', {
       pagina: String(page),
       limite: '100',
       dataEmissaoInicio: startDate,
       dataEmissaoFim: endDate,
-    })
+    }, 1)
 
     if (!list.data?.length) break
 
@@ -126,8 +127,9 @@ export async function syncNFeSaida(startDate: string, endDate: string, maxItems 
       processed++
 
       try {
-        await sleep(150)
-        const xmlRes = await blingGet<{ data: { xml: string } }>(`/nfe/${nfe.id}/xml`)
+        await sleep(200)
+        // retries=0: se der 429, pula este NF-e (será processado na próxima rodada)
+        const xmlRes = await blingGet<{ data: { xml: string } }>(`/nfe/${nfe.id}/xml`, undefined, 0)
         const xml = xmlRes.data?.xml
         if (!xml) continue
 
