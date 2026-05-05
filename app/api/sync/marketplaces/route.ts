@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
   const now   = new Date()
   const isCron    = !!cronSecret
   const queryDays = request.nextUrl.searchParams.get('days')
-  const days      = queryDays ? Number(queryDays) : 1  // manual sync = 1 dia; cron passa ?days=N
+  const days      = queryDays ? Number(queryDays) : 7  // manual = 7 dias para não perder pedidos criados antes mas pagos hoje
   const endDate   = format(now, 'yyyy-MM-dd')
   const startDate = format(subDays(now, days), 'yyyy-MM-dd')
 
@@ -62,7 +62,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const hasError = Object.values(results).every(v => typeof v === 'string' && v.startsWith('error:'))
+    // hasError = true se ALGUM canal configurado falhou (não só se todos falharam)
+    const hasError = Object.values(results).some(v => typeof v === 'string' && v.startsWith('error:'))
 
     await db.from('sync_logs').update({
       status: hasError ? 'error' : 'success',

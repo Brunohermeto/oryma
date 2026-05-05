@@ -73,11 +73,11 @@ async function findSaleByOrderNumber(
 }
 
 /**
- * maxItems: limite de NF-e a processar por rodada (evita timeout no Vercel)
- * - Manual: 20 (20 × ~900ms ≈ 18s — seguro mesmo com retries de rate limit)
- * - Cron:   100 (maioria já processada via skip, poucas novas a baixar XML)
+ * maxItems: limite de NF-e a processar por rodada
+ * - Manual: 8  (8 × ~650ms = 5.2s — dentro dos ~10s reais do Vercel Hobby)
+ * - Cron:   50 (maioria já processada via skip, background tem mais margem)
  */
-export async function syncNFeSaida(startDate: string, endDate: string, maxItems = 20): Promise<number> {
+export async function syncNFeSaida(startDate: string, endDate: string, maxItems = 8): Promise<number> {
   const db = createSupabaseServiceClient()
   let page = 1
   let synced = 0
@@ -113,7 +113,7 @@ export async function syncNFeSaida(startDate: string, endDate: string, maxItems 
       processed++
 
       try {
-        await sleep(500)  // Bling: 500ms entre XMLs — conservador para evitar 429
+        await sleep(150)  // 150ms = ~6 req/s — dentro do limite do Bling
         const xmlRes = await blingGet<{ data: { xml: string } }>(`/nfe/${nfe.id}/xml`)
         const xml = xmlRes.data?.xml
         if (!xml) continue
