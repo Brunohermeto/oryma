@@ -74,10 +74,10 @@ async function findSaleByOrderNumber(
 
 /**
  * maxItems: limite de NF-e a processar por rodada
- * - Manual: 8  (8 × ~650ms = 5.2s — dentro dos ~10s reais do Vercel Hobby)
- * - Cron:   50 (maioria já processada via skip, background tem mais margem)
+ * - Manual: 15  (região GRU1: 15 × ~500ms = 7.5s — dentro dos 10s do Vercel Hobby)
+ * - Cron:   150 (maioria já processada via skip, poucas novas a baixar)
  */
-export async function syncNFeSaida(startDate: string, endDate: string, maxItems = 8): Promise<number> {
+export async function syncNFeSaida(startDate: string, endDate: string, maxItems = 15): Promise<number> {
   const db = createSupabaseServiceClient()
   let page = 1
   let synced = 0

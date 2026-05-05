@@ -5,8 +5,9 @@ import { syncNFeSaida } from '@/lib/bling/sync-nfe-saida'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { format, subDays } from 'date-fns'
 
-export const dynamic    = 'force-dynamic'
-export const maxDuration = 60
+export const dynamic         = 'force-dynamic'
+export const maxDuration     = 60
+export const preferredRegion = 'gru1'  // São Paulo — próximo ao Bling BR, reduz latência de 1500ms → 200ms
 
 export async function POST(request: NextRequest) {
   const authCookie  = request.cookies.get('mi_auth')?.value
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
     try {
       // Manual: 8 NF-e por rodada (cabe nos 10s do Vercel Hobby)
       // Cron:   50 NF-e (maioria já processada via skip de chaves vinculadas)
-      const maxNFe = isCron ? 50 : 8
+      const maxNFe = isCron ? 150 : 15
       const saida = await syncNFeSaida(startDate, endDate, maxNFe)
 
       let entrada = 0
