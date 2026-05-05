@@ -14,7 +14,18 @@ interface BlingNFeSaidaList {
   data: BlingNFeSaidaItem[]
 }
 
-// Séries válidas: 1, 2, 3 = NF-e ao consumidor | série 4xx = remessa Full ML/FBA (excluir)
+interface MatchedNFe {
+  saleId: string
+  chave: string
+  freteTot: number
+  pis: number
+  cofins: number
+  icms: number
+  difal: number
+  ipi: number
+}
+
+// Séries válidas: 1, 2, 3 = NF-e ao consumidor | série 4xx = remessa Full ML/FBA
 function isSerieValida(serie: string): boolean {
   const n = Number(serie)
   if (isNaN(n)) return false
@@ -33,64 +44,68 @@ function extractStr(xml: string, tag: string): string | null {
   return m?.[1] ?? null
 }
 
-/**
- * Extrai dados do campo "Dados Adicionais" (infCpl) da NF-e.
- * Exemplo: "Canal: Mercado Livre Numero Pedido Loja: 2000012748588981 Quem recebe: ..."
- * Exemplo: "Canal: Shopee Numero Pedido Loja: 260501A6ANR8A7 Quem recebe: ..."
- */
 function parseInfoAdicionais(xml: string): { canal: string | null; numeroPedido: string | null } {
   const infCpl = extractStr(xml, 'infCpl') ?? ''
-
   const canalMatch = infCpl.match(/Canal:\s*(Mercado Livre|Shopee|Amazon)/i)
-  const canal = canalMatch?.[1]?.toLowerCase()
-    .replace('mercado livre', 'mercado_livre') ?? null
-
+  const canal = canalMatch?.[1]?.toLowerCase().replace('mercado livre', 'mercado_livre') ?? null
   const pedidoMatch = infCpl.match(/Numero Pedido Loja:\s*([^\s]+)/i)
   const numeroPedido = pedidoMatch?.[1] ?? null
-
   return { canal, numeroPedido }
 }
 
 /**
- * Tenta vincular a NF-e a uma venda pelo número do pedido do marketplace.
- * Usa .limit(1) em vez de .maybeSingle() para suportar pedidos com múltiplos itens
- * (ex: ml_ORDERID_ITEM1 e ml_ORDERID_ITEM2 — ambos têm o mesmo ORDERID).
+ * Estratégia de performance:
+ *
+ * FASE 1 — 2 queries DB → pré-carrega tudo em memória
+ *   - Chaves já vinculadas (para skip sem baixar XML)
+ *   - Todas as vendas sem NF-e (para matching in-memory — sem queries por NF-e!)
+ *
+ * FASE 2 — Baixa XMLs e faz matching em memória (0 queries DB por NF-e)
+ *   - 150ms sleep + ~200ms XML (GRU1 ↔ Bling BR) = ~350ms por NF-e
+ *
+ * FASE 3 — Salva tudo em 2 operações batch paralelas
+ *   - Promise.all([sales upsert, tax upsert]) → ~150ms total
+ *
+ * Tempo total para 25 NF-e: ~250ms + 25×350ms + 150ms ≈ 9s (dentro do limite)
  */
-async function findSaleByOrderNumber(
-  db: ReturnType<typeof import('@/lib/supabase/server').createSupabaseServiceClient>,
-  canal: string,
-  numeroPedido: string
-): Promise<string | null> {
-  const prefix = canal === 'mercado_livre' ? `ml_${numeroPedido}` : `${canal}_${numeroPedido}`
-
-  const { data } = await db
-    .from('sales')
-    .select('id')
-    .like('external_order_id', `${prefix}%`)
-    .limit(1)
-
-  return data?.[0]?.id ?? null
-}
-
-/**
- * maxItems: limite de NF-e a processar por rodada
- * - Manual: 15  (região GRU1: 15 × ~500ms = 7.5s — dentro dos 10s do Vercel Hobby)
- * - Cron:   150 (maioria já processada via skip, poucas novas a baixar)
- */
-export async function syncNFeSaida(startDate: string, endDate: string, maxItems = 15): Promise<number> {
+export async function syncNFeSaida(startDate: string, endDate: string, maxItems = 25): Promise<number> {
   const db = createSupabaseServiceClient()
-  let page = 1
-  let synced = 0
-  let processed = 0  // NF-e examinadas (incluindo as puladas por skip)
 
-  // ── Pré-carrega chaves de NF-e já vinculadas ──────────────────────────────
-  // Evita baixar o XML de NF-e já processadas — maior ganho de performance
-  const { data: linked } = await db
-    .from('sales')
-    .select('nfe_saida_key')
-    .not('nfe_saida_key', 'is', null)
-  const linkedChaves = new Set((linked ?? []).map(s => s.nfe_saida_key as string))
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── FASE 1: 2 queries para pré-carregar tudo ────────────────────────────
+
+  const [linkedResult, unmatchedResult] = await Promise.all([
+    db.from('sales').select('nfe_saida_key').not('nfe_saida_key', 'is', null),
+    db.from('sales').select('id, external_order_id, sale_date, gross_price').is('nfe_saida_key', null),
+  ])
+
+  // Set de chaves já vinculadas — skip imediato sem baixar XML
+  const linkedChaves = new Set((linkedResult.data ?? []).map(s => s.nfe_saida_key as string))
+
+  // Mapa para matching por número do pedido: "ml_ORDERID" → sale_id
+  const orderPrefixMap = new Map<string, string>()
+  // Mapa para matching por data+valor: "YYYY-MM-DD" → [{id, gross_price}]
+  const dateValueMap = new Map<string, Array<{ id: string; gross_price: number }>>()
+
+  for (const s of (unmatchedResult.data ?? [])) {
+    // external_order_id = "ml_ORDERID_ITEMID" ou "shopee_ORDERID_SKU"
+    // Prefixo = "canal_orderId" (primeiros 2 componentes separados por _)
+    const firstUnderscore = s.external_order_id.indexOf('_')
+    const secondUnderscore = s.external_order_id.indexOf('_', firstUnderscore + 1)
+    if (firstUnderscore > 0 && secondUnderscore > 0) {
+      const prefix = s.external_order_id.slice(0, secondUnderscore)
+      if (!orderPrefixMap.has(prefix)) orderPrefixMap.set(prefix, s.id)
+    }
+
+    const date = s.sale_date
+    if (!dateValueMap.has(date)) dateValueMap.set(date, [])
+    dateValueMap.get(date)!.push({ id: s.id, gross_price: Number(s.gross_price) })
+  }
+
+  // ── FASE 2: Baixar XMLs e matching in-memory ─────────────────────────────
+
+  const matches: MatchedNFe[] = []
+  let page = 1
+  let processed = 0
 
   while (true) {
     const list = await blingGet<BlingNFeSaidaList>('/nfe', {
@@ -104,106 +119,106 @@ export async function syncNFeSaida(startDate: string, endDate: string, maxItems 
 
     for (const nfe of list.data) {
       if (!isSerieValida(nfe.serie)) continue
-
-      // ── Atalho: se já temos a chave e ela já está vinculada, pula o XML ──
+      // Skip imediato se chave já conhecida (sem baixar XML)
       if (nfe.chaveAcesso && linkedChaves.has(nfe.chaveAcesso)) continue
 
-      // ── Limite de segurança: para não estourar o timeout do Vercel ──
       if (processed >= maxItems) break
       processed++
 
       try {
-        await sleep(150)  // 150ms = ~6 req/s — dentro do limite do Bling
+        await sleep(150)
         const xmlRes = await blingGet<{ data: { xml: string } }>(`/nfe/${nfe.id}/xml`)
         const xml = xmlRes.data?.xml
         if (!xml) continue
 
-        // Chave de acesso
         const chave = nfe.chaveAcesso ?? xml.match(/<chNFe>([^<]+)<\/chNFe>/)?.[1] ?? null
-        if (!chave) continue
+        if (!chave || linkedChaves.has(chave)) continue
 
-        // Segunda checagem: chave extraída do XML pode já estar vinculada
-        if (linkedChaves.has(chave)) continue
+        // Impostos
+        const pis    = extractTag(xml, 'vPIS')
+        const cofins = extractTag(xml, 'vCOFINS')
+        const icms   = extractTag(xml, 'vICMS')
+        const difal  = extractTag(xml, 'vICMSUFDest') + extractTag(xml, 'vICMSUFRemet')
+        const ipi    = extractTag(xml, 'vIPI')
+        const frete  = extractTag(xml, 'vFrete')
 
-        // ── Impostos ──
-        const pisTot    = extractTag(xml, 'vPIS')
-        const cofinsTot = extractTag(xml, 'vCOFINS')
-        const icmsTot   = extractTag(xml, 'vICMS')
-        const difalTot  = extractTag(xml, 'vICMSUFDest') + extractTag(xml, 'vICMSUFRemet')
-        const ipiTot    = extractTag(xml, 'vIPI')
-        const freteTot  = extractTag(xml, 'vFrete')
-
-        // ── Dados adicionais: canal + número do pedido ──
-        const { canal, numeroPedido } = parseInfoAdicionais(xml)
-
+        // ── Matching in-memory (sem queries DB) ──
         let saleId: string | null = null
 
-        // Estratégia 1: matching pelo número do pedido na NF-e (mais preciso)
+        // Estratégia 1: número do pedido na NF-e
+        const { canal, numeroPedido } = parseInfoAdicionais(xml)
         if (canal && numeroPedido) {
-          saleId = await findSaleByOrderNumber(db, canal, numeroPedido)
+          const prefix = canal === 'mercado_livre' ? `ml_${numeroPedido}` : `${canal}_${numeroPedido}`
+          saleId = orderPrefixMap.get(prefix) ?? null
         }
 
-        // Estratégia 2: matching pela chave NF-e já cadastrada
-        if (!saleId) {
-          const { data: saleByKey } = await db
-            .from('sales')
-            .select('id')
-            .eq('nfe_saida_key', chave)
-            .limit(1)
-          saleId = saleByKey?.[0]?.id ?? null
-        }
-
-        // Estratégia 3: fallback por data + valor total (tolerância 2%)
+        // Estratégia 2: data + valor (fallback)
         if (!saleId) {
           const vNF   = extractTag(xml, 'vNF')
-          const dhEmi = xml.match(/<dhEmi>([^<]+)<\/dhEmi>/)?.[1]?.slice(0, 10)
-            ?? nfe.dataEmissao.slice(0, 10)
-
+          const dhEmi = xml.match(/<dhEmi>([^<]+)<\/dhEmi>/)?.[1]?.slice(0, 10) ?? nfe.dataEmissao.slice(0, 10)
           if (vNF > 0) {
             const tol = vNF * 0.02
-            const { data: saleByVal } = await db
-              .from('sales')
-              .select('id')
-              .eq('sale_date', dhEmi)
-              .is('nfe_saida_key', null)
-              .gte('gross_price', vNF - tol)
-              .lte('gross_price', vNF + tol)
-              .limit(1)
-            saleId = saleByVal?.[0]?.id ?? null
+            const candidates = dateValueMap.get(dhEmi) ?? []
+            const found = candidates.find(c => c.gross_price >= vNF - tol && c.gross_price <= vNF + tol)
+            saleId = found?.id ?? null
           }
         }
 
         if (!saleId) continue
 
-        // Vincula a chave NF-e à venda
-        const updates: Record<string, unknown> = { nfe_saida_key: chave }
-        if (freteTot > 0) updates.marketplace_shipping_fee = freteTot
+        matches.push({ saleId, chave, freteTot: frete, pis, cofins, icms, difal, ipi })
 
-        await db.from('sales').update(updates).eq('id', saleId)
-
-        // Salva os impostos
-        await db.from('sale_taxes').upsert({
-          sale_id: saleId,
-          nfe_key: chave,
-          pis:        pisTot,
-          cofins:     cofinsTot,
-          icms:       icmsTot,
-          icms_difal: difalTot,
-          ipi:        ipiTot,
-        }, { onConflict: 'sale_id' })
-
-        // Adiciona ao set local para não processar novamente nesta mesma execução
+        // Marca como usada localmente para evitar double-match na mesma rodada
         linkedChaves.add(chave)
-        synced++
+        // Remove da lista de candidatos para matching futuro
+        orderPrefixMap.forEach((v, k) => { if (v === saleId) orderPrefixMap.delete(k) })
       } catch {
         continue
       }
     }
 
     if (list.data.length < 100) break
-    if (processed >= maxItems) break  // atingiu o limite — para sem buscar mais páginas
+    if (processed >= maxItems) break
     page++
   }
 
-  return synced
+  if (matches.length === 0) return 0
+
+  // ── FASE 3: Salva tudo em batch paralelo (2 operações DB totais) ─────────
+
+  const withFrete  = matches.filter(m => m.freteTot > 0)
+  const withoutFrete = matches.filter(m => m.freteTot === 0)
+
+  await Promise.all([
+    // Sales: upsert batch por frete (evita sobrescrever com null)
+    withFrete.length > 0
+      ? db.from('sales').upsert(
+          withFrete.map(m => ({ id: m.saleId, nfe_saida_key: m.chave, marketplace_shipping_fee: m.freteTot })),
+          { onConflict: 'id' }
+        )
+      : Promise.resolve(),
+
+    withoutFrete.length > 0
+      ? db.from('sales').upsert(
+          withoutFrete.map(m => ({ id: m.saleId, nfe_saida_key: m.chave })),
+          { onConflict: 'id' }
+        )
+      : Promise.resolve(),
+
+    // Impostos: upsert batch (1 operação para todos)
+    db.from('sale_taxes').upsert(
+      matches.map(m => ({
+        sale_id:    m.saleId,
+        nfe_key:    m.chave,
+        pis:        m.pis,
+        cofins:     m.cofins,
+        icms:       m.icms,
+        icms_difal: m.difal,
+        ipi:        m.ipi,
+      })),
+      { onConflict: 'sale_id' }
+    ),
+  ])
+
+  return matches.length
 }
