@@ -128,13 +128,21 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  // Upsert em lotes de 500 (PostgREST aceita bem)
+  // Delete + insert (evita dependência de UNIQUE constraint em sale_id)
   let salesUpdated = 0
-  const BATCH = 500
-  for (let i = 0; i < saleCostRows.length; i += BATCH) {
-    const batch = saleCostRows.slice(i, i + BATCH)
-    const { error } = await db.from('sale_costs').upsert(batch, { onConflict: 'sale_id' })
-    if (!error) salesUpdated += batch.length
+  if (saleCostRows.length > 0) {
+    const saleIds = saleCostRows.map(r => r.sale_id)
+    // Remove registros anteriores (em lotes de 500 para evitar limite de URL)
+    const BATCH = 500
+    for (let i = 0; i < saleIds.length; i += BATCH) {
+      await db.from('sale_costs').delete().in('sale_id', saleIds.slice(i, i + BATCH))
+    }
+    // Insere todos de uma vez (ou em lotes)
+    for (let i = 0; i < saleCostRows.length; i += BATCH) {
+      const batch = saleCostRows.slice(i, i + BATCH)
+      const { error } = await db.from('sale_costs').insert(batch)
+      if (!error) salesUpdated += batch.length
+    }
   }
 
   return NextResponse.json({
