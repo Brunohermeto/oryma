@@ -29,10 +29,6 @@ export default async function ImportacoesPage() {
   ])
 
   const { data: orders } = ordersData
-    .from('import_orders')
-    .select('*, import_costs(amount)')
-    .order('issue_date', { ascending: false })
-    .limit(30)
 
   const ordersWithTotals = (orders ?? []).map(o => ({
     ...o,
