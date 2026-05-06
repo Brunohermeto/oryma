@@ -1,6 +1,7 @@
 import { TopBar } from '@/components/layout/TopBar'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
-import { format, startOfMonth, endOfMonth } from 'date-fns'
+import { startOfMonth, endOfMonth } from 'date-fns'
+import { toBrazilDate } from '@/lib/utils/brazil-time'
 import { SalesFilters } from '@/components/vendas/SalesFilters'
 import { SalesTable } from '@/components/vendas/SalesTable'
 
@@ -30,9 +31,9 @@ export default async function VendasPage({
   const db = createSupabaseServiceClient()
   const params = await searchParams
   const now = new Date()
-
-  const dateFrom   = params.from ?? format(startOfMonth(now), 'yyyy-MM-dd')
-  const dateTo     = params.to ?? format(endOfMonth(now), 'yyyy-MM-dd')
+  // Usa fuso Brasil para que o filtro padrão reflita o mês correto para o usuário
+  const dateFrom   = params.from ?? toBrazilDate(startOfMonth(now))
+  const dateTo     = params.to ?? toBrazilDate(endOfMonth(now))
   const marketplace = params.mp ?? ''
   const productId  = params.product ?? ''
   const fulfillment = params.fulfillment ?? ''
@@ -61,9 +62,16 @@ export default async function VendasPage({
 
   const { data: sales } = await query
 
+  // Supabase retorna sale_taxes/sale_costs como objeto único (unique constraint em sale_id)
+  // OU como array se não houver unique constraint — tratamos os dois casos
+  function unwrap<T>(v: unknown): T | null {
+    if (!v) return null
+    return (Array.isArray(v) ? (v as T[])[0] : v as T) ?? null
+  }
+
   const summary = (sales ?? []).reduce((acc, s) => {
-    const taxes = (s.sale_taxes as any)?.[0]
-    const cost  = (s.sale_costs as any)?.[0]
+    const taxes = unwrap<{ total_taxes: number }>(s.sale_taxes)
+    const cost  = unwrap<{ total_cost: number; margin_pct: number }>(s.sale_costs)
     acc.revenue += Number(s.gross_price) - Number(s.cancellation)
     acc.fees    += Number(s.marketplace_commission) + Number(s.marketplace_shipping_fee) + Number(s.ads_cost)
     acc.taxes   += Number(taxes?.total_taxes ?? 0)
@@ -116,8 +124,8 @@ export default async function VendasPage({
             <SalesTable sales={(sales ?? []).map(s => ({
               ...s,
               products: s.products as any,
-              sale_taxes: (s.sale_taxes as any)?.[0] ?? null,
-              sale_costs: (s.sale_costs as any)?.[0] ?? null,
+              sale_taxes: unwrap(s.sale_taxes),
+              sale_costs: unwrap(s.sale_costs),
             }))} />
           </div>
         </div>

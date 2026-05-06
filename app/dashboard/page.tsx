@@ -71,12 +71,15 @@ export default async function DashboardPage() {
     .lte('sale_date', end)
     .not('sale_costs', 'is', null)
 
+  // Supabase retorna relações como objeto único OU array — trata ambos
+  const uw = (v: unknown) => !v ? null : Array.isArray(v) ? (v as any[])[0] ?? null : v
+
   // ── KPIs ──
   const totalRevenue = (sales ?? []).reduce((s, r) => s + Number(r.gross_price) - Number(r.cancellation), 0)
   const prevRevenue = (prevSales ?? []).reduce((s, r) => s + Number(r.gross_price), 0)
   const revenueChange = prevRevenue > 0 ? ((totalRevenue - prevRevenue) / prevRevenue) * 100 : 0
   const totalFees = (sales ?? []).reduce((s, r) => s + Number(r.marketplace_commission) + Number(r.marketplace_shipping_fee) + Number(r.ads_cost), 0)
-  const totalCMV = (sales ?? []).reduce((s, r) => s + Number((r.sale_costs as any)?.[0]?.total_cost ?? 0), 0)
+  const totalCMV = (sales ?? []).reduce((s, r) => s + Number((uw(r.sale_costs) as any)?.total_cost ?? 0), 0)
   const netRevenue = totalRevenue - totalFees
   const grossProfit = netRevenue - totalCMV
   const grossMargin = netRevenue > 0 ? (grossProfit / netRevenue) * 100 : 0
@@ -122,7 +125,7 @@ export default async function DashboardPage() {
     const id = s.product_id as string
     if (!productMap[id]) productMap[id] = { id, name: p.name, sku: p.sku, revenue: 0, marginPcts: [] }
     productMap[id].revenue += Number(s.gross_price)
-    const mp = (s.sale_costs as any)?.[0]?.margin_pct
+    const mp = (uw(s.sale_costs) as any)?.margin_pct
     if (mp !== null && mp !== undefined) productMap[id].marginPcts.push(Number(mp))
   }
   const topProducts = Object.values(productMap)

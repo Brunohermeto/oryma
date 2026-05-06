@@ -202,11 +202,12 @@ export async function InsightsPanel() {
       .gte('sale_date', prevStart)
       .lte('sale_date', prevEnd)
 
+    const uwc = (v: unknown) => !v ? null : Array.isArray(v) ? (v as any[])[0] ?? null : v as any
     function calcMargin(rows: typeof curSales) {
       if (!rows?.length) return null
       const rev  = rows.reduce((s, r) => s + Number(r.gross_price) - Number(r.cancellation), 0)
       const fees = rows.reduce((s, r) => s + Number(r.marketplace_commission) + Number(r.marketplace_shipping_fee) + Number(r.ads_cost), 0)
-      const cmv  = rows.reduce((s, r) => s + Number((r.sale_costs as any)?.[0]?.total_cost ?? 0), 0)
+      const cmv  = rows.reduce((s, r) => s + Number(uwc(r.sale_costs)?.total_cost ?? 0), 0)
       const net  = rev - fees
       if (net <= 0) return null
       return ((net - cmv) / net) * 100
@@ -257,7 +258,7 @@ export async function InsightsPanel() {
       const fees = Number(s.marketplace_commission) + Number(s.marketplace_shipping_fee) + Number(s.ads_cost)
       mpMap[mp].rev  += rev
       mpMap[mp].net  += rev - fees
-      mpMap[mp].cmv  += Number((s.sale_costs as any)?.[0]?.total_cost ?? 0)
+      mpMap[mp].cmv  += Number(uwc(s.sale_costs)?.total_cost ?? 0)
     }
 
     const mpMargins = Object.entries(mpMap)

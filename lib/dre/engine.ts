@@ -93,7 +93,8 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
 
     // Taxes only for galpao sales (serie 2 NF-e)
     if (sale.fulfillment_type === 'galpao') {
-      const tax = (sale.sale_taxes as { pis: number; cofins: number; icms: number; icms_difal: number }[] | null)?.[0]
+      const taxRaw = sale.sale_taxes as unknown
+      const tax = taxRaw ? (Array.isArray(taxRaw) ? (taxRaw as any[])[0] : taxRaw) as { pis: number; cofins: number; icms: number; icms_difal: number } : null
       if (tax) {
         add(pis, mp, Number(tax.pis))
         add(cofins, mp, Number(tax.cofins))
@@ -102,7 +103,8 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
       }
     }
 
-    const cost = (sale.sale_costs as { total_cost: number }[] | null)?.[0]
+    const costRaw = sale.sale_costs as unknown
+    const cost = costRaw ? (Array.isArray(costRaw) ? (costRaw as any[])[0] : costRaw) as { total_cost: number } : null
     if (cost) {
       add(cmv, mp, Number(cost.total_cost))
     }

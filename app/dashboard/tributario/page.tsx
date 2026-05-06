@@ -131,7 +131,8 @@ export default async function TributarioPage({
 
   const totalRevenue  = (sales ?? []).reduce((s, r) => s + Number(r.gross_price) - Number(r.cancellation), 0)
   const totalFees     = (sales ?? []).reduce((s, r) => s + Number(r.marketplace_commission) + Number(r.marketplace_shipping_fee) + Number(r.ads_cost), 0)
-  const totalCMV      = (sales ?? []).reduce((s, r) => s + Number((r.sale_costs as any)?.[0]?.total_cost ?? 0), 0)
+  const uw = (v: unknown) => !v ? null : Array.isArray(v) ? (v as any[])[0] ?? null : v
+  const totalCMV      = (sales ?? []).reduce((s, r) => s + Number((uw(r.sale_costs) as any)?.total_cost ?? 0), 0)
   const totalExpenses = (expenses ?? []).reduce((s, e) => s + Number(e.amount), 0)
   const totalTaxesOnRevenue = debitoPIS + debitoCOFINS + debitoICMS + totalDIFAL
 
