@@ -2,6 +2,7 @@ import { TopBar } from '@/components/layout/TopBar'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { NFEUploadZone } from '@/components/importacoes/NFEUploadZone'
 import { LandedCostForm } from '@/components/importacoes/LandedCostForm'
+import { ManualCostForm } from '@/components/importacoes/ManualCostForm'
 
 export const dynamic = 'force-dynamic'
 export const preferredRegion = 'gru1'
@@ -22,7 +23,12 @@ function fmtR(v: number) {
 export default async function ImportacoesPage() {
   const db = createSupabaseServiceClient()
 
-  const { data: orders } = await db
+  const [ordersData, productsData] = await Promise.all([
+    db.from('import_orders').select('*, import_costs(amount)').order('issue_date', { ascending: false }).limit(30),
+    db.from('products').select('id, name, sku').order('name'),
+  ])
+
+  const { data: orders } = ordersData
     .from('import_orders')
     .select('*, import_costs(amount)')
     .order('issue_date', { ascending: false })
@@ -135,8 +141,11 @@ export default async function ImportacoesPage() {
           </div>
         </div>
 
-        {/* Landed cost form */}
-        <LandedCostForm orders={ordersWithTotals} />
+        {/* Entrada manual de custo */}
+        <ManualCostForm products={productsData.data ?? []} />
+
+        {/* Landed cost form — adiciona despesas extras a NF-e já importadas */}
+        {ordersWithTotals.length > 0 && <LandedCostForm orders={ordersWithTotals} />}
       </div>
     </>
   )
