@@ -55,23 +55,44 @@ function extractNum(xml: string, tag: string): number {
   return parseFloat(extractStr(xml, tag) ?? '0')
 }
 
+/**
+ * NF-e de importação (CFOP 3102): PIS e COFINS ficam nos totais do cabeçalho,
+ * não nos <det> individuais. II e IPI estão em cada <det>.
+ * Distribuímos PIS/COFINS proporcionalmente ao FOB de cada item.
+ */
 function extractDets(xml: string): Array<{
   sku: string; description: string
   qty: number; unitValue: number; totalValue: number
   ii: number; ipi: number; pis: number; cofins: number
 }> {
+  // Totais globais de PIS e COFINS (no bloco <ICMSTot> ou <infAdic>/<infCpl>)
+  const totalPis    = extractNum(xml, 'vPIS')
+  const totalCofins = extractNum(xml, 'vCOFINS')
+
   const dets = xml.match(/<det[^>]*>([\s\S]*?)<\/det>/g) ?? []
-  return dets.map(det => ({
-    sku:         extractStr(det, 'cProd') ?? '',
-    description: extractStr(det, 'xProd') ?? '',
-    qty:         extractNum(det, 'qCom'),
-    unitValue:   extractNum(det, 'vUnCom'),
-    totalValue:  extractNum(det, 'vProd'),
-    ii:          extractNum(det, 'vII'),
-    ipi:         extractNum(det, 'vIPI'),
-    pis:         extractNum(det, 'vPIS'),
-    cofins:      extractNum(det, 'vCOFINS'),
+  const items = dets.map(det => ({
+    sku:        extractStr(det, 'cProd') ?? '',
+    description:extractStr(det, 'xProd') ?? '',
+    qty:        extractNum(det, 'qCom'),
+    unitValue:  extractNum(det, 'vUnCom'),
+    totalValue: extractNum(det, 'vProd'),
+    ii:         extractNum(det, 'vII'),
+    ipi:        extractNum(det, 'vIPI'),
+    pis:        0,    // preenchido abaixo
+    cofins:     0,
   })).filter(d => d.sku !== '' && d.qty > 0)
+
+  // Distribui PIS/COFINS proporcionalmente ao FOB de cada item
+  const totalFob = items.reduce((s, i) => s + i.totalValue, 0)
+  if (totalFob > 0 && (totalPis > 0 || totalCofins > 0)) {
+    for (const item of items) {
+      const share  = item.totalValue / totalFob
+      item.pis    = totalPis    * share
+      item.cofins = totalCofins * share
+    }
+  }
+
+  return items
 }
 
 export async function POST(request: NextRequest) {
@@ -86,23 +107,23 @@ export async function POST(request: NextRequest) {
   const endDate   = brazilToday()
 
   try {
-    // 1. Lista NF-e do Bling (tipo=2 = entrada, mas a API retorna misturado — filtramos)
+    // 1. Lista NF-e do Bling — passa tipo=2 na query (entrada) e também filtra client-side
     const allNfe: BlingNFeItem[] = []
     for (let page = 1; page <= 5; page++) {
       await sleep(250)
       const res = await blingGet<{ data: BlingNFeItem[] }>('/nfe', {
         pagina: String(page), limite: '100',
         dataEmissaoInicio: startDate, dataEmissaoFim: endDate,
+        tipo: '2',          // entrada
+        situacao: '5',      // Autorizada
       }, 1)
       const items = res.data ?? []
       allNfe.push(...items)
       if (items.length < 100) break
     }
 
-    // Filtra: só entradas autorizadas com chaveAcesso
-    const entradas = allNfe.filter(n =>
-      n.tipo === 2 && n.situacao === 5 && n.chaveAcesso
-    )
+    // Filtra client-side como fallback (caso a API ignore o param tipo=2)
+    const entradas = allNfe.filter(n => n.chaveAcesso && n.tipo === 2)
 
     if (entradas.length === 0) {
       return NextResponse.json({ ok: true, synced: 0, message: 'Nenhuma NF-e de entrada encontrada no período' })

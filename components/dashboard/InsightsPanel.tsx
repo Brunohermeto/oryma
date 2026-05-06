@@ -103,7 +103,7 @@ export async function InsightsPanel() {
 
   // 4. Margem vs mês anterior
   if (curSalesRes.status === 'fulfilled' && prevSalesRes.status === 'fulfilled') {
-    function calcMargin(rows: typeof curSalesRes extends { status: 'fulfilled'; value: { data: infer T } } ? T : never) {
+    function calcMargin(rows: any[] | null | undefined) {
       if (!rows?.length) return null
       const rev  = rows.reduce((s: number, r: any) => s + Number(r.gross_price) - Number(r.cancellation), 0)
       const fees = rows.reduce((s: number, r: any) => s + Number(r.marketplace_commission) + Number(r.marketplace_shipping_fee) + Number(r.ads_cost), 0)
