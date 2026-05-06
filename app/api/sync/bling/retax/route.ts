@@ -10,7 +10,7 @@
  *   3. Para cada NF-e sem impostos, baixa o XML e atualiza sale_taxes
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { blingGet, blingGetText } from '@/lib/integrations/bling'
+import { blingGet, blingGetDocumentoXml } from '@/lib/integrations/bling'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { brazilDaysAgo, brazilToday } from '@/lib/utils/brazil-time'
 // BlingNFeListItem mantido para o fallback de blingId
@@ -69,10 +69,10 @@ export async function POST(request: NextRequest) {
     try {
       await sleep(200)
 
-      // Novo endpoint: GET /nfe/documento/{chaveAcesso}?formato=xml
+      // Novo endpoint (mar/2026): JSON { data[0].conteudo = base64(gzip(xml)) }
       let xml: string | null = null
       try {
-        xml = await blingGetText(`/nfe/documento/${chave}`, { formato: 'xml' })
+        xml = await blingGetDocumentoXml(chave)
       } catch { xml = null }
 
       // Fallback: busca blingId via lista e usa endpoint antigo

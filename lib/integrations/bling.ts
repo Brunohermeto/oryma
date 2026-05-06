@@ -1,4 +1,5 @@
 import { getCredential, saveCredential, isTokenExpired } from './credentials'
+import { gunzipSync } from 'zlib'
 
 const BLING_BASE = 'https://www.bling.com.br/Api/v3'
 const BLING_TOKEN_URL = 'https://www.bling.com.br/Api/v3/oauth/token'
@@ -52,7 +53,41 @@ export async function getValidBlingToken(): Promise<string | null> {
   return data.access_token
 }
 
-// Busca raw text (para endpoints que retornam XML direto, não JSON)
+/**
+ * Baixa o XML de uma NF-e via novo endpoint do Bling (mar/2026).
+ * Resposta: JSON { data: [{ nome: "...", conteudo: "<base64 gzipped xml>" }] }
+ * Decodifica base64 → descomprime gzip → retorna XML string.
+ */
+export async function blingGetDocumentoXml(chaveAcesso: string): Promise<string | null> {
+  const token = await getValidBlingToken()
+  if (!token) throw new Error('Bling não conectado')
+  const url = `${BLING_BASE}/nfe/documento/${chaveAcesso}?formato=xml`
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+    next: { revalidate: 0 },
+  })
+  if (!res.ok) return null
+  try {
+    const json = await res.json() as { data?: Array<{ conteudo?: string }> }
+    const conteudo = json?.data?.[0]?.conteudo
+    if (!conteudo) return null
+    // Conteúdo é base64(gzip(xml))
+    const buf = Buffer.from(conteudo, 'base64')
+    try {
+      // Tenta descomprimir gzip
+      const xml = gunzipSync(buf).toString('utf-8')
+      return xml.includes('<') ? xml : null
+    } catch {
+      // Se não for gzip, tenta usar direto como string
+      const xml = buf.toString('utf-8')
+      return xml.includes('<') ? xml : null
+    }
+  } catch {
+    return null
+  }
+}
+
+// Busca raw text (fallback — alguns endpoints retornam XML direto)
 export async function blingGetText(path: string, params?: Record<string, string>): Promise<string | null> {
   const token = await getValidBlingToken()
   if (!token) throw new Error('Bling não conectado')
@@ -64,7 +99,6 @@ export async function blingGetText(path: string, params?: Record<string, string>
   })
   if (!res.ok) return null
   const text = await res.text()
-  // Retorna null se não parecer XML
   return text.includes('<') ? text : null
 }
 

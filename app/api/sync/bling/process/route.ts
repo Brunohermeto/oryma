@@ -15,7 +15,7 @@
  *   3. data + valor (fallback final, ±1 dia para compat. com registros UTC)
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { blingGet, blingGetText } from '@/lib/integrations/bling'
+import { blingGet, blingGetDocumentoXml } from '@/lib/integrations/bling'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 
 export const dynamic         = 'force-dynamic'
@@ -160,9 +160,9 @@ export async function POST(request: NextRequest) {
     }
 
     if (!xmlFull && chave) {
-      // Novo endpoint: GET /nfe/documento/{chaveAcesso}?formato=xml (adicionado mar/2026)
+      // Novo endpoint (mar/2026): retorna JSON { data[0].conteudo = base64(gzip(xml)) }
       try {
-        xmlFull = await blingGetText(`/nfe/documento/${chave}`, { formato: 'xml' })
+        xmlFull = await blingGetDocumentoXml(chave)
       } catch { xmlFull = null }
     }
 
