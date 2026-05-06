@@ -3,6 +3,7 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 
 export const dynamic = 'force-dynamic'
+export const preferredRegion = 'gru1'
 
 // Oryma brand colors
 const B = {

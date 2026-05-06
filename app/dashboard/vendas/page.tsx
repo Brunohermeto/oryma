@@ -6,6 +6,7 @@ import { SalesFilters } from '@/components/vendas/SalesFilters'
 import { SalesTable } from '@/components/vendas/SalesTable'
 
 export const dynamic = 'force-dynamic'
+export const preferredRegion = 'gru1'
 
 const B = {
   border:   'oklch(0.88 0.016 258)',

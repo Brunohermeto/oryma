@@ -4,6 +4,7 @@ import { buildDRE } from '@/lib/dre/engine'
 import { Button } from '@/components/ui/button'
 
 export const dynamic = 'force-dynamic'
+export const preferredRegion = 'gru1'
 
 export default async function DREPage({
   searchParams,

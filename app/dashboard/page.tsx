@@ -8,6 +8,7 @@ import { InsightsPanel } from '@/components/dashboard/InsightsPanel'
 import { LiveSalesFeed } from '@/components/dashboard/LiveSalesFeed'
 
 export const dynamic = 'force-dynamic'
+export const preferredRegion = 'gru1'
 
 function fmtR(v: number) { return `R$ ${Math.round(v).toLocaleString('pt-BR')}` }
 function fmtPct(v: number) { return `${v.toFixed(1)}%` }

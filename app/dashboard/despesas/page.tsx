@@ -4,6 +4,7 @@ import { EXPENSE_CATEGORY_LABELS } from '@/types'
 import { DespesaForm } from '@/components/despesas/DespesaForm'
 
 export const dynamic = 'force-dynamic'
+export const preferredRegion = 'gru1'
 
 const B = {
   border:   'oklch(0.88 0.016 258)',

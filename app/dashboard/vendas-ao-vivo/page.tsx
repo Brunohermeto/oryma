@@ -2,6 +2,7 @@ import { TopBar } from '@/components/layout/TopBar'
 import { VendasAoVivoFeed } from '@/components/vendas/VendasAoVivoFeed'
 
 export const dynamic = 'force-dynamic'
+export const preferredRegion = 'gru1'
 
 export default function VendasAoVivoPage() {
   return (

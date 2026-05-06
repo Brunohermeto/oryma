@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic'
+export const preferredRegion = 'gru1'
 
 import { TopBar } from '@/components/layout/TopBar'
 import { getAllCredentials } from '@/lib/integrations/credentials'

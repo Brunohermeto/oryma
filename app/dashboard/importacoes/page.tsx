@@ -4,6 +4,7 @@ import { NFEUploadZone } from '@/components/importacoes/NFEUploadZone'
 import { LandedCostForm } from '@/components/importacoes/LandedCostForm'
 
 export const dynamic = 'force-dynamic'
+export const preferredRegion = 'gru1'
 
 const B = {
   border:   'oklch(0.88 0.016 258)',
