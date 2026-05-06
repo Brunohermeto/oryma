@@ -107,23 +107,25 @@ export async function POST(request: NextRequest) {
   const endDate   = brazilToday()
 
   try {
-    // 1. Lista NF-e do Bling — passa tipo=2 na query (entrada) e também filtra client-side
+    // 1. Lista NF-e do Bling — o endpoint /nfe não filtra por tipo na query,
+    //    então buscamos tudo e filtramos client-side
     const allNfe: BlingNFeItem[] = []
     for (let page = 1; page <= 5; page++) {
       await sleep(250)
       const res = await blingGet<{ data: BlingNFeItem[] }>('/nfe', {
         pagina: String(page), limite: '100',
         dataEmissaoInicio: startDate, dataEmissaoFim: endDate,
-        tipo: '2',          // entrada
-        situacao: '5',      // Autorizada
       }, 1)
       const items = res.data ?? []
       allNfe.push(...items)
       if (items.length < 100) break
     }
 
-    // Filtra client-side como fallback (caso a API ignore o param tipo=2)
-    const entradas = allNfe.filter(n => n.chaveAcesso && n.tipo === 2)
+    // tipo=2 → entrada | situacao=5 → Autorizada
+    // Também aceita tipo=0 que é o indicador de entrada no próprio XML (tpNF)
+    const entradas = allNfe.filter(n =>
+      n.chaveAcesso && (n.tipo === 2 || n.tipo === 0) && n.situacao === 5
+    )
 
     if (entradas.length === 0) {
       return NextResponse.json({ ok: true, synced: 0, message: 'Nenhuma NF-e de entrada encontrada no período' })

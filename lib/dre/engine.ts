@@ -60,6 +60,17 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
     .gte('sale_date', startDate)
     .lte('sale_date', endDate)
 
+  // Load PIS/COFINS-imp credits (from import batches of the period)
+  // Opção B: créditos NÃO estão no CMV — reduzem o imposto líquido sobre vendas
+  const { data: importCredits } = await db
+    .from('unit_costs')
+    .select('pis_credit_unit, cofins_credit_unit, quantity_in_batch')
+    .gte('calculated_at', `${startDate}T00:00:00Z`)
+    .lte('calculated_at', `${endDate}T23:59:59Z`)
+
+  const totalPisCredit    = (importCredits ?? []).reduce((s, c) => s + Number(c.pis_credit_unit)    * Number(c.quantity_in_batch), 0)
+  const totalCofinsCredit = (importCredits ?? []).reduce((s, c) => s + Number(c.cofins_credit_unit) * Number(c.quantity_in_batch), 0)
+
   // Load operational expenses
   const { data: expenses } = await db
     .from('operational_expenses')
@@ -118,11 +129,20 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
     total: grossRevenue.total - cancellations.total - discounts.total,
   }
 
+  // Créditos distribuídos proporcionalmente pela receita de cada canal
+  const totalRev = grossRevenue.total || 1
+  const pisCredit:    MPNumbers = { mercado_livre: totalPisCredit    * (grossRevenue.mercado_livre / totalRev), shopee: totalPisCredit    * (grossRevenue.shopee / totalRev), amazon: totalPisCredit    * (grossRevenue.amazon / totalRev), total: totalPisCredit    }
+  const cofinsCredit: MPNumbers = { mercado_livre: totalCofinsCredit * (grossRevenue.mercado_livre / totalRev), shopee: totalCofinsCredit * (grossRevenue.shopee / totalRev), amazon: totalCofinsCredit * (grossRevenue.amazon / totalRev), total: totalCofinsCredit }
+
+  // Impostos líquidos = impostos brutos sobre vendas − créditos de importação
+  const pisLiq:    MPNumbers = { mercado_livre: Math.max(0, pis.mercado_livre    - pisCredit.mercado_livre),    shopee: Math.max(0, pis.shopee    - pisCredit.shopee),    amazon: Math.max(0, pis.amazon    - pisCredit.amazon),    total: Math.max(0, pis.total    - totalPisCredit)    }
+  const cofinsLiq: MPNumbers = { mercado_livre: Math.max(0, cofins.mercado_livre - cofinsCredit.mercado_livre), shopee: Math.max(0, cofins.shopee - cofinsCredit.shopee), amazon: Math.max(0, cofins.amazon - cofinsCredit.amazon), total: Math.max(0, cofins.total - totalCofinsCredit) }
+
   const totalTaxes: MPNumbers = {
-    mercado_livre: pis.mercado_livre + cofins.mercado_livre + icms.mercado_livre + icmsDifal.mercado_livre,
-    shopee: pis.shopee + cofins.shopee + icms.shopee + icmsDifal.shopee,
-    amazon: pis.amazon + cofins.amazon + icms.amazon + icmsDifal.amazon,
-    total: pis.total + cofins.total + icms.total + icmsDifal.total,
+    mercado_livre: pisLiq.mercado_livre + cofinsLiq.mercado_livre + icms.mercado_livre + icmsDifal.mercado_livre,
+    shopee:        pisLiq.shopee        + cofinsLiq.shopee        + icms.shopee        + icmsDifal.shopee,
+    amazon:        pisLiq.amazon        + cofinsLiq.amazon        + icms.amazon        + icmsDifal.amazon,
+    total:         pisLiq.total         + cofinsLiq.total         + icms.total         + icmsDifal.total,
   }
 
   const afterTaxes = subtract(netMarket, totalTaxes)
@@ -200,23 +220,12 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
   const irpjAdicional = Math.max(0, lucroBase - 20000) * 0.10
   const csll = Math.max(0, lucroBase) * 0.09
 
-  // PIS/COFINS credits from imports (from unit_costs table for the period)
-  const { data: credits } = await db
-    .from('unit_costs')
-    .select('pis_credit_unit, cofins_credit_unit, quantity_in_batch')
-    .gte('calculated_at', `${startDate}T00:00:00Z`)
-    .lte('calculated_at', `${endDate}T23:59:59Z`)
-
-  const totalPisCredit = (credits ?? []).reduce((s, c) => s + Number(c.pis_credit_unit) * Number(c.quantity_in_batch), 0)
-  const totalCofinsCredit = (credits ?? []).reduce((s, c) => s + Number(c.cofins_credit_unit) * Number(c.quantity_in_batch), 0)
-  const totalCredits = totalPisCredit + totalCofinsCredit
-
   const irpjCsllTotal = irpj + irpjAdicional + csll
   const resultadoLiquido: MPNumbers = {
-    mercado_livre: ebitda.mercado_livre * (ebitda.total > 0 ? (ebitda.total - irpjCsllTotal + totalCredits) / ebitda.total : 1),
-    shopee: ebitda.shopee * (ebitda.total > 0 ? (ebitda.total - irpjCsllTotal + totalCredits) / ebitda.total : 1),
-    amazon: ebitda.amazon * (ebitda.total > 0 ? (ebitda.total - irpjCsllTotal + totalCredits) / ebitda.total : 1),
-    total: ebitda.total - irpjCsllTotal + totalCredits,
+    mercado_livre: ebitda.mercado_livre - (ebitda.total > 0 ? irpjCsllTotal * (ebitda.mercado_livre / ebitda.total) : 0),
+    shopee:        ebitda.shopee        - (ebitda.total > 0 ? irpjCsllTotal * (ebitda.shopee        / ebitda.total) : 0),
+    amazon:        ebitda.amazon        - (ebitda.total > 0 ? irpjCsllTotal * (ebitda.amazon        / ebitda.total) : 0),
+    total:         ebitda.total - irpjCsllTotal,
   }
   const netMarginPct = operationalRevenue.total > 0 ? (resultadoLiquido.total / operationalRevenue.total) * 100 : 0
 
@@ -228,12 +237,14 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
     toRow('(-) Descontos e Bônus', discounts, { negate: true }),
     toRow('= Receita Líquida de Mercado', netMarket, { isTotal: true }),
 
-    headerRow('Impostos sobre Vendas (NF-e série 2 — galpão)'),
-    toRow('(-) PIS (1,65%)', pis, { negate: true }),
-    toRow('(-) COFINS (7,60%)', cofins, { negate: true }),
+    headerRow('Impostos sobre Vendas'),
+    toRow('(-) PIS s/ vendas (bruto)', pis, { negate: true }),
+    ...(totalPisCredit > 0 ? [toRow('(+) Crédito PIS-importação', pisCredit)] : []),
+    toRow('(-) COFINS s/ vendas (bruto)', cofins, { negate: true }),
+    ...(totalCofinsCredit > 0 ? [toRow('(+) Crédito COFINS-importação', cofinsCredit)] : []),
     toRow('(-) ICMS', icms, { negate: true }),
     toRow('(-) ICMS DIFAL', icmsDifal, { negate: true }),
-    toRow('= Receita após Impostos', afterTaxes, { isTotal: true }),
+    toRow('= Receita após Impostos Líquidos', afterTaxes, { isTotal: true }),
 
     headerRow('Custos do Canal de Venda'),
     toRow('(-) Comissões e Tarifas', commissions, { negate: true }),
@@ -260,7 +271,6 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
     headerRow('Apuração Tributária (Lucro Real)'),
     toRow('(-) IRPJ (15% + adicional 10%)', { mercado_livre: 0, shopee: 0, amazon: 0, total: irpj + irpjAdicional }, { negate: true }),
     toRow('(-) CSLL (9%)', { mercado_livre: 0, shopee: 0, amazon: 0, total: csll }, { negate: true }),
-    toRow('(+) Créditos PIS/COFINS-Importação', { mercado_livre: 0, shopee: 0, amazon: 0, total: totalCredits }),
 
     { ...toRow('= RESULTADO LÍQUIDO', resultadoLiquido, { isTotal: true, isHighlight: true }), label: `= RESULTADO LÍQUIDO  (${netMarginPct.toFixed(1)}% mg. líquida)` },
   ]

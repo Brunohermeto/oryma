@@ -43,12 +43,17 @@ export async function recalculateLandedCost(importOrderId: string): Promise<void
     const itemFobTotal = Number(item.total_fob_value)
     const qty = Number(item.quantity) || 1
 
-    // Per-unit taxes (already stored as per-unit in import_items)
+    // Per-unit taxes incluídos no CMV:
+    // - II: sem crédito → custo real
+    // - IPI: sem crédito para revendedor → custo real
+    // - ICMS-GNRE: gera crédito mas é custo de desembolso imediato
+    // PIS-imp e COFINS-imp são EXCLUÍDOS do CMV (Opção B — Lucro Real não cumulativo):
+    // como são 100% recuperados via crédito nas vendas, incluí-los no CMV e depois
+    // adicioná-los de volta como crédito geraria dupla contagem no EBITDA.
+    // São rastreados separadamente em pis_credit_unit / cofins_credit_unit para o DRE.
     const taxesUnitCost =
       Number(item.unit_ii) +
       Number(item.unit_ipi) +
-      Number(item.unit_pis_imp) +
-      Number(item.unit_cofins_imp) +
       Number(item.unit_icms_gnre)
 
     // Prorate additional costs by FOB proportion
