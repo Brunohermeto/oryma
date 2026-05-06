@@ -1,9 +1,18 @@
 /**
  * POST /api/sync/bling/process
  *
- * Fase 2: baixa o XML de UMA NF-e e vincula à venda correspondente.
- * Tempo: ~400ms (200ms sleep + 200ms XML + 50ms DB)
- * Nunca vai estourar o limite do Vercel.
+ * Fase 2: busca UMA NF-e completa e vincula à venda correspondente.
+ *
+ * MUDANÇA CHAVE: usa GET /nfe/{id} em vez de GET /nfe/{id}/xml
+ * O endpoint /nfe/{id} retorna:
+ *   - numeroPedidoLoja → campo direto (sem XML parsing, sem CDATA)
+ *   - xml              → XML completo para extrair impostos
+ *   - chaveAcesso, serie → campos diretos
+ *
+ * Estratégia de matching:
+ *   1. numeroPedidoLoja (campo direto da API, testa ML / Shopee / Amazon)
+ *   2. infCpl do XML (fallback se numeroPedidoLoja não disponível)
+ *   3. data + valor (fallback final, ±1 dia para compat. com registros UTC)
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { blingGet } from '@/lib/integrations/bling'
@@ -21,12 +30,20 @@ function extractTag(xml: string, tag: string): number {
 }
 
 function extractStr(xml: string, tag: string): string | null {
-  // Tenta conteúdo direto primeiro
+  // Conteúdo direto
   const m = xml.match(new RegExp(`<${tag}>([^<]+)<\\/${tag}>`))
   if (m) return m[1]
-  // Tenta CDATA — infCpl frequentemente vem dentro de <![CDATA[...]]>
+  // CDATA — infCpl frequentemente vem como <![CDATA[...]]>
   const cdata = xml.match(new RegExp(`<${tag}><!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>`))
   return cdata?.[1] ?? null
+}
+
+interface BlingNFeCompleta {
+  id?: number
+  chaveAcesso?: string | null
+  numeroPedidoLoja?: string | null  // Campo direto — sem parsear XML!
+  xml?: string | null
+  serie?: string | null
 }
 
 export async function POST(request: NextRequest) {
@@ -45,55 +62,70 @@ export async function POST(request: NextRequest) {
   try {
     await sleep(200)  // respeita rate limit do Bling
 
-    // Baixa o XML — retries=0 (se falhar, pula; será tentado na próxima rodada)
-    const xmlRes = await blingGet<{ data: { xml: string } }>(`/nfe/${nfe_id}/xml`, undefined, 0)
-    const xml = xmlRes.data?.xml
-    if (!xml) return NextResponse.json({ ok: true, matched: false, reason: 'no_xml' })
+    // Busca NF-e completa — retorna numeroPedidoLoja + xml + chaveAcesso em 1 chamada
+    const nfeRes = await blingGet<{ data: BlingNFeCompleta }>(`/nfe/${nfe_id}`, undefined, 0)
+    const nfeData = nfeRes.data
 
-    // Chave de acesso
-    const chave = nfe_chave_acesso ?? xml.match(/<chNFe>([^<]+)<\/chNFe>/)?.[1] ?? null
+    if (!nfeData) {
+      return NextResponse.json({ ok: true, matched: false, reason: 'no_data' })
+    }
+
+    const xml   = nfeData.xml ?? null
+    const chave = nfe_chave_acesso ?? nfeData.chaveAcesso ?? null
     if (!chave) return NextResponse.json({ ok: true, matched: false, reason: 'no_chave' })
 
     // Verifica se já foi processada
     const { data: existingSale } = await db
       .from('sales').select('id').eq('nfe_saida_key', chave).limit(1)
-    if (existingSale?.[0]) return NextResponse.json({ ok: true, matched: false, reason: 'already_linked' })
-
-    // Impostos
-    const pis    = extractTag(xml, 'vPIS')
-    const cofins = extractTag(xml, 'vCOFINS')
-    const icms   = extractTag(xml, 'vICMS')
-    const difal  = extractTag(xml, 'vICMSUFDest') + extractTag(xml, 'vICMSUFRemet')
-    const ipi    = extractTag(xml, 'vIPI')
-    const frete  = extractTag(xml, 'vFrete')
-
-    // Matching: canal + número do pedido
-    const infCpl = extractStr(xml, 'infCpl') ?? ''
-    const canalMatch = infCpl.match(/Canal:\s*(Mercado Livre|Shopee|Amazon)/i)
-    const canal = canalMatch?.[1]?.toLowerCase().replace('mercado livre', 'mercado_livre') ?? null
-    const pedidoMatch = infCpl.match(/Numero Pedido Loja:\s*([^\s]+)/i)
-    const numeroPedido = pedidoMatch?.[1] ?? null
-
-    let saleId: string | null = null
-
-    // Estratégia 1: número do pedido
-    if (canal && numeroPedido) {
-      const prefix = canal === 'mercado_livre' ? `ml_${numeroPedido}` : `${canal}_${numeroPedido}`
-      const { data } = await db.from('sales').select('id').like('external_order_id', `${prefix}%`).limit(1)
-      saleId = data?.[0]?.id ?? null
+    if (existingSale?.[0]) {
+      return NextResponse.json({ ok: true, matched: false, reason: 'already_linked' })
     }
 
-    // Estratégia 2: data + valor (fallback)
-    // Busca ±1 dia para compatibilidade com registros antigos gravados em UTC
-    if (!saleId) {
+    // ── Matching ──────────────────────────────────────────────────────────
+
+    let saleId: string | null = null
+    const numeroPedidoLoja = nfeData.numeroPedidoLoja?.trim() ?? null
+
+    // Estratégia 1: numeroPedidoLoja campo direto da API (ML, Shopee, Amazon)
+    if (numeroPedidoLoja) {
+      const prefixes = [
+        `ml_${numeroPedidoLoja}`,
+        `shopee_${numeroPedidoLoja}`,
+        `amazon_${numeroPedidoLoja}`,
+      ]
+      for (const prefix of prefixes) {
+        const { data } = await db.from('sales').select('id')
+          .like('external_order_id', `${prefix}%`).limit(1)
+        if (data?.[0]) { saleId = data[0].id; break }
+      }
+    }
+
+    // Estratégia 2: infCpl do XML (fallback — cobre caso numeroPedidoLoja ausente)
+    if (!saleId && xml) {
+      const infCpl = extractStr(xml, 'infCpl') ?? ''
+      const canalMatch = infCpl.match(/Canal:\s*(Mercado Livre|Shopee|Amazon)/i)
+      const canal = canalMatch?.[1]?.toLowerCase().replace('mercado livre', 'mercado_livre') ?? null
+      const pedidoMatch = infCpl.match(/Numero Pedido Loja:\s*([^\s]+)/i)
+      const numeroPedido = pedidoMatch?.[1] ?? null
+
+      if (canal && numeroPedido) {
+        const prefix = canal === 'mercado_livre' ? `ml_${numeroPedido}` : `${canal}_${numeroPedido}`
+        const { data } = await db.from('sales').select('id')
+          .like('external_order_id', `${prefix}%`).limit(1)
+        saleId = data?.[0]?.id ?? null
+      }
+    }
+
+    // Estratégia 3: data + valor (fallback final, ±1 dia p/ compat. com registros UTC antigos)
+    if (!saleId && xml) {
       const vNF   = extractTag(xml, 'vNF')
       const dhEmi = xml.match(/<dhEmi>([^<]+)<\/dhEmi>/)?.[1]?.slice(0, 10) ?? ''
       if (vNF > 0 && dhEmi) {
-        const tol = vNF * 0.02
-        const d = new Date(dhEmi)
+        const tol       = vNF * 0.02
+        const d         = new Date(dhEmi)
         const dayBefore = new Date(d.getTime() - 86400000).toISOString().slice(0, 10)
         const dayAfter  = new Date(d.getTime() + 86400000).toISOString().slice(0, 10)
-        const { data } = await db.from('sales').select('id')
+        const { data }  = await db.from('sales').select('id')
           .gte('sale_date', dayBefore).lte('sale_date', dayAfter)
           .is('nfe_saida_key', null)
           .gte('gross_price', vNF - tol).lte('gross_price', vNF + tol).limit(1)
@@ -102,15 +134,30 @@ export async function POST(request: NextRequest) {
     }
 
     if (!saleId) {
-      const vNF2  = extractTag(xml, 'vNF')
-      const dhEmi2 = xml.match(/<dhEmi>([^<]+)<\/dhEmi>/)?.[1]?.slice(0, 10) ?? ''
+      const vNF2  = xml ? extractTag(xml, 'vNF') : 0
+      const dhEmi2 = xml?.match(/<dhEmi>([^<]+)<\/dhEmi>/)?.[1]?.slice(0, 10) ?? ''
       return NextResponse.json({
         ok: true, matched: false, reason: 'no_sale_match',
-        debug: { infCpl: infCpl.slice(0, 200), canal, numeroPedido, vNF: vNF2, dhEmi: dhEmi2 },
+        debug: {
+          numeroPedidoLoja,
+          canal_xml: xml ? (extractStr(xml, 'infCpl') ?? '').slice(0, 100) : '(sem xml)',
+          vNF: vNF2,
+          dhEmi: dhEmi2,
+        },
       })
     }
 
-    // Salva em paralelo
+    // ── Impostos (do XML) ─────────────────────────────────────────────────
+
+    const pis    = xml ? extractTag(xml, 'vPIS')    : 0
+    const cofins = xml ? extractTag(xml, 'vCOFINS') : 0
+    const icms   = xml ? extractTag(xml, 'vICMS')   : 0
+    const difal  = xml ? extractTag(xml, 'vICMSUFDest') + extractTag(xml, 'vICMSUFRemet') : 0
+    const ipi    = xml ? extractTag(xml, 'vIPI')    : 0
+    const frete  = xml ? extractTag(xml, 'vFrete')  : 0
+
+    // ── Salva ─────────────────────────────────────────────────────────────
+
     const updates: Record<string, unknown> = { nfe_saida_key: chave }
     if (frete > 0) updates.marketplace_shipping_fee = frete
 
@@ -122,7 +169,8 @@ export async function POST(request: NextRequest) {
       }, { onConflict: 'sale_id' }),
     ])
 
-    return NextResponse.json({ ok: true, matched: true, chave })
+    return NextResponse.json({ ok: true, matched: true, chave, numeroPedidoLoja })
+
   } catch (err) {
     return NextResponse.json({ ok: true, matched: false, reason: String(err) })
   }

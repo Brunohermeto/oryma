@@ -23,11 +23,10 @@ const B = {
  * todas as chamadas em sequência e mostra o progresso em tempo real.
  */
 interface NFeDebug {
-  infCpl: string
-  canal: string | null
-  numeroPedido: string | null
-  vNF: number
-  dhEmi: string
+  numeroPedidoLoja?: string | null
+  canal_xml?: string
+  vNF?: number
+  dhEmi?: string
 }
 
 export function BlingSyncButton() {
@@ -144,9 +143,8 @@ export function BlingSyncButton() {
             <div className="text-xs rounded p-2 max-w-lg" style={{ background: 'oklch(0.97 0.01 258)', color: B.muted, fontFamily: 'monospace' }}>
               {firstReason && <div><b>motivo:</b> {firstReason}</div>}
               {debugSample && <>
-                <div><b>infCpl:</b> {debugSample.infCpl || '(vazio)'}</div>
-                <div><b>canal:</b> {debugSample.canal ?? '(não encontrado)'}</div>
-                <div><b>pedido:</b> {debugSample.numeroPedido ?? '(não encontrado)'}</div>
+                <div><b>numeroPedidoLoja:</b> {debugSample.numeroPedidoLoja ?? '(vazio)'}</div>
+                <div><b>infCpl (XML):</b> {debugSample.canal_xml || '(vazio)'}</div>
                 <div><b>valor NF:</b> R$ {debugSample.vNF} | <b>data:</b> {debugSample.dhEmi}</div>
               </>}
             </div>
