@@ -94,6 +94,9 @@ function InsightCard({ insight }: { insight: Insight }) {
   return content
 }
 
+// Helper: Supabase retorna relações como objeto único OU array — trata ambos
+const uwc = (v: unknown) => !v ? null : Array.isArray(v) ? (v as any[])[0] ?? null : v as any
+
 export async function InsightsPanel() {
   const db = createSupabaseServiceClient()
   const now = new Date()
@@ -202,7 +205,6 @@ export async function InsightsPanel() {
       .gte('sale_date', prevStart)
       .lte('sale_date', prevEnd)
 
-    const uwc = (v: unknown) => !v ? null : Array.isArray(v) ? (v as any[])[0] ?? null : v as any
     function calcMargin(rows: typeof curSales) {
       if (!rows?.length) return null
       const rev  = rows.reduce((s, r) => s + Number(r.gross_price) - Number(r.cancellation), 0)
