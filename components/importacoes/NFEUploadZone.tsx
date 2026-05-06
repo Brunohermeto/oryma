@@ -1,6 +1,6 @@
 'use client'
 import { useState, useRef } from 'react'
-import { Button } from '@/components/ui/button'
+import { useRouter } from 'next/navigation'
 
 interface UploadResult {
   file: string
@@ -11,8 +11,9 @@ interface UploadResult {
 
 export function NFEUploadZone({ onUploadComplete }: { onUploadComplete?: () => void }) {
   const [uploading, setUploading] = useState(false)
-  const [results, setResults] = useState<UploadResult[]>([])
+  const [results, setResults]     = useState<UploadResult[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
+  const router   = useRouter()
 
   async function handleFiles(files: FileList | null) {
     if (!files?.length) return
@@ -22,15 +23,18 @@ export function NFEUploadZone({ onUploadComplete }: { onUploadComplete?: () => v
     const form = new FormData()
     Array.from(files).forEach(f => form.append('files', f))
 
-    const res = await fetch('/api/nfe/upload', { method: 'POST', body: form })
+    const res  = await fetch('/api/nfe/upload', { method: 'POST', body: form })
     const data = await res.json()
     setResults(data.results ?? [])
     setUploading(false)
-    if (data.ok) onUploadComplete?.()
+
+    if (data.ok) {
+      onUploadComplete?.()
+      router.refresh()  // atualiza a lista de NF-e na página
+    }
   }
 
   const successCount = results.filter(r => !r.error).length
-  const errorCount = results.filter(r => r.error).length
 
   return (
     <div className="space-y-3">
@@ -59,7 +63,7 @@ export function NFEUploadZone({ onUploadComplete }: { onUploadComplete?: () => v
         <div className="space-y-1.5">
           {successCount > 0 && (
             <div className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-4 py-2">
-              ✓ {successCount} NF-e{successCount > 1 ? 's' : ''} importada{successCount > 1 ? 's' : ''} com sucesso
+              ✓ {successCount} NF-e{successCount > 1 ? 's' : ''} importada{successCount > 1 ? 's' : ''} com sucesso — lista atualizada abaixo
             </div>
           )}
           {results.filter(r => r.error).map((r, i) => (
