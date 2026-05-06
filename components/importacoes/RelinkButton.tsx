@@ -38,7 +38,7 @@ export function RelinkButton() {
         }}
       >
         <RefreshCw size={13} className={status === 'running' ? 'animate-spin' : ''} />
-        {status === 'running' ? 'Recalculando CMP…' : 'Vincular produtos e recalcular CMP'}
+        {status === 'running' ? 'Calculando CMP e atualizando vendas…' : 'Vincular produtos e recalcular CMP'}
       </button>
       {status === 'done' && (
         <span className="flex items-center gap-1.5 text-sm" style={{ color: '#16a34a' }}>
