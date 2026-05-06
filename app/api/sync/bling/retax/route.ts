@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { blingGet, blingGetText } from '@/lib/integrations/bling'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { brazilDaysAgo, brazilToday } from '@/lib/utils/brazil-time'
+// BlingNFeListItem mantido para o fallback de blingId
 
 export const dynamic         = 'force-dynamic'
 export const maxDuration     = 60
@@ -59,49 +60,36 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, updated: 0, message: 'Nenhuma NF-e com impostos zerados encontrada' })
   }
 
-  // Conjunto das chaves que precisam de retax
-  const chaveSet = new Set(needsRetax.map(s => s.nfe_saida_key as string))
-
-  // 2. Lista NF-e do Bling (60 dias) para montar mapa chaveAcesso → blingId
-  const chaveToId = new Map<string, number>()
-  const startDate = brazilDaysAgo(60)
-  const endDate   = brazilToday()
-
-  for (let page = 1; page <= 5; page++) {
-    const list = await blingGet<{ data: BlingNFeListItem[] }>('/nfe', {
-      pagina: String(page), limite: '100',
-      dataEmissaoInicio: startDate, dataEmissaoFim: endDate,
-    }, 1)
-    const items = list.data ?? []
-    for (const nfe of items) {
-      if (nfe.chaveAcesso && chaveSet.has(nfe.chaveAcesso)) {
-        chaveToId.set(nfe.chaveAcesso, nfe.id)
-      }
-    }
-    if (items.length < 100) break
-  }
-
-  // 3. Para cada venda com impostos zerados, baixa o XML e atualiza
+  // 2. Para cada venda com impostos pendentes, baixa o XML via chaveAcesso diretamente
+  // Usa novo endpoint mar/2026 (não precisa de blingId)
   let updated = 0
-  for (const sale of needsRetax.slice(0, 30)) {  // máximo 30 por chamada
+  for (const sale of needsRetax.slice(0, 30)) {
     const chave = sale.nfe_saida_key as string
-    const blingId = chaveToId.get(chave)
-    if (!blingId) continue  // NF-e fora do período buscado
 
     try {
       await sleep(200)
 
-      // Tenta novo endpoint (mar/2026) via chaveAcesso, depois fallback antigo
+      // Novo endpoint: GET /nfe/documento/{chaveAcesso}?formato=xml
       let xml: string | null = null
       try {
         xml = await blingGetText(`/nfe/documento/${chave}`, { formato: 'xml' })
       } catch { xml = null }
 
+      // Fallback: busca blingId via lista e usa endpoint antigo
       if (!xml) {
         try {
-          const xmlRes = await blingGet<{ data: { xml: string } }>(`/nfe/${blingId}/xml`, undefined, 0)
-          const c = xmlRes.data?.xml ?? null
-          xml = c && c.includes('<') ? c : null
+          const startDate = brazilDaysAgo(60)
+          const endDate   = brazilToday()
+          const list = await blingGet<{ data: BlingNFeListItem[] }>('/nfe', {
+            pagina: '1', limite: '100',
+            dataEmissaoInicio: startDate, dataEmissaoFim: endDate,
+          }, 1)
+          const nfe = (list.data ?? []).find(n => n.chaveAcesso === chave)
+          if (nfe?.id) {
+            const xmlRes = await blingGet<{ data: { xml: string } }>(`/nfe/${nfe.id}/xml`, undefined, 0)
+            const c = xmlRes.data?.xml ?? null
+            xml = c && c.includes('<') ? c : null
+          }
         } catch { xml = null }
       }
 
