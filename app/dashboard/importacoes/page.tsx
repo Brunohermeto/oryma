@@ -3,6 +3,7 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { NFEUploadZone } from '@/components/importacoes/NFEUploadZone'
 import { LandedCostForm } from '@/components/importacoes/LandedCostForm'
 import { ManualCostForm } from '@/components/importacoes/ManualCostForm'
+import { RelinkButton } from '@/components/importacoes/RelinkButton'
 
 export const dynamic = 'force-dynamic'
 export const preferredRegion = 'gru1'
@@ -130,6 +131,17 @@ export default async function ImportacoesPage() {
             </tbody>
           </table>
           </div>
+        </div>
+
+        {/* Re-vincular produtos e recalcular CMP */}
+        <div className="bg-white rounded-xl p-5" style={{ border: `1px solid ${B.border}` }}>
+          <div className="font-semibold text-sm mb-1" style={{ color: B.text, fontFamily: 'var(--font-sora)' }}>
+            Recalcular CMP
+          </div>
+          <p className="text-xs mb-4" style={{ color: B.muted }}>
+            Use após importar produtos do Bling. Vincula os itens das NF-e importadas aos SKUs e recalcula o Custo Médio Ponderado.
+          </p>
+          <RelinkButton />
         </div>
 
         {/* Entrada manual de custo */}
