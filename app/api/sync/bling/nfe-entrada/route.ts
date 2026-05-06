@@ -30,6 +30,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { blingGet, blingGetDocumentoXml } from '@/lib/integrations/bling'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { brazilToday, brazilDaysAgo } from '@/lib/utils/brazil-time'
+import { recalculateLandedCost } from '@/lib/landed-cost/calculator'
 
 export const dynamic         = 'force-dynamic'
 export const maxDuration     = 60
@@ -185,6 +186,12 @@ export async function POST(request: NextRequest) {
           })
           await db.from('import_items').insert(itemRows)
         }
+
+        // Calcula custo landed inicial (FOB + impostos da NF-e; sem fretes ainda)
+        // Isso já popula unit_costs e cmp_costs, que aparecem em /produtos
+        try {
+          await recalculateLandedCost(order.id)
+        } catch { /* não bloqueia o sync se cálculo falhar */ }
 
         synced++
       } catch (err) {

@@ -17,11 +17,14 @@ export async function POST(request: NextRequest) {
 
   const db    = createSupabaseServiceClient()
   const isCron    = !!cronSecret
+  const queryFrom = request.nextUrl.searchParams.get('from')
+  const queryTo   = request.nextUrl.searchParams.get('to')
   const queryDays = request.nextUrl.searchParams.get('days')
-  const days      = queryDays ? Number(queryDays) : 7  // manual = 7 dias para não perder pedidos criados antes mas pagos hoje
-  // Usa fuso Brasil (UTC-3) para que o período reflita dias corretos para o usuário
-  const endDate   = brazilToday()
-  const startDate = brazilDaysAgo(days)
+  const days      = queryDays ? Number(queryDays) : 7
+
+  // Suporta range explícito (?from=YYYY-MM-DD&to=YYYY-MM-DD) ou relativo (?days=N)
+  const endDate   = queryTo   ?? brazilToday()
+  const startDate = queryFrom ?? brazilDaysAgo(days)
 
   // Cria log de sync — sem error_message inicial para evitar conflito
   const { data: log, error: logError } = await db.from('sync_logs').insert({
