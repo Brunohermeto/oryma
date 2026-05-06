@@ -187,13 +187,15 @@ export async function POST(request: NextRequest) {
     const updates: Record<string, unknown> = { nfe_saida_key: chave }
     if (frete > 0) updates.marketplace_shipping_fee = frete
 
+    // sale_taxes não tem UNIQUE constraint em sale_id — usa delete+insert
     await Promise.all([
       db.from('sales').update(updates).eq('id', saleId),
-      db.from('sale_taxes').upsert({
-        sale_id: saleId, nfe_key: chave,
-        pis, cofins, icms, icms_difal: difal, ipi,
-        // total_taxes NÃO incluído — é coluna GENERATED no Postgres (auto-calcula)
-      }, { onConflict: 'sale_id' }),
+      db.from('sale_taxes').delete().eq('sale_id', saleId).then(() =>
+        db.from('sale_taxes').insert({
+          sale_id: saleId, nfe_key: chave,
+          pis, cofins, icms, icms_difal: difal, ipi,
+        })
+      ),
     ])
 
     return NextResponse.json({ ok: true, matched: true, chave, numeroPedidoLoja })

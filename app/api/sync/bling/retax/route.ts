@@ -114,11 +114,12 @@ export async function POST(request: NextRequest) {
       const ipi    = extractTag(xml, 'vIPI')
       const frete  = extractTag(xml, 'vFrete')
 
-      // Atualiza sale_taxes (sem total_taxes — é coluna GENERATED no Postgres)
-      await db.from('sale_taxes').upsert({
+      // sale_taxes não tem UNIQUE constraint em sale_id — usa delete+insert
+      await db.from('sale_taxes').delete().eq('sale_id', sale.id)
+      await db.from('sale_taxes').insert({
         sale_id: sale.id, nfe_key: chave,
         pis, cofins, icms, icms_difal: difal, ipi,
-      }, { onConflict: 'sale_id' })
+      })
 
       // Atualiza frete se disponível
       if (frete > 0) {
