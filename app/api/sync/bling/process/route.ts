@@ -147,14 +147,26 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // ── Impostos (do XML) ─────────────────────────────────────────────────
+    // ── XML para impostos ─────────────────────────────────────────────────
+    // /nfe/{id} não retorna o XML completo — busca separado só quando há match
 
-    const pis    = xml ? extractTag(xml, 'vPIS')    : 0
-    const cofins = xml ? extractTag(xml, 'vCOFINS') : 0
-    const icms   = xml ? extractTag(xml, 'vICMS')   : 0
-    const difal  = xml ? extractTag(xml, 'vICMSUFDest') + extractTag(xml, 'vICMSUFRemet') : 0
-    const ipi    = xml ? extractTag(xml, 'vIPI')    : 0
-    const frete  = xml ? extractTag(xml, 'vFrete')  : 0
+    let xmlFull: string | null = xml  // usa xml do /nfe/{id} se disponível
+    if (!xmlFull || !xmlFull.includes('<nfeProc') && !xmlFull.includes('<NFe')) {
+      // XML não veio ou é uma URL — busca explicitamente
+      try {
+        const xmlRes = await blingGet<{ data: { xml: string } }>(`/nfe/${nfe_id}/xml`, undefined, 0)
+        xmlFull = xmlRes.data?.xml ?? null
+      } catch {
+        xmlFull = null  // sem impostos neste ciclo, tudo bem
+      }
+    }
+
+    const pis    = xmlFull ? extractTag(xmlFull, 'vPIS')    : 0
+    const cofins = xmlFull ? extractTag(xmlFull, 'vCOFINS') : 0
+    const icms   = xmlFull ? extractTag(xmlFull, 'vICMS')   : 0
+    const difal  = xmlFull ? extractTag(xmlFull, 'vICMSUFDest') + extractTag(xmlFull, 'vICMSUFRemet') : 0
+    const ipi    = xmlFull ? extractTag(xmlFull, 'vIPI')    : 0
+    const frete  = xmlFull ? extractTag(xmlFull, 'vFrete')  : 0
 
     // ── Salva ─────────────────────────────────────────────────────────────
 
