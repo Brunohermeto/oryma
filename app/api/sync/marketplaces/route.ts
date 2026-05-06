@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     source: 'marketplaces',
     sync_type: 'sales',
     status: 'running',
-    started_at: now.toISOString(),
+    started_at: new Date().toISOString(),
   }).select('id').single()
 
   if (logError || !log?.id) {
