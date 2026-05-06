@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { RefreshCw, CheckCircle, XCircle, Zap } from 'lucide-react'
+import { RefreshCw, CheckCircle, XCircle, Zap, Package, FileText } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
 const B = {
@@ -56,7 +56,6 @@ export function BlingSyncButton() {
       }
 
       if (!pending || pending.length === 0) {
-        // Nada a processar — marca como sucesso
         const db = createSupabaseBrowserClient()
         await db.from('sync_logs').update({
           status: 'success', records_synced: 0,
@@ -84,13 +83,10 @@ export function BlingSyncButton() {
           const data = await res.json()
           if (data.matched) synced++
           if (!data.matched) {
-            // Captura primeiro motivo de falha sempre
             if (!firstReason) setFirstReason(data.reason ?? 'unknown')
-            // Captura debug detalhado se disponível
             if (data.debug && !debugSample) setDebugSample(data.debug as NFeDebug)
           }
         }
-        // Se der erro numa NF-e específica, continua para a próxima
       }
 
       // ── Fase 3: fecha o sync_log ──────────────────────────────────────
@@ -114,58 +110,65 @@ export function BlingSyncButton() {
 
   return (
     <div className="flex flex-col gap-3">
+      {/* ── NF-e saída (vincular a vendas) ─────────────────── */}
       <div className="flex items-center gap-3 flex-wrap">
-      <button
-        onClick={handleSync}
-        disabled={status === 'running'}
-        className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-lg transition-all"
-        style={{
-          background: status === 'running' ? B.bg : B.brand,
-          color: status === 'running' ? B.muted : 'white',
-          border: status === 'running' ? `1px solid ${B.border}` : 'none',
-          cursor: status === 'running' ? 'not-allowed' : 'pointer',
-        }}
-      >
-        <RefreshCw size={13} className={status === 'running' ? 'animate-spin' : ''} />
-        {status === 'running' ? 'Sincronizando…' : 'Sincronizar NF-e Bling'}
-      </button>
+        <button
+          onClick={handleSync}
+          disabled={status === 'running'}
+          className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-lg transition-all"
+          style={{
+            background: status === 'running' ? B.bg : B.brand,
+            color:      status === 'running' ? B.muted : 'white',
+            border:     status === 'running' ? `1px solid ${B.border}` : 'none',
+            cursor:     status === 'running' ? 'not-allowed' : 'pointer',
+          }}
+        >
+          <RefreshCw size={13} className={status === 'running' ? 'animate-spin' : ''} />
+          {status === 'running' ? 'Sincronizando…' : 'Sincronizar NF-e Saída'}
+        </button>
 
-      {status === 'running' && progress && (
-        <span className="text-sm" style={{ color: B.muted }}>{progress}</span>
-      )}
+        {status === 'running' && progress && (
+          <span className="text-sm" style={{ color: B.muted }}>{progress}</span>
+        )}
 
-      {status === 'done' && (
-        <div className="flex flex-col gap-1">
-          <span className="flex items-center gap-1.5 text-sm" style={{ color: '#16a34a' }}>
-            <CheckCircle size={13} />
-            {result}
+        {status === 'done' && (
+          <div className="flex flex-col gap-1">
+            <span className="flex items-center gap-1.5 text-sm" style={{ color: '#16a34a' }}>
+              <CheckCircle size={13} /> {result}
+            </span>
+            {(firstReason || debugSample) && (
+              <div className="text-xs rounded p-2 max-w-lg" style={{ background: 'oklch(0.97 0.01 258)', color: B.muted, fontFamily: 'monospace' }}>
+                {firstReason && <div><b>motivo:</b> {firstReason}</div>}
+                {debugSample && <>
+                  <div><b>numeroPedidoLoja:</b> {debugSample.numeroPedidoLoja ?? '(vazio)'}</div>
+                  <div><b>infCpl (XML):</b> {debugSample.canal_xml || '(vazio)'}</div>
+                  <div><b>valor NF:</b> R$ {debugSample.vNF} | <b>data:</b> {debugSample.dhEmi}</div>
+                </>}
+              </div>
+            )}
+          </div>
+        )}
+
+        {status === 'error' && (
+          <span className="flex items-center gap-1.5 text-sm" style={{ color: '#dc2626' }}>
+            <XCircle size={13} /> {result}
           </span>
-          {(firstReason || debugSample) && (
-            <div className="text-xs rounded p-2 max-w-lg" style={{ background: 'oklch(0.97 0.01 258)', color: B.muted, fontFamily: 'monospace' }}>
-              {firstReason && <div><b>motivo:</b> {firstReason}</div>}
-              {debugSample && <>
-                <div><b>numeroPedidoLoja:</b> {debugSample.numeroPedidoLoja ?? '(vazio)'}</div>
-                <div><b>infCpl (XML):</b> {debugSample.canal_xml || '(vazio)'}</div>
-                <div><b>valor NF:</b> R$ {debugSample.vNF} | <b>data:</b> {debugSample.dhEmi}</div>
-              </>}
-            </div>
-          )}
-        </div>
-      )}
-
-      {status === 'error' && (
-        <span className="flex items-center gap-1.5 text-sm" style={{ color: '#dc2626' }}>
-          <XCircle size={13} />
-          {result}
-        </span>
-      )}
+        )}
       </div>
 
-      {/* Botão re-extrair impostos */}
+      {/* ── Re-extrair impostos ─────────────────────────────── */}
       <RetaxButton />
+
+      {/* ── Importar produtos do Bling ──────────────────────── */}
+      <ProductsSyncButton />
+
+      {/* ── NF-e de entrada (importações/compras) ───────────── */}
+      <NFeEntradaButton />
     </div>
   )
 }
+
+// ── Sub-componentes ───────────────────────────────────────────────────────────
 
 function RetaxButton() {
   const [status, setStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
@@ -175,16 +178,14 @@ function RetaxButton() {
     setStatus('running')
     setResult('')
     try {
-      const res = await fetch('/api/sync/bling/retax', { method: 'POST' })
+      const res  = await fetch('/api/sync/bling/retax', { method: 'POST' })
       const data = await res.json()
       if (data.ok) {
         setResult(data.updated === 0
           ? '✓ Nenhuma NF-e com impostos pendentes'
           : `✓ Impostos atualizados em ${data.updated} NF-e`)
         setStatus('done')
-      } else {
-        throw new Error(data.error ?? 'Erro desconhecido')
-      }
+      } else throw new Error(data.error ?? 'Erro desconhecido')
     } catch (err) {
       setResult(`Erro: ${String(err).replace('Error: ', '')}`)
       setStatus('error')
@@ -199,13 +200,112 @@ function RetaxButton() {
         className="flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-lg transition-all"
         style={{
           background: B.bg,
-          color: status === 'running' ? B.muted : B.brand,
-          border: `1px solid ${B.border}`,
-          cursor: status === 'running' ? 'not-allowed' : 'pointer',
+          color:      status === 'running' ? B.muted : B.brand,
+          border:     `1px solid ${B.border}`,
+          cursor:     status === 'running' ? 'not-allowed' : 'pointer',
         }}
       >
         <Zap size={11} className={status === 'running' ? 'animate-pulse' : ''} />
         {status === 'running' ? 'Atualizando impostos…' : 'Re-extrair impostos das NF-e vinculadas'}
+      </button>
+      {status === 'done' && (
+        <span className="flex items-center gap-1 text-xs" style={{ color: '#16a34a' }}>
+          <CheckCircle size={11} />{result}
+        </span>
+      )}
+      {status === 'error' && (
+        <span className="text-xs" style={{ color: '#dc2626' }}>{result}</span>
+      )}
+    </div>
+  )
+}
+
+function ProductsSyncButton() {
+  const [status, setStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
+  const [result, setResult] = useState('')
+
+  async function handleSync() {
+    setStatus('running')
+    setResult('')
+    try {
+      const res  = await fetch('/api/sync/bling/products', { method: 'POST' })
+      const data = await res.json()
+      if (data.ok) {
+        setResult(`✓ ${data.synced} produto${data.synced !== 1 ? 's' : ''} importados do Bling`)
+        setStatus('done')
+      } else throw new Error(data.error ?? 'Erro desconhecido')
+    } catch (err) {
+      setResult(`Erro: ${String(err).replace('Error: ', '')}`)
+      setStatus('error')
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      <button
+        onClick={handleSync}
+        disabled={status === 'running'}
+        className="flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-lg transition-all"
+        style={{
+          background: B.bg,
+          color:      status === 'running' ? B.muted : B.brand,
+          border:     `1px solid ${B.border}`,
+          cursor:     status === 'running' ? 'not-allowed' : 'pointer',
+        }}
+      >
+        <Package size={11} className={status === 'running' ? 'animate-pulse' : ''} />
+        {status === 'running' ? 'Importando produtos…' : 'Importar produtos do Bling (SKU + estoque)'}
+      </button>
+      {status === 'done' && (
+        <span className="flex items-center gap-1 text-xs" style={{ color: '#16a34a' }}>
+          <CheckCircle size={11} />{result}
+        </span>
+      )}
+      {status === 'error' && (
+        <span className="text-xs" style={{ color: '#dc2626' }}>{result}</span>
+      )}
+    </div>
+  )
+}
+
+function NFeEntradaButton() {
+  const [status, setStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
+  const [result, setResult] = useState('')
+
+  async function handleSync() {
+    setStatus('running')
+    setResult('')
+    try {
+      const res  = await fetch('/api/sync/bling/nfe-entrada?days=180', { method: 'POST' })
+      const data = await res.json()
+      if (data.ok) {
+        const skippedMsg = data.skipped_already_imported > 0
+          ? ` (${data.skipped_already_imported} já importadas)`
+          : ''
+        setResult(`✓ ${data.synced} NF-e de entrada importadas${skippedMsg}`)
+        setStatus('done')
+      } else throw new Error(data.error ?? 'Erro desconhecido')
+    } catch (err) {
+      setResult(`Erro: ${String(err).replace('Error: ', '')}`)
+      setStatus('error')
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      <button
+        onClick={handleSync}
+        disabled={status === 'running'}
+        className="flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-lg transition-all"
+        style={{
+          background: B.bg,
+          color:      status === 'running' ? B.muted : B.brand,
+          border:     `1px solid ${B.border}`,
+          cursor:     status === 'running' ? 'not-allowed' : 'pointer',
+        }}
+      >
+        <FileText size={11} className={status === 'running' ? 'animate-pulse' : ''} />
+        {status === 'running' ? 'Importando NF-e entrada…' : 'Importar NF-e de entrada do Bling (180 dias)'}
       </button>
       {status === 'done' && (
         <span className="flex items-center gap-1 text-xs" style={{ color: '#16a34a' }}>

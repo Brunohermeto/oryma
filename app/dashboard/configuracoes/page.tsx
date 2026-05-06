@@ -132,10 +132,10 @@ export default async function ConfiguracoesPage() {
 
         <div className="bg-white rounded-xl p-5" style={{ border: `1px solid ${B.border}` }}>
           <div className="font-semibold text-[15px] mb-0.5" style={{ color: B.text, fontFamily: 'var(--font-sora)' }}>
-            Bling — NF-e
+            Bling — NF-e e Produtos
           </div>
           <p className="text-[13px] mb-4" style={{ color: B.muted }}>
-            Força sync de hoje (~300 NF-e). O cron automático (6h e 20h) cobre o histórico completo.
+            Sincroniza NF-e saída (vincula impostos às vendas), re-extrai impostos, importa produtos (SKU/estoque) e NF-e de entrada (importações com custos por item).
           </p>
           <BlingSyncButton />
         </div>
@@ -145,7 +145,7 @@ export default async function ConfiguracoesPage() {
             Marketplaces — Pedidos e Vendas
           </div>
           <p className="text-[13px] mb-4" style={{ color: B.muted }}>
-            Processa 20 NF-e por clique (~18s). Para cobrir o dia completo (~300 NF-e), clique cerca de 15 vezes. O cron automático (6h e 20h) mantém tudo atualizado após o carregamento inicial.
+            Sincroniza pedidos pagos dos últimos 7 dias. Use <strong>Backfill histórico (180 dias)</strong> para carregar todo o histórico de uma vez — faça isso uma única vez para preencher o banco completo.
           </p>
           <MarketplaceSyncButton />
         </div>

@@ -4,6 +4,7 @@ import { toBrazilDate } from '@/lib/utils/brazil-time'
 
 interface MLOrder {
   id: number
+  pack_id?: number | null        // ID do carrinho (múltiplos itens/vendedores)
   date_created: string
   status: string
   order_items: Array<{
@@ -133,6 +134,7 @@ export async function syncMercadoLivre(
           fulfillment_type: fulfillmentType,
           product_id: productId,
           sku,
+          pack_id: order.pack_id ? String(order.pack_id) : null,
           sale_date: toBrazilDate(order.date_created),
           quantity: qty,
           gross_price: grossPrice,
