@@ -22,15 +22,25 @@ const B = {
  * Cada chamada individual cabe facilmente nos 10s. O browser orquestra
  * todas as chamadas em sequência e mostra o progresso em tempo real.
  */
+interface NFeDebug {
+  infCpl: string
+  canal: string | null
+  numeroPedido: string | null
+  vNF: number
+  dhEmi: string
+}
+
 export function BlingSyncButton() {
   const [status, setStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
   const [result, setResult] = useState('')
   const [progress, setProgress] = useState('')
+  const [debugSample, setDebugSample] = useState<NFeDebug | null>(null)
 
   async function handleSync() {
     setStatus('running')
     setResult('')
     setProgress('Carregando lista de NF-e...')
+    setDebugSample(null)
 
     try {
       // ── Fase 1: pega a lista de NF-e pendentes ────────────────────────
@@ -72,9 +82,9 @@ export function BlingSyncButton() {
         if (res.ok) {
           const data = await res.json()
           if (data.matched) synced++
-          // Log debug info para diagnosticar falhas de matching
-          if (!data.matched && data.debug) {
-            console.warn(`NF-e ${nfe.id} não vinculada:`, data.reason, data.debug)
+          // Captura primeiro debug disponível para mostrar na UI
+          if (!data.matched && data.debug && !debugSample) {
+            setDebugSample(data.debug as NFeDebug)
           }
         }
         // Se der erro numa NF-e específica, continua para a próxima
@@ -121,10 +131,20 @@ export function BlingSyncButton() {
       )}
 
       {status === 'done' && (
-        <span className="flex items-center gap-1.5 text-sm" style={{ color: '#16a34a' }}>
-          <CheckCircle size={13} />
-          {result}
-        </span>
+        <div className="flex flex-col gap-1">
+          <span className="flex items-center gap-1.5 text-sm" style={{ color: '#16a34a' }}>
+            <CheckCircle size={13} />
+            {result}
+          </span>
+          {debugSample && (
+            <div className="text-xs rounded p-2 max-w-lg" style={{ background: 'oklch(0.97 0.01 258)', color: B.muted, fontFamily: 'monospace' }}>
+              <div><b>infCpl:</b> {debugSample.infCpl || '(vazio)'}</div>
+              <div><b>canal:</b> {debugSample.canal ?? '(não encontrado)'}</div>
+              <div><b>pedido:</b> {debugSample.numeroPedido ?? '(não encontrado)'}</div>
+              <div><b>valor NF:</b> R$ {debugSample.vNF} | <b>data:</b> {debugSample.dhEmi}</div>
+            </div>
+          )}
+        </div>
       )}
 
       {status === 'error' && (
