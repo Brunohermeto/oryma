@@ -47,7 +47,37 @@ export async function GET(request: NextRequest) {
     .select('*', { count: 'exact', head: true })
     .is('nfe_saida_key', null)
 
-  // 5. Sync logs recentes
+  // 5. Produtos
+  const { data: products } = await db
+    .from('products')
+    .select('id, name, sku, stock_quantity')
+    .order('name')
+
+  // 6. Custos (cmp_costs e unit_costs)
+  const { count: cmpCount } = await db
+    .from('cmp_costs')
+    .select('*', { count: 'exact', head: true })
+
+  const { count: unitCostCount } = await db
+    .from('unit_costs')
+    .select('*', { count: 'exact', head: true })
+
+  // 7. NF-e de entrada (import_orders)
+  const { count: importOrdersCount } = await db
+    .from('import_orders')
+    .select('*', { count: 'exact', head: true })
+
+  // 8. Sale_taxes — quantas têm valores preenchidos
+  const { count: taxesCount } = await db
+    .from('sale_taxes')
+    .select('*', { count: 'exact', head: true })
+
+  const { count: taxesNonZero } = await db
+    .from('sale_taxes')
+    .select('*', { count: 'exact', head: true })
+    .gt('total_taxes', 0)
+
+  // 9. Sync logs recentes
   const { data: recentLogs } = await db
     .from('sync_logs')
     .select('source, status, records_synced, error_message, started_at, finished_at')
@@ -59,6 +89,17 @@ export async function GET(request: NextRequest) {
     sem_nfe: semNfe,
     por_marketplace: summary,
     ml_amostras: mlSamples ?? [],
+    produtos: {
+      total: products?.length ?? 0,
+      lista: products ?? [],
+    },
+    custos: {
+      cmp_costs: cmpCount ?? 0,
+      unit_costs: unitCostCount ?? 0,
+      import_orders: importOrdersCount ?? 0,
+      sale_taxes_total: taxesCount ?? 0,
+      sale_taxes_com_valores: taxesNonZero ?? 0,
+    },
     sync_logs_recentes: recentLogs ?? [],
   })
 }
