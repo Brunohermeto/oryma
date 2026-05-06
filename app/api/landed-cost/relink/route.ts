@@ -35,30 +35,31 @@ export async function POST(request: NextRequest) {
     .is('product_id', null)
     .not('sku', 'is', null)
 
-  if (!unlinked?.length) {
-    return NextResponse.json({ ok: true, linked: 0, message: 'Todos os itens já têm produto vinculado' })
-  }
-
   // 2. Carrega produtos (uma única query)
   const { data: products } = await db.from('products').select('id, sku')
   const productMap = Object.fromEntries((products ?? []).map(p => [p.sku.toUpperCase(), p.id]))
 
-  // 3. Vincula e atualiza
+  // 3. Vincula itens sem product_id
   let linked = 0
-  const affectedOrders = new Set<string>()
+  const ordersToRecalc = new Set<string>()
 
-  for (const item of unlinked) {
+  for (const item of unlinked ?? []) {
     const productId = productMap[item.sku.toUpperCase()]
     if (!productId) continue
-
     await db.from('import_items').update({ product_id: productId }).eq('id', item.id)
-    affectedOrders.add(item.import_order_id)
+    ordersToRecalc.add(item.import_order_id)
     linked++
   }
 
-  // 4. Recalcula CMP para cada import_order afetado
+  // 4. Sempre recalcula TODAS as ordens (não só as recém-vinculadas)
+  //    Cobre o caso: product_id já está set mas CMP nunca foi calculado
+  const { data: allOrders } = await db.from('import_orders').select('id')
+  for (const order of allOrders ?? []) {
+    ordersToRecalc.add(order.id)
+  }
+
   let recalculated = 0
-  for (const orderId of affectedOrders) {
+  for (const orderId of ordersToRecalc) {
     try {
       await recalculateLandedCost(orderId)
       recalculated++
@@ -69,6 +70,8 @@ export async function POST(request: NextRequest) {
     ok: true,
     linked,
     orders_recalculated: recalculated,
-    message: `${linked} itens vinculados a produtos, CMP calculado para ${recalculated} NF-e`,
+    message: linked > 0
+      ? `${linked} itens vinculados, CMP calculado para ${recalculated} NF-e`
+      : `CMP recalculado para ${recalculated} NF-e`,
   })
 }
