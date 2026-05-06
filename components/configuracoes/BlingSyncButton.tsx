@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { RefreshCw, CheckCircle, XCircle } from 'lucide-react'
+import { RefreshCw, CheckCircle, XCircle, Zap } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
 const B = {
@@ -113,7 +113,8 @@ export function BlingSyncButton() {
   }
 
   return (
-    <div className="flex items-center gap-3 flex-wrap">
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
       <button
         onClick={handleSync}
         disabled={status === 'running'}
@@ -157,6 +158,62 @@ export function BlingSyncButton() {
           <XCircle size={13} />
           {result}
         </span>
+      )}
+      </div>
+
+      {/* Botão re-extrair impostos */}
+      <RetaxButton />
+    </div>
+  )
+}
+
+function RetaxButton() {
+  const [status, setStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
+  const [result, setResult] = useState('')
+
+  async function handleRetax() {
+    setStatus('running')
+    setResult('')
+    try {
+      const res = await fetch('/api/sync/bling/retax', { method: 'POST' })
+      const data = await res.json()
+      if (data.ok) {
+        setResult(data.updated === 0
+          ? '✓ Nenhuma NF-e com impostos pendentes'
+          : `✓ Impostos atualizados em ${data.updated} NF-e`)
+        setStatus('done')
+      } else {
+        throw new Error(data.error ?? 'Erro desconhecido')
+      }
+    } catch (err) {
+      setResult(`Erro: ${String(err).replace('Error: ', '')}`)
+      setStatus('error')
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      <button
+        onClick={handleRetax}
+        disabled={status === 'running'}
+        className="flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-lg transition-all"
+        style={{
+          background: B.bg,
+          color: status === 'running' ? B.muted : B.brand,
+          border: `1px solid ${B.border}`,
+          cursor: status === 'running' ? 'not-allowed' : 'pointer',
+        }}
+      >
+        <Zap size={11} className={status === 'running' ? 'animate-pulse' : ''} />
+        {status === 'running' ? 'Atualizando impostos…' : 'Re-extrair impostos das NF-e vinculadas'}
+      </button>
+      {status === 'done' && (
+        <span className="flex items-center gap-1 text-xs" style={{ color: '#16a34a' }}>
+          <CheckCircle size={11} />{result}
+        </span>
+      )}
+      {status === 'error' && (
+        <span className="text-xs" style={{ color: '#dc2626' }}>{result}</span>
       )}
     </div>
   )
