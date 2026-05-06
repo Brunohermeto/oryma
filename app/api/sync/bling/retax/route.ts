@@ -38,17 +38,21 @@ export async function POST(request: NextRequest) {
 
   const db = createSupabaseServiceClient()
 
-  // 1. Vendas com NF-e vinculada mas total_taxes zerado (mesmo que campos individuais não sejam)
-  const { data: salesWithZeroTax } = await db
+  // 1. Vendas com NF-e vinculada mas sem sale_taxes ou com impostos todos zerados
+  const { data: salesLinked } = await db
     .from('sales')
-    .select('id, nfe_saida_key, sale_taxes(pis, cofins, icms, total_taxes)')
+    .select('id, nfe_saida_key, sale_taxes(pis, cofins, icms, icms_difal, ipi)')
     .not('nfe_saida_key', 'is', null)
 
-  const needsRetax = (salesWithZeroTax ?? []).filter(s => {
-    const t = (s.sale_taxes as any)?.[0] ?? s.sale_taxes
-    if (!t) return true  // sem nenhum registro de tax
-    // Precisa retax se total_taxes = 0 (mesmo que individuais sejam corretos)
-    return Number(t.total_taxes ?? 0) === 0
+  const needsRetax = (salesLinked ?? []).filter(s => {
+    const arr = s.sale_taxes as any
+    // Supabase retorna array para has-many; se vazio = sem registro
+    if (!arr || (Array.isArray(arr) && arr.length === 0)) return true
+    const t = Array.isArray(arr) ? arr[0] : arr
+    if (!t) return true
+    // Verifica se todos os valores individuais são zero
+    const soma = Number(t.pis??0) + Number(t.cofins??0) + Number(t.icms??0) + Number(t.icms_difal??0) + Number(t.ipi??0)
+    return soma === 0
   })
 
   if (needsRetax.length === 0) {
@@ -97,12 +101,10 @@ export async function POST(request: NextRequest) {
       const ipi    = extractTag(xml, 'vIPI')
       const frete  = extractTag(xml, 'vFrete')
 
-      // Atualiza sale_taxes
-      const totalTaxes = pis + cofins + icms + difal + ipi
+      // Atualiza sale_taxes (sem total_taxes — é coluna GENERATED no Postgres)
       await db.from('sale_taxes').upsert({
         sale_id: sale.id, nfe_key: chave,
         pis, cofins, icms, icms_difal: difal, ipi,
-        total_taxes: totalTaxes,
       }, { onConflict: 'sale_id' })
 
       // Atualiza frete se disponível
