@@ -21,8 +21,12 @@ function extractTag(xml: string, tag: string): number {
 }
 
 function extractStr(xml: string, tag: string): string | null {
+  // Tenta conteúdo direto primeiro
   const m = xml.match(new RegExp(`<${tag}>([^<]+)<\\/${tag}>`))
-  return m?.[1] ?? null
+  if (m) return m[1]
+  // Tenta CDATA — infCpl frequentemente vem dentro de <![CDATA[...]]>
+  const cdata = xml.match(new RegExp(`<${tag}><!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>`))
+  return cdata?.[1] ?? null
 }
 
 export async function POST(request: NextRequest) {
@@ -80,13 +84,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Estratégia 2: data + valor (fallback)
+    // Busca ±1 dia para compatibilidade com registros antigos gravados em UTC
     if (!saleId) {
       const vNF   = extractTag(xml, 'vNF')
       const dhEmi = xml.match(/<dhEmi>([^<]+)<\/dhEmi>/)?.[1]?.slice(0, 10) ?? ''
       if (vNF > 0 && dhEmi) {
         const tol = vNF * 0.02
+        const d = new Date(dhEmi)
+        const dayBefore = new Date(d.getTime() - 86400000).toISOString().slice(0, 10)
+        const dayAfter  = new Date(d.getTime() + 86400000).toISOString().slice(0, 10)
         const { data } = await db.from('sales').select('id')
-          .eq('sale_date', dhEmi).is('nfe_saida_key', null)
+          .gte('sale_date', dayBefore).lte('sale_date', dayAfter)
+          .is('nfe_saida_key', null)
           .gte('gross_price', vNF - tol).lte('gross_price', vNF + tol).limit(1)
         saleId = data?.[0]?.id ?? null
       }

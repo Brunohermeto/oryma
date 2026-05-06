@@ -35,12 +35,14 @@ export function BlingSyncButton() {
   const [result, setResult] = useState('')
   const [progress, setProgress] = useState('')
   const [debugSample, setDebugSample] = useState<NFeDebug | null>(null)
+  const [firstReason, setFirstReason] = useState<string | null>(null)
 
   async function handleSync() {
     setStatus('running')
     setResult('')
     setProgress('Carregando lista de NF-e...')
     setDebugSample(null)
+    setFirstReason(null)
 
     try {
       // ── Fase 1: pega a lista de NF-e pendentes ────────────────────────
@@ -82,9 +84,11 @@ export function BlingSyncButton() {
         if (res.ok) {
           const data = await res.json()
           if (data.matched) synced++
-          // Captura primeiro debug disponível para mostrar na UI
-          if (!data.matched && data.debug && !debugSample) {
-            setDebugSample(data.debug as NFeDebug)
+          if (!data.matched) {
+            // Captura primeiro motivo de falha sempre
+            if (!firstReason) setFirstReason(data.reason ?? 'unknown')
+            // Captura debug detalhado se disponível
+            if (data.debug && !debugSample) setDebugSample(data.debug as NFeDebug)
           }
         }
         // Se der erro numa NF-e específica, continua para a próxima
@@ -136,12 +140,15 @@ export function BlingSyncButton() {
             <CheckCircle size={13} />
             {result}
           </span>
-          {debugSample && (
+          {(firstReason || debugSample) && (
             <div className="text-xs rounded p-2 max-w-lg" style={{ background: 'oklch(0.97 0.01 258)', color: B.muted, fontFamily: 'monospace' }}>
-              <div><b>infCpl:</b> {debugSample.infCpl || '(vazio)'}</div>
-              <div><b>canal:</b> {debugSample.canal ?? '(não encontrado)'}</div>
-              <div><b>pedido:</b> {debugSample.numeroPedido ?? '(não encontrado)'}</div>
-              <div><b>valor NF:</b> R$ {debugSample.vNF} | <b>data:</b> {debugSample.dhEmi}</div>
+              {firstReason && <div><b>motivo:</b> {firstReason}</div>}
+              {debugSample && <>
+                <div><b>infCpl:</b> {debugSample.infCpl || '(vazio)'}</div>
+                <div><b>canal:</b> {debugSample.canal ?? '(não encontrado)'}</div>
+                <div><b>pedido:</b> {debugSample.numeroPedido ?? '(não encontrado)'}</div>
+                <div><b>valor NF:</b> R$ {debugSample.vNF} | <b>data:</b> {debugSample.dhEmi}</div>
+              </>}
             </div>
           )}
         </div>
