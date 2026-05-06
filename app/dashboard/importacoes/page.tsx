@@ -95,13 +95,8 @@ export default async function ImportacoesPage() {
               {ordersWithTotals.map(order => (
                 <tr
                   key={order.id}
-                  className="transition-colors"
-                  style={{
-                    borderBottom: `1px solid ${B.bgSubtle}`,
-                    background: !order.costs_complete ? 'oklch(0.98 0.04 70 / 0.4)' : '',
-                  }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = B.bgSubtle }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = !order.costs_complete ? 'oklch(0.98 0.04 70 / 0.4)' : '' }}
+                  className={`transition-colors hover:bg-[oklch(0.96_0.010_258)] ${!order.costs_complete ? 'bg-[oklch(0.98_0.04_70_/_0.4)]' : ''}`}
+                  style={{ borderBottom: `1px solid ${B.bgSubtle}` }}
                 >
                   <td className="px-5 py-3 font-medium" style={{ color: B.text }}>{order.nfe_number}</td>
                   <td className="px-5 py-3 text-xs" style={{ color: B.subtle }}>{order.supplier}</td>
