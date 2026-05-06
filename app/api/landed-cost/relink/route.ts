@@ -7,7 +7,8 @@
  * Fluxo:
  *   1. Busca import_items com product_id NULL → vincula por SKU
  *   2. Recalcula landed cost / CMP para todas as NF-e
- *   3. Aplica CMP a todas as vendas (sale_costs) — preenche histórico
+ *   3. Vincula sales com product_id NULL → vincula por SKU
+ *   4. Aplica CMP a todas as vendas (sale_costs) — preenche histórico
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
@@ -62,7 +63,22 @@ export async function POST(request: NextRequest) {
     } catch { continue }
   }
 
-  // 5. Aplica CMP a TODAS as vendas com product_id (preenche sale_costs histórico)
+  // 5a. Vincula vendas sem product_id por SKU (vendas sincronizadas antes dos produtos existirem)
+  const { data: unlinkedSales } = await db
+    .from('sales')
+    .select('id, sku')
+    .is('product_id', null)
+    .not('sku', 'is', null)
+
+  let salesLinked = 0
+  for (const sale of unlinkedSales ?? []) {
+    const productId = productMap[sale.sku?.toUpperCase()]
+    if (!productId) continue
+    await db.from('sales').update({ product_id: productId }).eq('id', sale.id)
+    salesLinked++
+  }
+
+  // 5b. Aplica CMP a TODAS as vendas com product_id (preenche sale_costs histórico)
   //    Bulk: carrega CMPs e vendas de uma vez, faz upsert em lote — evita timeout
   const [{ data: latestCmps }, { data: allSales }] = await Promise.all([
     db.from('cmp_costs')
@@ -124,8 +140,9 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     ok: true,
     linked,
+    sales_linked: salesLinked,
     orders_recalculated: recalculated,
     sales_updated: salesUpdated,
-    message: `CMP calculado (${recalculated} NF-e) · ${salesUpdated} vendas atualizadas`,
+    message: `CMP calculado (${recalculated} NF-e) · ${salesLinked} vendas vinculadas · ${salesUpdated} vendas atualizadas`,
   })
 }
