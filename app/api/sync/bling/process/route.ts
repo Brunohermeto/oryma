@@ -15,7 +15,7 @@
  *   3. data + valor (fallback final, ±1 dia para compat. com registros UTC)
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { blingGet } from '@/lib/integrations/bling'
+import { blingGet, blingGetText } from '@/lib/integrations/bling'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 
 export const dynamic         = 'force-dynamic'
@@ -150,15 +150,29 @@ export async function POST(request: NextRequest) {
     // ── XML para impostos ─────────────────────────────────────────────────
     // /nfe/{id} não retorna o XML completo — busca separado só quando há match
 
-    let xmlFull: string | null = xml  // usa xml do /nfe/{id} se disponível
-    if (!xmlFull || !xmlFull.includes('<nfeProc') && !xmlFull.includes('<NFe')) {
-      // XML não veio ou é uma URL — busca explicitamente
+    // Baixa XML completo para extração de impostos
+    // Tenta novo endpoint (março 2026) → fallback para endpoint antigo
+    let xmlFull: string | null = null
+
+    // Verifica se o xml do /nfe/{id} já é XML válido (não URL)
+    if (xml && xml.includes('<')) {
+      xmlFull = xml
+    }
+
+    if (!xmlFull && chave) {
+      // Novo endpoint: GET /nfe/documento/{chaveAcesso}?formato=xml (adicionado mar/2026)
+      try {
+        xmlFull = await blingGetText(`/nfe/documento/${chave}`, { formato: 'xml' })
+      } catch { xmlFull = null }
+    }
+
+    if (!xmlFull) {
+      // Fallback: endpoint antigo GET /nfe/{id}/xml
       try {
         const xmlRes = await blingGet<{ data: { xml: string } }>(`/nfe/${nfe_id}/xml`, undefined, 0)
-        xmlFull = xmlRes.data?.xml ?? null
-      } catch {
-        xmlFull = null  // sem impostos neste ciclo, tudo bem
-      }
+        const candidate = xmlRes.data?.xml ?? null
+        xmlFull = candidate && candidate.includes('<') ? candidate : null
+      } catch { xmlFull = null }
     }
 
     const pis    = xmlFull ? extractTag(xmlFull, 'vPIS')    : 0

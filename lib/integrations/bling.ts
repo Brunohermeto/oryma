@@ -52,6 +52,22 @@ export async function getValidBlingToken(): Promise<string | null> {
   return data.access_token
 }
 
+// Busca raw text (para endpoints que retornam XML direto, não JSON)
+export async function blingGetText(path: string, params?: Record<string, string>): Promise<string | null> {
+  const token = await getValidBlingToken()
+  if (!token) throw new Error('Bling não conectado')
+  const url = new URL(`${BLING_BASE}${path}`)
+  if (params) Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/xml, text/xml, */*' },
+    next: { revalidate: 0 },
+  })
+  if (!res.ok) return null
+  const text = await res.text()
+  // Retorna null se não parecer XML
+  return text.includes('<') ? text : null
+}
+
 export async function blingGet<T>(path: string, params?: Record<string, string>, retries = 3): Promise<T> {
   const token = await getValidBlingToken()
   if (!token) throw new Error('Bling não conectado')

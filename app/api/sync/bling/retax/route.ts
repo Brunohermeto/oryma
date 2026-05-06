@@ -10,7 +10,7 @@
  *   3. Para cada NF-e sem impostos, baixa o XML e atualiza sale_taxes
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { blingGet } from '@/lib/integrations/bling'
+import { blingGet, blingGetText } from '@/lib/integrations/bling'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { brazilDaysAgo, brazilToday } from '@/lib/utils/brazil-time'
 
@@ -90,9 +90,22 @@ export async function POST(request: NextRequest) {
 
     try {
       await sleep(200)
-      const xmlRes = await blingGet<{ data: { xml: string } }>(`/nfe/${blingId}/xml`, undefined, 0)
-      const xml = xmlRes.data?.xml
-      if (!xml || !xml.includes('<')) continue  // não é XML válido
+
+      // Tenta novo endpoint (mar/2026) via chaveAcesso, depois fallback antigo
+      let xml: string | null = null
+      try {
+        xml = await blingGetText(`/nfe/documento/${chave}`, { formato: 'xml' })
+      } catch { xml = null }
+
+      if (!xml) {
+        try {
+          const xmlRes = await blingGet<{ data: { xml: string } }>(`/nfe/${blingId}/xml`, undefined, 0)
+          const c = xmlRes.data?.xml ?? null
+          xml = c && c.includes('<') ? c : null
+        } catch { xml = null }
+      }
+
+      if (!xml) continue
 
       const pis    = extractTag(xml, 'vPIS')
       const cofins = extractTag(xml, 'vCOFINS')
