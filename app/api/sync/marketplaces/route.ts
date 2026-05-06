@@ -4,7 +4,7 @@ import { syncMercadoLivre } from '@/lib/marketplace/sync-ml'
 import { syncShopee } from '@/lib/marketplace/sync-shopee'
 import { syncAmazon } from '@/lib/marketplace/sync-amazon'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
-import { format, subDays } from 'date-fns'
+import { brazilToday, brazilDaysAgo } from '@/lib/utils/brazil-time'
 
 export const dynamic    = 'force-dynamic'
 export const maxDuration = 60
@@ -16,12 +16,12 @@ export async function POST(request: NextRequest) {
   if (!isAuthorized) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const db    = createSupabaseServiceClient()
-  const now   = new Date()
   const isCron    = !!cronSecret
   const queryDays = request.nextUrl.searchParams.get('days')
   const days      = queryDays ? Number(queryDays) : 7  // manual = 7 dias para não perder pedidos criados antes mas pagos hoje
-  const endDate   = format(now, 'yyyy-MM-dd')
-  const startDate = format(subDays(now, days), 'yyyy-MM-dd')
+  // Usa fuso Brasil (UTC-3) para que o período reflita dias corretos para o usuário
+  const endDate   = brazilToday()
+  const startDate = brazilDaysAgo(days)
 
   // Cria log de sync — sem error_message inicial para evitar conflito
   const { data: log, error: logError } = await db.from('sync_logs').insert({

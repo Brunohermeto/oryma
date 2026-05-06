@@ -1,5 +1,6 @@
 import { mlGet, getMercadoLivreSellerId } from '@/lib/integrations/mercado-livre'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { toBrazilDate } from '@/lib/utils/brazil-time'
 
 interface MLOrder {
   id: number
@@ -132,7 +133,7 @@ export async function syncMercadoLivre(
           fulfillment_type: fulfillmentType,
           product_id: productId,
           sku,
-          sale_date: order.date_created.slice(0, 10),
+          sale_date: toBrazilDate(order.date_created),
           quantity: qty,
           gross_price: grossPrice,
           shipping_received: shippingReceived,  // frete cobrado ao comprador

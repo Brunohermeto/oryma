@@ -1,6 +1,7 @@
 import { shopeeGet } from '@/lib/integrations/shopee'
 import { getCredential } from '@/lib/integrations/credentials'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { toBrazilDate } from '@/lib/utils/brazil-time'
 
 interface ShopeeOrderListResponse {
   response?: {
@@ -105,7 +106,7 @@ export async function syncShopee(startDate: string, endDate: string): Promise<nu
           fulfillment_type: 'galpao',
           product_id: productId,
           sku,
-          sale_date: new Date(orders.find(o => o.order_sn === orderDetail.order_sn)!.create_time * 1000).toISOString().slice(0, 10),
+          sale_date: toBrazilDate(new Date(orders.find(o => o.order_sn === orderDetail.order_sn)!.create_time * 1000)),
           quantity: item.model_quantity_purchased,
           gross_price: grossPrice,
           shipping_received: income?.buyer_paid_shipping_fee ?? 0,

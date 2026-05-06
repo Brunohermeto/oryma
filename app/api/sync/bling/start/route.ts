@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { blingGet } from '@/lib/integrations/bling'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
-import { format, subDays } from 'date-fns'
+import { brazilToday, brazilDaysAgo } from '@/lib/utils/brazil-time'
 
 export const dynamic         = 'force-dynamic'
 export const maxDuration     = 60
@@ -39,15 +39,15 @@ export async function POST(request: NextRequest) {
   }
 
   const db  = createSupabaseServiceClient()
-  const now = new Date()
-  const days      = Number(request.nextUrl.searchParams.get('days') ?? '7')
+  const days      = Number(request.nextUrl.searchParams.get('days') ?? '30')
   const limit     = Number(request.nextUrl.searchParams.get('limit') ?? '50')
-  const startDate = format(subDays(now, days), 'yyyy-MM-dd')
-  const endDate   = format(now, 'yyyy-MM-dd')
+  // Usa fuso Brasil (UTC-3) para que o período reflita dias corretos para o usuário
+  const startDate = brazilDaysAgo(days)
+  const endDate   = brazilToday()
 
   // Cria sync_log
   const { data: log } = await db.from('sync_logs').insert({
-    source: 'bling', sync_type: 'nfe', status: 'running', started_at: now.toISOString(),
+    source: 'bling', sync_type: 'nfe', status: 'running', started_at: new Date().toISOString(),
   }).select().single()
 
   const syncId = log?.id

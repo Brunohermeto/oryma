@@ -1,0 +1,5368 @@
+{
+  "directed": false,
+  "multigraph": false,
+  "graph": {},
+  "nodes": [
+    {
+      "label": "eslint.config.mjs",
+      "file_type": "code",
+      "source_file": "eslint.config.mjs",
+      "source_location": "L1",
+      "id": "eslint_config_mjs",
+      "community": 33,
+      "norm_label": "eslint.config.mjs"
+    },
+    {
+      "label": "next-env.d.ts",
+      "file_type": "code",
+      "source_file": "next-env.d.ts",
+      "source_location": "L1",
+      "id": "next_env_d_ts",
+      "community": 34,
+      "norm_label": "next-env.d.ts"
+    },
+    {
+      "label": "next.config.ts",
+      "file_type": "code",
+      "source_file": "next.config.ts",
+      "source_location": "L1",
+      "id": "next_config_ts",
+      "community": 35,
+      "norm_label": "next.config.ts"
+    },
+    {
+      "label": "postcss.config.mjs",
+      "file_type": "code",
+      "source_file": "postcss.config.mjs",
+      "source_location": "L1",
+      "id": "postcss_config_mjs",
+      "community": 36,
+      "norm_label": "postcss.config.mjs"
+    },
+    {
+      "label": "proxy.ts",
+      "file_type": "code",
+      "source_file": "proxy.ts",
+      "source_location": "L1",
+      "id": "proxy_ts",
+      "community": 20,
+      "norm_label": "proxy.ts"
+    },
+    {
+      "label": "proxy()",
+      "file_type": "code",
+      "source_file": "proxy.ts",
+      "source_location": "L4",
+      "id": "marketplace_intel_proxy_proxy",
+      "community": 20,
+      "norm_label": "proxy()"
+    },
+    {
+      "label": "layout.tsx",
+      "file_type": "code",
+      "source_file": "app/layout.tsx",
+      "source_location": "L1",
+      "id": "app_layout_tsx",
+      "community": 21,
+      "norm_label": "layout.tsx"
+    },
+    {
+      "label": "RootLayout()",
+      "file_type": "code",
+      "source_file": "app/layout.tsx",
+      "source_location": "L27",
+      "id": "app_layout_rootlayout",
+      "community": 21,
+      "norm_label": "rootlayout()"
+    },
+    {
+      "label": "page.tsx",
+      "file_type": "code",
+      "source_file": "app/page.tsx",
+      "source_location": "L1",
+      "id": "app_page_tsx",
+      "community": 22,
+      "norm_label": "page.tsx"
+    },
+    {
+      "label": "RootPage()",
+      "file_type": "code",
+      "source_file": "app/page.tsx",
+      "source_location": "L3",
+      "id": "app_page_rootpage",
+      "community": 22,
+      "norm_label": "rootpage()"
+    },
+    {
+      "label": "route.ts",
+      "file_type": "code",
+      "source_file": "app/api/ai/chat/route.ts",
+      "source_location": "L1",
+      "id": "app_api_ai_chat_route_ts",
+      "community": 23,
+      "norm_label": "route.ts"
+    },
+    {
+      "label": "POST()",
+      "file_type": "code",
+      "source_file": "app/api/ai/chat/route.ts",
+      "source_location": "L28",
+      "id": "chat_route_post",
+      "community": 23,
+      "norm_label": "post()"
+    },
+    {
+      "label": "route.ts",
+      "file_type": "code",
+      "source_file": "app/api/auth/login/route.ts",
+      "source_location": "L1",
+      "id": "app_api_auth_login_route_ts",
+      "community": 24,
+      "norm_label": "route.ts"
+    },
+    {
+      "label": "POST()",
+      "file_type": "code",
+      "source_file": "app/api/auth/login/route.ts",
+      "source_location": "L3",
+      "id": "login_route_post",
+      "community": 24,
+      "norm_label": "post()"
+    },
+    {
+      "label": "route.ts",
+      "file_type": "code",
+      "source_file": "app/api/auth/logout/route.ts",
+      "source_location": "L1",
+      "id": "app_api_auth_logout_route_ts",
+      "community": 25,
+      "norm_label": "route.ts"
+    },
+    {
+      "label": "POST()",
+      "file_type": "code",
+      "source_file": "app/api/auth/logout/route.ts",
+      "source_location": "L3",
+      "id": "logout_route_post",
+      "community": 25,
+      "norm_label": "post()"
+    },
+    {
+      "label": "route.ts",
+      "file_type": "code",
+      "source_file": "app/api/cron/sync/route.ts",
+      "source_location": "L1",
+      "id": "app_api_cron_sync_route_ts",
+      "community": 0,
+      "norm_label": "route.ts"
+    },
+    {
+      "label": "getDaysToSync()",
+      "file_type": "code",
+      "source_file": "app/api/cron/sync/route.ts",
+      "source_location": "L10",
+      "id": "sync_route_getdaystosync",
+      "community": 0,
+      "norm_label": "getdaystosync()"
+    },
+    {
+      "label": "GET()",
+      "file_type": "code",
+      "source_file": "app/api/cron/sync/route.ts",
+      "source_location": "L31",
+      "id": "sync_route_get",
+      "community": 0,
+      "norm_label": "get()"
+    },
+    {
+      "label": "route.ts",
+      "file_type": "code",
+      "source_file": "app/api/despesas/route.ts",
+      "source_location": "L1",
+      "id": "app_api_despesas_route_ts",
+      "community": 0,
+      "norm_label": "route.ts"
+    },
+    {
+      "label": "POST()",
+      "file_type": "code",
+      "source_file": "app/api/despesas/route.ts",
+      "source_location": "L6",
+      "id": "despesas_route_post",
+      "community": 0,
+      "norm_label": "post()"
+    },
+    {
+      "label": "route.ts",
+      "file_type": "code",
+      "source_file": "app/api/integrations/amazon/save/route.ts",
+      "source_location": "L1",
+      "id": "app_api_integrations_amazon_save_route_ts",
+      "community": 3,
+      "norm_label": "route.ts"
+    },
+    {
+      "label": "POST()",
+      "file_type": "code",
+      "source_file": "app/api/integrations/shopee/save/route.ts",
+      "source_location": "L3",
+      "id": "save_route_post",
+      "community": 3,
+      "norm_label": "post()"
+    },
+    {
+      "label": "route.ts",
+      "file_type": "code",
+      "source_file": "app/api/integrations/bling/callback/route.ts",
+      "source_location": "L1",
+      "id": "app_api_integrations_bling_callback_route_ts",
+      "community": 4,
+      "norm_label": "route.ts"
+    },
+    {
+      "label": "GET()",
+      "file_type": "code",
+      "source_file": "app/api/integrations/ml/callback/route.ts",
+      "source_location": "L3",
+      "id": "callback_route_get",
+      "community": 4,
+      "norm_label": "get()"
+    },
+    {
+      "label": "route.ts",
+      "file_type": "code",
+      "source_file": "app/api/integrations/bling/connect/route.ts",
+      "source_location": "L1",
+      "id": "app_api_integrations_bling_connect_route_ts",
+      "community": 4,
+      "norm_label": "route.ts"
+    },
+    {
+      "label": "GET()",
+      "file_type": "code",
+      "source_file": "app/api/integrations/ml/connect/route.ts",
+      "source_location": "L3",
+      "id": "connect_route_get",
+      "community": 4,
+      "norm_label": "get()"
+    },
+    {
+      "label": "route.ts",
+      "file_type": "code",
+      "source_file": "app/api/integrations/ml/callback/route.ts",
+      "source_location": "L1",
+      "id": "app_api_integrations_ml_callback_route_ts",
+      "community": 4,
+      "norm_label": "route.ts"
+    },
+    {
+      "label": "route.ts",
+      "file_type": "code",
+      "source_file": "app/api/integrations/ml/connect/route.ts",
+      "source_location": "L1",
+      "id": "app_api_integrations_ml_connect_route_ts",
+      "community": 4,
+      "norm_label": "route.ts"
+    },
+    {
+      "label": "route.ts",
+      "file_type": "code",
+      "source_file": "app/api/integrations/shopee/save/route.ts",
+      "source_location": "L1",
+      "id": "app_api_integrations_shopee_save_route_ts",
+      "community": 3,
+      "norm_label": "route.ts"
+    },
+    {
+      "label": "route.ts",
+      "file_type": "code",
+      "source_file": "app/api/landed-cost/recalculate/route.ts",
+      "source_location": "L1",
+      "id": "app_api_landed_cost_recalculate_route_ts",
+      "community": 0,
+      "norm_label": "route.ts"
+    },
+    {
+      "label": "POST()",
+      "file_type": "code",
+      "source_file": "app/api/landed-cost/recalculate/route.ts",
+      "source_location": "L6",
+      "id": "recalculate_route_post",
+      "community": 0,
+      "norm_label": "post()"
+    },
+    {
+      "label": "route.ts",
+      "file_type": "code",
+      "source_file": "app/api/nfe/costs/route.ts",
+      "source_location": "L1",
+      "id": "app_api_nfe_costs_route_ts",
+      "community": 0,
+      "norm_label": "route.ts"
+    },
+    {
+      "label": "POST()",
+      "file_type": "code",
+      "source_file": "app/api/nfe/costs/route.ts",
+      "source_location": "L7",
+      "id": "costs_route_post",
+      "community": 0,
+      "norm_label": "post()"
+    },
+    {
+      "label": "route.ts",
+      "file_type": "code",
+      "source_file": "app/api/nfe/upload/route.ts",
+      "source_location": "L1",
+      "id": "app_api_nfe_upload_route_ts",
+      "community": 5,
+      "norm_label": "route.ts"
+    },
+    {
+      "label": "POST()",
+      "file_type": "code",
+      "source_file": "app/api/nfe/upload/route.ts",
+      "source_location": "L8",
+      "id": "upload_route_post",
+      "community": 5,
+      "norm_label": "post()"
+    },
+    {
+      "label": "route.ts",
+      "file_type": "code",
+      "source_file": "app/api/sales/live/route.ts",
+      "source_location": "L1",
+      "id": "app_api_sales_live_route_ts",
+      "community": 0,
+      "norm_label": "route.ts"
+    },
+    {
+      "label": "GET()",
+      "file_type": "code",
+      "source_file": "app/api/sales/live/route.ts",
+      "source_location": "L6",
+      "id": "live_route_get",
+      "community": 0,
+      "norm_label": "get()"
+    },
+    {
+      "label": "route.ts",
+      "file_type": "code",
+      "source_file": "app/api/sync/bling/route.ts",
+      "source_location": "L1",
+      "id": "app_api_sync_bling_route_ts",
+      "community": 0,
+      "norm_label": "route.ts"
+    },
+    {
+      "label": "POST()",
+      "file_type": "code",
+      "source_file": "app/api/sync/bling/route.ts",
+      "source_location": "L11",
+      "id": "bling_route_post",
+      "community": 0,
+      "norm_label": "post()"
+    },
+    {
+      "label": "route.ts",
+      "file_type": "code",
+      "source_file": "app/api/sync/bling/status/route.ts",
+      "source_location": "L1",
+      "id": "app_api_sync_bling_status_route_ts",
+      "community": 0,
+      "norm_label": "route.ts"
+    },
+    {
+      "label": "GET()",
+      "file_type": "code",
+      "source_file": "app/api/sync/marketplaces/status/route.ts",
+      "source_location": "L6",
+      "id": "status_route_get",
+      "community": 0,
+      "norm_label": "get()"
+    },
+    {
+      "label": "route.ts",
+      "file_type": "code",
+      "source_file": "app/api/sync/marketplaces/route.ts",
+      "source_location": "L1",
+      "id": "app_api_sync_marketplaces_route_ts",
+      "community": 3,
+      "norm_label": "route.ts"
+    },
+    {
+      "label": "POST()",
+      "file_type": "code",
+      "source_file": "app/api/sync/marketplaces/route.ts",
+      "source_location": "L12",
+      "id": "marketplaces_route_post",
+      "community": 3,
+      "norm_label": "post()"
+    },
+    {
+      "label": "route.ts",
+      "file_type": "code",
+      "source_file": "app/api/sync/marketplaces/status/route.ts",
+      "source_location": "L1",
+      "id": "app_api_sync_marketplaces_status_route_ts",
+      "community": 0,
+      "norm_label": "route.ts"
+    },
+    {
+      "label": "layout.tsx",
+      "file_type": "code",
+      "source_file": "app/dashboard/layout.tsx",
+      "source_location": "L1",
+      "id": "app_dashboard_layout_tsx",
+      "community": 26,
+      "norm_label": "layout.tsx"
+    },
+    {
+      "label": "DashboardLayout()",
+      "file_type": "code",
+      "source_file": "app/dashboard/layout.tsx",
+      "source_location": "L4",
+      "id": "dashboard_layout_dashboardlayout",
+      "community": 26,
+      "norm_label": "dashboardlayout()"
+    },
+    {
+      "label": "page.tsx",
+      "file_type": "code",
+      "source_file": "app/dashboard/page.tsx",
+      "source_location": "L1",
+      "id": "app_dashboard_page_tsx",
+      "community": 13,
+      "norm_label": "page.tsx"
+    },
+    {
+      "label": "fmtR()",
+      "file_type": "code",
+      "source_file": "app/dashboard/page.tsx",
+      "source_location": "L12",
+      "id": "dashboard_page_fmtr",
+      "community": 13,
+      "norm_label": "fmtr()"
+    },
+    {
+      "label": "fmtPct()",
+      "file_type": "code",
+      "source_file": "app/dashboard/page.tsx",
+      "source_location": "L13",
+      "id": "dashboard_page_fmtpct",
+      "community": 13,
+      "norm_label": "fmtpct()"
+    },
+    {
+      "label": "marginColor()",
+      "file_type": "code",
+      "source_file": "app/dashboard/page.tsx",
+      "source_location": "L136",
+      "id": "dashboard_page_margincolor",
+      "community": 13,
+      "norm_label": "margincolor()"
+    },
+    {
+      "label": "marginBg()",
+      "file_type": "code",
+      "source_file": "app/dashboard/page.tsx",
+      "source_location": "L141",
+      "id": "dashboard_page_marginbg",
+      "community": 13,
+      "norm_label": "marginbg()"
+    },
+    {
+      "label": "page.tsx",
+      "file_type": "code",
+      "source_file": "app/dashboard/configuracoes/page.tsx",
+      "source_location": "L1",
+      "id": "app_dashboard_configuracoes_page_tsx",
+      "community": 11,
+      "norm_label": "page.tsx"
+    },
+    {
+      "label": "formatRelativeTime()",
+      "file_type": "code",
+      "source_file": "app/dashboard/configuracoes/page.tsx",
+      "source_location": "L19",
+      "id": "configuracoes_page_formatrelativetime",
+      "community": 11,
+      "norm_label": "formatrelativetime()"
+    },
+    {
+      "label": "page.tsx",
+      "file_type": "code",
+      "source_file": "app/dashboard/despesas/page.tsx",
+      "source_location": "L1",
+      "id": "app_dashboard_despesas_page_tsx",
+      "community": 0,
+      "norm_label": "page.tsx"
+    },
+    {
+      "label": "fmtR()",
+      "file_type": "code",
+      "source_file": "app/dashboard/despesas/page.tsx",
+      "source_location": "L17",
+      "id": "despesas_page_fmtr",
+      "community": 0,
+      "norm_label": "fmtr()"
+    },
+    {
+      "label": "page.tsx",
+      "file_type": "code",
+      "source_file": "app/dashboard/dre/page.tsx",
+      "source_location": "L1",
+      "id": "app_dashboard_dre_page_tsx",
+      "community": 8,
+      "norm_label": "page.tsx"
+    },
+    {
+      "label": "page.tsx",
+      "file_type": "code",
+      "source_file": "app/dashboard/importacoes/page.tsx",
+      "source_location": "L1",
+      "id": "app_dashboard_importacoes_page_tsx",
+      "community": 2,
+      "norm_label": "page.tsx"
+    },
+    {
+      "label": "fmtR()",
+      "file_type": "code",
+      "source_file": "app/dashboard/importacoes/page.tsx",
+      "source_location": "L17",
+      "id": "importacoes_page_fmtr",
+      "community": 2,
+      "norm_label": "fmtr()"
+    },
+    {
+      "label": "page.tsx",
+      "file_type": "code",
+      "source_file": "app/dashboard/precificacao/page.tsx",
+      "source_location": "L1",
+      "id": "app_dashboard_precificacao_page_tsx",
+      "community": 0,
+      "norm_label": "page.tsx"
+    },
+    {
+      "label": "fmtR()",
+      "file_type": "code",
+      "source_file": "app/dashboard/precificacao/page.tsx",
+      "source_location": "L18",
+      "id": "precificacao_page_fmtr",
+      "community": 0,
+      "norm_label": "fmtr()"
+    },
+    {
+      "label": "page.tsx",
+      "file_type": "code",
+      "source_file": "app/dashboard/produtos/page.tsx",
+      "source_location": "L1",
+      "id": "app_dashboard_produtos_page_tsx",
+      "community": 0,
+      "norm_label": "page.tsx"
+    },
+    {
+      "label": "fmtR()",
+      "file_type": "code",
+      "source_file": "app/dashboard/produtos/page.tsx",
+      "source_location": "L15",
+      "id": "produtos_page_fmtr",
+      "community": 0,
+      "norm_label": "fmtr()"
+    },
+    {
+      "label": "page.tsx",
+      "file_type": "code",
+      "source_file": "app/dashboard/tributario/page.tsx",
+      "source_location": "L1",
+      "id": "app_dashboard_tributario_page_tsx",
+      "community": 10,
+      "norm_label": "page.tsx"
+    },
+    {
+      "label": "fmtR()",
+      "file_type": "code",
+      "source_file": "app/dashboard/tributario/page.tsx",
+      "source_location": "L17",
+      "id": "tributario_page_fmtr",
+      "community": 10,
+      "norm_label": "fmtr()"
+    },
+    {
+      "label": "fmtPct()",
+      "file_type": "code",
+      "source_file": "app/dashboard/tributario/page.tsx",
+      "source_location": "L22",
+      "id": "tributario_page_fmtpct",
+      "community": 10,
+      "norm_label": "fmtpct()"
+    },
+    {
+      "label": "prevMonth()",
+      "file_type": "code",
+      "source_file": "app/dashboard/tributario/page.tsx",
+      "source_location": "L150",
+      "id": "tributario_page_prevmonth",
+      "community": 10,
+      "norm_label": "prevmonth()"
+    },
+    {
+      "label": "nextMonth()",
+      "file_type": "code",
+      "source_file": "app/dashboard/tributario/page.tsx",
+      "source_location": "L151",
+      "id": "tributario_page_nextmonth",
+      "community": 10,
+      "norm_label": "nextmonth()"
+    },
+    {
+      "label": "fmtMonth()",
+      "file_type": "code",
+      "source_file": "app/dashboard/tributario/page.tsx",
+      "source_location": "L152",
+      "id": "tributario_page_fmtmonth",
+      "community": 10,
+      "norm_label": "fmtmonth()"
+    },
+    {
+      "label": "navBtn()",
+      "file_type": "code",
+      "source_file": "app/dashboard/tributario/page.tsx",
+      "source_location": "L154",
+      "id": "tributario_page_navbtn",
+      "community": 10,
+      "norm_label": "navbtn()"
+    },
+    {
+      "label": "page.tsx",
+      "file_type": "code",
+      "source_file": "app/dashboard/velocidade/page.tsx",
+      "source_location": "L1",
+      "id": "app_dashboard_velocidade_page_tsx",
+      "community": 0,
+      "norm_label": "page.tsx"
+    },
+    {
+      "label": "stockColor()",
+      "file_type": "code",
+      "source_file": "app/dashboard/velocidade/page.tsx",
+      "source_location": "L73",
+      "id": "velocidade_page_stockcolor",
+      "community": 0,
+      "norm_label": "stockcolor()"
+    },
+    {
+      "label": "page.tsx",
+      "file_type": "code",
+      "source_file": "app/dashboard/vendas/page.tsx",
+      "source_location": "L1",
+      "id": "app_dashboard_vendas_page_tsx",
+      "community": 2,
+      "norm_label": "page.tsx"
+    },
+    {
+      "label": "fmtR()",
+      "file_type": "code",
+      "source_file": "app/dashboard/vendas/page.tsx",
+      "source_location": "L18",
+      "id": "vendas_page_fmtr",
+      "community": 2,
+      "norm_label": "fmtr()"
+    },
+    {
+      "label": "fmtPct()",
+      "file_type": "code",
+      "source_file": "app/dashboard/vendas/page.tsx",
+      "source_location": "L21",
+      "id": "vendas_page_fmtpct",
+      "community": 2,
+      "norm_label": "fmtpct()"
+    },
+    {
+      "label": "page.tsx",
+      "file_type": "code",
+      "source_file": "app/dashboard/vendas-ao-vivo/page.tsx",
+      "source_location": "L1",
+      "id": "app_dashboard_vendas_ao_vivo_page_tsx",
+      "community": 27,
+      "norm_label": "page.tsx"
+    },
+    {
+      "label": "VendasAoVivoPage()",
+      "file_type": "code",
+      "source_file": "app/dashboard/vendas-ao-vivo/page.tsx",
+      "source_location": "L6",
+      "id": "vendas_ao_vivo_page_vendasaovivopage",
+      "community": 27,
+      "norm_label": "vendasaovivopage()"
+    },
+    {
+      "label": "page.tsx",
+      "file_type": "code",
+      "source_file": "app/login/page.tsx",
+      "source_location": "L1",
+      "id": "app_login_page_tsx",
+      "community": 28,
+      "norm_label": "page.tsx"
+    },
+    {
+      "label": "handleSubmit()",
+      "file_type": "code",
+      "source_file": "app/login/page.tsx",
+      "source_location": "L11",
+      "id": "login_page_handlesubmit",
+      "community": 28,
+      "norm_label": "handlesubmit()"
+    },
+    {
+      "label": "OrymaIntelligence.tsx",
+      "file_type": "code",
+      "source_file": "components/ai/OrymaIntelligence.tsx",
+      "source_location": "L1",
+      "id": "components_ai_orymaintelligence_tsx",
+      "community": 14,
+      "norm_label": "orymaintelligence.tsx"
+    },
+    {
+      "label": "getPageContext()",
+      "file_type": "code",
+      "source_file": "components/ai/OrymaIntelligence.tsx",
+      "source_location": "L12",
+      "id": "ai_orymaintelligence_getpagecontext",
+      "community": 14,
+      "norm_label": "getpagecontext()"
+    },
+    {
+      "label": "getSuggestions()",
+      "file_type": "code",
+      "source_file": "components/ai/OrymaIntelligence.tsx",
+      "source_location": "L41",
+      "id": "ai_orymaintelligence_getsuggestions",
+      "community": 14,
+      "norm_label": "getsuggestions()"
+    },
+    {
+      "label": "sendMessage()",
+      "file_type": "code",
+      "source_file": "components/ai/OrymaIntelligence.tsx",
+      "source_location": "L70",
+      "id": "ai_orymaintelligence_sendmessage",
+      "community": 14,
+      "norm_label": "sendmessage()"
+    },
+    {
+      "label": "handleKey()",
+      "file_type": "code",
+      "source_file": "components/ai/OrymaIntelligence.tsx",
+      "source_location": "L98",
+      "id": "ai_orymaintelligence_handlekey",
+      "community": 14,
+      "norm_label": "handlekey()"
+    },
+    {
+      "label": "MarketplaceBarChart.tsx",
+      "file_type": "code",
+      "source_file": "components/charts/MarketplaceBarChart.tsx",
+      "source_location": "L1",
+      "id": "components_charts_marketplacebarchart_tsx",
+      "community": 37,
+      "norm_label": "marketplacebarchart.tsx"
+    },
+    {
+      "label": "RevenueLineChart.tsx",
+      "file_type": "code",
+      "source_file": "components/charts/RevenueLineChart.tsx",
+      "source_location": "L1",
+      "id": "components_charts_revenuelinechart_tsx",
+      "community": 29,
+      "norm_label": "revenuelinechart.tsx"
+    },
+    {
+      "label": "fmtR()",
+      "file_type": "code",
+      "source_file": "components/charts/RevenueLineChart.tsx",
+      "source_location": "L24",
+      "id": "charts_revenuelinechart_fmtr",
+      "community": 29,
+      "norm_label": "fmtr()"
+    },
+    {
+      "label": "SalesCurveChart.tsx",
+      "file_type": "code",
+      "source_file": "components/charts/SalesCurveChart.tsx",
+      "source_location": "L1",
+      "id": "components_charts_salescurvechart_tsx",
+      "community": 38,
+      "norm_label": "salescurvechart.tsx"
+    },
+    {
+      "label": "BlingSyncButton.tsx",
+      "file_type": "code",
+      "source_file": "components/configuracoes/BlingSyncButton.tsx",
+      "source_location": "L1",
+      "id": "components_configuracoes_blingsyncbutton_tsx",
+      "community": 11,
+      "norm_label": "blingsyncbutton.tsx"
+    },
+    {
+      "label": "BlingSyncButton()",
+      "file_type": "code",
+      "source_file": "components/configuracoes/BlingSyncButton.tsx",
+      "source_location": "L14",
+      "id": "configuracoes_blingsyncbutton_blingsyncbutton",
+      "community": 11,
+      "norm_label": "blingsyncbutton()"
+    },
+    {
+      "label": "ConfigCard.tsx",
+      "file_type": "code",
+      "source_file": "components/configuracoes/ConfigCard.tsx",
+      "source_location": "L1",
+      "id": "components_configuracoes_configcard_tsx",
+      "community": 17,
+      "norm_label": "configcard.tsx"
+    },
+    {
+      "label": "handleSaveShopee()",
+      "file_type": "code",
+      "source_file": "components/configuracoes/ConfigCard.tsx",
+      "source_location": "L74",
+      "id": "configuracoes_configcard_handlesaveshopee",
+      "community": 17,
+      "norm_label": "handlesaveshopee()"
+    },
+    {
+      "label": "handleSaveAmazon()",
+      "file_type": "code",
+      "source_file": "components/configuracoes/ConfigCard.tsx",
+      "source_location": "L87",
+      "id": "configuracoes_configcard_handlesaveamazon",
+      "community": 17,
+      "norm_label": "handlesaveamazon()"
+    },
+    {
+      "label": "MarketplaceSyncButton.tsx",
+      "file_type": "code",
+      "source_file": "components/configuracoes/MarketplaceSyncButton.tsx",
+      "source_location": "L1",
+      "id": "components_configuracoes_marketplacesyncbutton_tsx",
+      "community": 11,
+      "norm_label": "marketplacesyncbutton.tsx"
+    },
+    {
+      "label": "MarketplaceSyncButton()",
+      "file_type": "code",
+      "source_file": "components/configuracoes/MarketplaceSyncButton.tsx",
+      "source_location": "L14",
+      "id": "configuracoes_marketplacesyncbutton_marketplacesyncbutton",
+      "community": 11,
+      "norm_label": "marketplacesyncbutton()"
+    },
+    {
+      "label": "InsightsPanel.tsx",
+      "file_type": "code",
+      "source_file": "components/dashboard/InsightsPanel.tsx",
+      "source_location": "L1",
+      "id": "components_dashboard_insightspanel_tsx",
+      "community": 16,
+      "norm_label": "insightspanel.tsx"
+    },
+    {
+      "label": "fmtR()",
+      "file_type": "code",
+      "source_file": "components/dashboard/InsightsPanel.tsx",
+      "source_location": "L52",
+      "id": "dashboard_insightspanel_fmtr",
+      "community": 16,
+      "norm_label": "fmtr()"
+    },
+    {
+      "label": "fmtPct()",
+      "file_type": "code",
+      "source_file": "components/dashboard/InsightsPanel.tsx",
+      "source_location": "L53",
+      "id": "dashboard_insightspanel_fmtpct",
+      "community": 16,
+      "norm_label": "fmtpct()"
+    },
+    {
+      "label": "calcMargin()",
+      "file_type": "code",
+      "source_file": "components/dashboard/InsightsPanel.tsx",
+      "source_location": "L205",
+      "id": "dashboard_insightspanel_calcmargin",
+      "community": 16,
+      "norm_label": "calcmargin()"
+    },
+    {
+      "label": "LiveSalesFeed.tsx",
+      "file_type": "code",
+      "source_file": "components/dashboard/LiveSalesFeed.tsx",
+      "source_location": "L1",
+      "id": "components_dashboard_livesalesfeed_tsx",
+      "community": 18,
+      "norm_label": "livesalesfeed.tsx"
+    },
+    {
+      "label": "fmtR()",
+      "file_type": "code",
+      "source_file": "components/dashboard/LiveSalesFeed.tsx",
+      "source_location": "L41",
+      "id": "dashboard_livesalesfeed_fmtr",
+      "community": 18,
+      "norm_label": "fmtr()"
+    },
+    {
+      "label": "channelTotals()",
+      "file_type": "code",
+      "source_file": "components/dashboard/LiveSalesFeed.tsx",
+      "source_location": "L230",
+      "id": "dashboard_livesalesfeed_channeltotals",
+      "community": 18,
+      "norm_label": "channeltotals()"
+    },
+    {
+      "label": "DespesaForm.tsx",
+      "file_type": "code",
+      "source_file": "components/despesas/DespesaForm.tsx",
+      "source_location": "L1",
+      "id": "components_despesas_despesaform_tsx",
+      "community": 2,
+      "norm_label": "despesaform.tsx"
+    },
+    {
+      "label": "handleSubmit()",
+      "file_type": "code",
+      "source_file": "components/despesas/DespesaForm.tsx",
+      "source_location": "L23",
+      "id": "despesas_despesaform_handlesubmit",
+      "community": 2,
+      "norm_label": "handlesubmit()"
+    },
+    {
+      "label": "DRETable.tsx",
+      "file_type": "code",
+      "source_file": "components/dre/DRETable.tsx",
+      "source_location": "L1",
+      "id": "components_dre_dretable_tsx",
+      "community": 19,
+      "norm_label": "dretable.tsx"
+    },
+    {
+      "label": "fmt()",
+      "file_type": "code",
+      "source_file": "components/dre/DRETable.tsx",
+      "source_location": "L20",
+      "id": "dre_dretable_fmt",
+      "community": 19,
+      "norm_label": "fmt()"
+    },
+    {
+      "label": "fmtFull()",
+      "file_type": "code",
+      "source_file": "components/dre/DRETable.tsx",
+      "source_location": "L29",
+      "id": "dre_dretable_fmtfull",
+      "community": 19,
+      "norm_label": "fmtfull()"
+    },
+    {
+      "label": "LandedCostForm.tsx",
+      "file_type": "code",
+      "source_file": "components/importacoes/LandedCostForm.tsx",
+      "source_location": "L1",
+      "id": "components_importacoes_landedcostform_tsx",
+      "community": 2,
+      "norm_label": "landedcostform.tsx"
+    },
+    {
+      "label": "LandedCostForm()",
+      "file_type": "code",
+      "source_file": "components/importacoes/LandedCostForm.tsx",
+      "source_location": "L10",
+      "id": "importacoes_landedcostform_landedcostform",
+      "community": 2,
+      "norm_label": "landedcostform()"
+    },
+    {
+      "label": "NFEUploadZone.tsx",
+      "file_type": "code",
+      "source_file": "components/importacoes/NFEUploadZone.tsx",
+      "source_location": "L1",
+      "id": "components_importacoes_nfeuploadzone_tsx",
+      "community": 30,
+      "norm_label": "nfeuploadzone.tsx"
+    },
+    {
+      "label": "handleFiles()",
+      "file_type": "code",
+      "source_file": "components/importacoes/NFEUploadZone.tsx",
+      "source_location": "L17",
+      "id": "importacoes_nfeuploadzone_handlefiles",
+      "community": 30,
+      "norm_label": "handlefiles()"
+    },
+    {
+      "label": "Sidebar.tsx",
+      "file_type": "code",
+      "source_file": "components/layout/Sidebar.tsx",
+      "source_location": "L1",
+      "id": "components_layout_sidebar_tsx",
+      "community": 1,
+      "norm_label": "sidebar.tsx"
+    },
+    {
+      "label": "OrymaIcon()",
+      "file_type": "code",
+      "source_file": "components/layout/Sidebar.tsx",
+      "source_location": "L71",
+      "id": "layout_sidebar_orymaicon",
+      "community": 1,
+      "norm_label": "orymaicon()"
+    },
+    {
+      "label": "handler()",
+      "file_type": "code",
+      "source_file": "components/layout/Sidebar.tsx",
+      "source_location": "L110",
+      "id": "layout_sidebar_handler",
+      "community": 1,
+      "norm_label": "handler()"
+    },
+    {
+      "label": "isActive()",
+      "file_type": "code",
+      "source_file": "components/layout/Sidebar.tsx",
+      "source_location": "L115",
+      "id": "layout_sidebar_isactive",
+      "community": 1,
+      "norm_label": "isactive()"
+    },
+    {
+      "label": "TopBar.tsx",
+      "file_type": "code",
+      "source_file": "components/layout/TopBar.tsx",
+      "source_location": "L1",
+      "id": "components_layout_topbar_tsx",
+      "community": 31,
+      "norm_label": "topbar.tsx"
+    },
+    {
+      "label": "handleLogout()",
+      "file_type": "code",
+      "source_file": "components/layout/TopBar.tsx",
+      "source_location": "L16",
+      "id": "layout_topbar_handlelogout",
+      "community": 31,
+      "norm_label": "handlelogout()"
+    },
+    {
+      "label": "badge.tsx",
+      "file_type": "code",
+      "source_file": "components/ui/badge.tsx",
+      "source_location": "L1",
+      "id": "components_ui_badge_tsx",
+      "community": 1,
+      "norm_label": "badge.tsx"
+    },
+    {
+      "label": "Badge()",
+      "file_type": "code",
+      "source_file": "components/ui/badge.tsx",
+      "source_location": "L30",
+      "id": "ui_badge_badge",
+      "community": 1,
+      "norm_label": "badge()"
+    },
+    {
+      "label": "button.tsx",
+      "file_type": "code",
+      "source_file": "components/ui/button.tsx",
+      "source_location": "L1",
+      "id": "components_ui_button_tsx",
+      "community": 1,
+      "norm_label": "button.tsx"
+    },
+    {
+      "label": "cn()",
+      "file_type": "code",
+      "source_file": "components/ui/button.tsx",
+      "source_location": "L52",
+      "id": "ui_button_cn",
+      "community": 1,
+      "norm_label": "cn()"
+    },
+    {
+      "label": "card.tsx",
+      "file_type": "code",
+      "source_file": "components/ui/card.tsx",
+      "source_location": "L1",
+      "id": "components_ui_card_tsx",
+      "community": 1,
+      "norm_label": "card.tsx"
+    },
+    {
+      "label": "cn()",
+      "file_type": "code",
+      "source_file": "components/ui/card.tsx",
+      "source_location": "L14",
+      "id": "ui_card_cn",
+      "community": 1,
+      "norm_label": "cn()"
+    },
+    {
+      "label": "CardAction()",
+      "file_type": "code",
+      "source_file": "components/ui/card.tsx",
+      "source_location": "L59",
+      "id": "ui_card_cardaction",
+      "community": 1,
+      "norm_label": "cardaction()"
+    },
+    {
+      "label": "input.tsx",
+      "file_type": "code",
+      "source_file": "components/ui/input.tsx",
+      "source_location": "L1",
+      "id": "components_ui_input_tsx",
+      "community": 1,
+      "norm_label": "input.tsx"
+    },
+    {
+      "label": "Input()",
+      "file_type": "code",
+      "source_file": "components/ui/input.tsx",
+      "source_location": "L6",
+      "id": "ui_input_input",
+      "community": 2,
+      "norm_label": "input()"
+    },
+    {
+      "label": "label.tsx",
+      "file_type": "code",
+      "source_file": "components/ui/label.tsx",
+      "source_location": "L1",
+      "id": "components_ui_label_tsx",
+      "community": 1,
+      "norm_label": "label.tsx"
+    },
+    {
+      "label": "cn()",
+      "file_type": "code",
+      "source_file": "components/ui/label.tsx",
+      "source_location": "L11",
+      "id": "ui_label_cn",
+      "community": 1,
+      "norm_label": "cn()"
+    },
+    {
+      "label": "select.tsx",
+      "file_type": "code",
+      "source_file": "components/ui/select.tsx",
+      "source_location": "L1",
+      "id": "components_ui_select_tsx",
+      "community": 2,
+      "norm_label": "select.tsx"
+    },
+    {
+      "label": "SelectGroup()",
+      "file_type": "code",
+      "source_file": "components/ui/select.tsx",
+      "source_location": "L11",
+      "id": "ui_select_selectgroup",
+      "community": 2,
+      "norm_label": "selectgroup()"
+    },
+    {
+      "label": "SelectValue()",
+      "file_type": "code",
+      "source_file": "components/ui/select.tsx",
+      "source_location": "L21",
+      "id": "ui_select_selectvalue",
+      "community": 2,
+      "norm_label": "selectvalue()"
+    },
+    {
+      "label": "SelectTrigger()",
+      "file_type": "code",
+      "source_file": "components/ui/select.tsx",
+      "source_location": "L31",
+      "id": "ui_select_selecttrigger",
+      "community": 2,
+      "norm_label": "selecttrigger()"
+    },
+    {
+      "label": "SelectContent()",
+      "file_type": "code",
+      "source_file": "components/ui/select.tsx",
+      "source_location": "L59",
+      "id": "ui_select_selectcontent",
+      "community": 2,
+      "norm_label": "selectcontent()"
+    },
+    {
+      "label": "SelectLabel()",
+      "file_type": "code",
+      "source_file": "components/ui/select.tsx",
+      "source_location": "L98",
+      "id": "ui_select_selectlabel",
+      "community": 2,
+      "norm_label": "selectlabel()"
+    },
+    {
+      "label": "SelectItem()",
+      "file_type": "code",
+      "source_file": "components/ui/select.tsx",
+      "source_location": "L111",
+      "id": "ui_select_selectitem",
+      "community": 2,
+      "norm_label": "selectitem()"
+    },
+    {
+      "label": "SelectSeparator()",
+      "file_type": "code",
+      "source_file": "components/ui/select.tsx",
+      "source_location": "L139",
+      "id": "ui_select_selectseparator",
+      "community": 2,
+      "norm_label": "selectseparator()"
+    },
+    {
+      "label": "SelectScrollUpButton()",
+      "file_type": "code",
+      "source_file": "components/ui/select.tsx",
+      "source_location": "L152",
+      "id": "ui_select_selectscrollupbutton",
+      "community": 2,
+      "norm_label": "selectscrollupbutton()"
+    },
+    {
+      "label": "SelectScrollDownButton()",
+      "file_type": "code",
+      "source_file": "components/ui/select.tsx",
+      "source_location": "L171",
+      "id": "ui_select_selectscrolldownbutton",
+      "community": 2,
+      "norm_label": "selectscrolldownbutton()"
+    },
+    {
+      "label": "table.tsx",
+      "file_type": "code",
+      "source_file": "components/ui/table.tsx",
+      "source_location": "L1",
+      "id": "components_ui_table_tsx",
+      "community": 1,
+      "norm_label": "table.tsx"
+    },
+    {
+      "label": "Table()",
+      "file_type": "code",
+      "source_file": "components/ui/table.tsx",
+      "source_location": "L7",
+      "id": "ui_table_table",
+      "community": 1,
+      "norm_label": "table()"
+    },
+    {
+      "label": "TableHeader()",
+      "file_type": "code",
+      "source_file": "components/ui/table.tsx",
+      "source_location": "L22",
+      "id": "ui_table_tableheader",
+      "community": 1,
+      "norm_label": "tableheader()"
+    },
+    {
+      "label": "TableBody()",
+      "file_type": "code",
+      "source_file": "components/ui/table.tsx",
+      "source_location": "L32",
+      "id": "ui_table_tablebody",
+      "community": 1,
+      "norm_label": "tablebody()"
+    },
+    {
+      "label": "cn()",
+      "file_type": "code",
+      "source_file": "components/ui/table.tsx",
+      "source_location": "L46",
+      "id": "ui_table_cn",
+      "community": 1,
+      "norm_label": "cn()"
+    },
+    {
+      "label": "tabs.tsx",
+      "file_type": "code",
+      "source_file": "components/ui/tabs.tsx",
+      "source_location": "L1",
+      "id": "components_ui_tabs_tsx",
+      "community": 1,
+      "norm_label": "tabs.tsx"
+    },
+    {
+      "label": "cn()",
+      "file_type": "code",
+      "source_file": "components/ui/tabs.tsx",
+      "source_location": "L60",
+      "id": "ui_tabs_cn",
+      "community": 1,
+      "norm_label": "cn()"
+    },
+    {
+      "label": "SalesFilters.tsx",
+      "file_type": "code",
+      "source_file": "components/vendas/SalesFilters.tsx",
+      "source_location": "L1",
+      "id": "components_vendas_salesfilters_tsx",
+      "community": 2,
+      "norm_label": "salesfilters.tsx"
+    },
+    {
+      "label": "SalesFilters()",
+      "file_type": "code",
+      "source_file": "components/vendas/SalesFilters.tsx",
+      "source_location": "L22",
+      "id": "vendas_salesfilters_salesfilters",
+      "community": 2,
+      "norm_label": "salesfilters()"
+    },
+    {
+      "label": "SalesTable.tsx",
+      "file_type": "code",
+      "source_file": "components/vendas/SalesTable.tsx",
+      "source_location": "L1",
+      "id": "components_vendas_salestable_tsx",
+      "community": 15,
+      "norm_label": "salestable.tsx"
+    },
+    {
+      "label": "fmtR()",
+      "file_type": "code",
+      "source_file": "components/vendas/SalesTable.tsx",
+      "source_location": "L29",
+      "id": "vendas_salestable_fmtr",
+      "community": 15,
+      "norm_label": "fmtr()"
+    },
+    {
+      "label": "fmtPct()",
+      "file_type": "code",
+      "source_file": "components/vendas/SalesTable.tsx",
+      "source_location": "L32",
+      "id": "vendas_salestable_fmtpct",
+      "community": 15,
+      "norm_label": "fmtpct()"
+    },
+    {
+      "label": "marginColor()",
+      "file_type": "code",
+      "source_file": "components/vendas/SalesTable.tsx",
+      "source_location": "L35",
+      "id": "vendas_salestable_margincolor",
+      "community": 15,
+      "norm_label": "margincolor()"
+    },
+    {
+      "label": "toggleRow()",
+      "file_type": "code",
+      "source_file": "components/vendas/SalesTable.tsx",
+      "source_location": "L236",
+      "id": "vendas_salestable_togglerow",
+      "community": 15,
+      "norm_label": "togglerow()"
+    },
+    {
+      "label": "VendasAoVivoFeed.tsx",
+      "file_type": "code",
+      "source_file": "components/vendas/VendasAoVivoFeed.tsx",
+      "source_location": "L1",
+      "id": "components_vendas_vendasaovivofeed_tsx",
+      "community": 12,
+      "norm_label": "vendasaovivofeed.tsx"
+    },
+    {
+      "label": "fmtR()",
+      "file_type": "code",
+      "source_file": "components/vendas/VendasAoVivoFeed.tsx",
+      "source_location": "L45",
+      "id": "vendas_vendasaovivofeed_fmtr",
+      "community": 12,
+      "norm_label": "fmtr()"
+    },
+    {
+      "label": "pct()",
+      "file_type": "code",
+      "source_file": "components/vendas/VendasAoVivoFeed.tsx",
+      "source_location": "L49",
+      "id": "vendas_vendasaovivofeed_pct",
+      "community": 12,
+      "norm_label": "pct()"
+    },
+    {
+      "label": "calcSale()",
+      "file_type": "code",
+      "source_file": "components/vendas/VendasAoVivoFeed.tsx",
+      "source_location": "L51",
+      "id": "vendas_vendasaovivofeed_calcsale",
+      "community": 12,
+      "norm_label": "calcsale()"
+    },
+    {
+      "label": "MarginBadge()",
+      "file_type": "code",
+      "source_file": "components/vendas/VendasAoVivoFeed.tsx",
+      "source_location": "L69",
+      "id": "vendas_vendasaovivofeed_marginbadge",
+      "community": 12,
+      "norm_label": "marginbadge()"
+    },
+    {
+      "label": "PLRow()",
+      "file_type": "code",
+      "source_file": "components/vendas/VendasAoVivoFeed.tsx",
+      "source_location": "L81",
+      "id": "vendas_vendasaovivofeed_plrow",
+      "community": 12,
+      "norm_label": "plrow()"
+    },
+    {
+      "label": "utils.ts",
+      "file_type": "code",
+      "source_file": "lib/utils.ts",
+      "source_location": "L1",
+      "id": "lib_utils_ts",
+      "community": 1,
+      "norm_label": "utils.ts"
+    },
+    {
+      "label": "cn()",
+      "file_type": "code",
+      "source_file": "lib/utils.ts",
+      "source_location": "L4",
+      "id": "lib_utils_cn",
+      "community": 1,
+      "norm_label": "cn()"
+    },
+    {
+      "label": "sync-nfe-entrada.ts",
+      "file_type": "code",
+      "source_file": "lib/bling/sync-nfe-entrada.ts",
+      "source_location": "L1",
+      "id": "lib_bling_sync_nfe_entrada_ts",
+      "community": 0,
+      "norm_label": "sync-nfe-entrada.ts"
+    },
+    {
+      "label": "sleep()",
+      "file_type": "code",
+      "source_file": "lib/bling/sync-nfe-entrada.ts",
+      "source_location": "L20",
+      "id": "bling_sync_nfe_entrada_sleep",
+      "community": 0,
+      "norm_label": "sleep()"
+    },
+    {
+      "label": "syncNFeEntrada()",
+      "file_type": "code",
+      "source_file": "lib/bling/sync-nfe-entrada.ts",
+      "source_location": "L22",
+      "id": "bling_sync_nfe_entrada_syncnfeentrada",
+      "community": 0,
+      "norm_label": "syncnfeentrada()"
+    },
+    {
+      "label": "sync-nfe-saida.ts",
+      "file_type": "code",
+      "source_file": "lib/bling/sync-nfe-saida.ts",
+      "source_location": "L1",
+      "id": "lib_bling_sync_nfe_saida_ts",
+      "community": 9,
+      "norm_label": "sync-nfe-saida.ts"
+    },
+    {
+      "label": "isSerieValida()",
+      "file_type": "code",
+      "source_file": "lib/bling/sync-nfe-saida.ts",
+      "source_location": "L18",
+      "id": "bling_sync_nfe_saida_isserievalida",
+      "community": 9,
+      "norm_label": "isserievalida()"
+    },
+    {
+      "label": "sleep()",
+      "file_type": "code",
+      "source_file": "lib/bling/sync-nfe-saida.ts",
+      "source_location": "L24",
+      "id": "bling_sync_nfe_saida_sleep",
+      "community": 9,
+      "norm_label": "sleep()"
+    },
+    {
+      "label": "extractTag()",
+      "file_type": "code",
+      "source_file": "lib/bling/sync-nfe-saida.ts",
+      "source_location": "L26",
+      "id": "bling_sync_nfe_saida_extracttag",
+      "community": 9,
+      "norm_label": "extracttag()"
+    },
+    {
+      "label": "extractStr()",
+      "file_type": "code",
+      "source_file": "lib/bling/sync-nfe-saida.ts",
+      "source_location": "L31",
+      "id": "bling_sync_nfe_saida_extractstr",
+      "community": 9,
+      "norm_label": "extractstr()"
+    },
+    {
+      "label": "parseInfoAdicionais()",
+      "file_type": "code",
+      "source_file": "lib/bling/sync-nfe-saida.ts",
+      "source_location": "L41",
+      "id": "bling_sync_nfe_saida_parseinfoadicionais",
+      "community": 9,
+      "norm_label": "parseinfoadicionais()"
+    },
+    {
+      "label": "findSaleByOrderNumber()",
+      "file_type": "code",
+      "source_file": "lib/bling/sync-nfe-saida.ts",
+      "source_location": "L59",
+      "id": "bling_sync_nfe_saida_findsalebyordernumber",
+      "community": 9,
+      "norm_label": "findsalebyordernumber()"
+    },
+    {
+      "label": "syncNFeSaida()",
+      "file_type": "code",
+      "source_file": "lib/bling/sync-nfe-saida.ts",
+      "source_location": "L80",
+      "id": "bling_sync_nfe_saida_syncnfesaida",
+      "community": 9,
+      "norm_label": "syncnfesaida()"
+    },
+    {
+      "label": "engine.ts",
+      "file_type": "code",
+      "source_file": "lib/dre/engine.ts",
+      "source_location": "L1",
+      "id": "lib_dre_engine_ts",
+      "community": 8,
+      "norm_label": "engine.ts"
+    },
+    {
+      "label": "zero()",
+      "file_type": "code",
+      "source_file": "lib/dre/engine.ts",
+      "source_location": "L15",
+      "id": "dre_engine_zero",
+      "community": 8,
+      "norm_label": "zero()"
+    },
+    {
+      "label": "add()",
+      "file_type": "code",
+      "source_file": "lib/dre/engine.ts",
+      "source_location": "L19",
+      "id": "dre_engine_add",
+      "community": 8,
+      "norm_label": "add()"
+    },
+    {
+      "label": "subtract()",
+      "file_type": "code",
+      "source_file": "lib/dre/engine.ts",
+      "source_location": "L24",
+      "id": "dre_engine_subtract",
+      "community": 8,
+      "norm_label": "subtract()"
+    },
+    {
+      "label": "toRow()",
+      "file_type": "code",
+      "source_file": "lib/dre/engine.ts",
+      "source_location": "L33",
+      "id": "dre_engine_torow",
+      "community": 8,
+      "norm_label": "torow()"
+    },
+    {
+      "label": "headerRow()",
+      "file_type": "code",
+      "source_file": "lib/dre/engine.ts",
+      "source_location": "L47",
+      "id": "dre_engine_headerrow",
+      "community": 8,
+      "norm_label": "headerrow()"
+    },
+    {
+      "label": "buildDRE()",
+      "file_type": "code",
+      "source_file": "lib/dre/engine.ts",
+      "source_location": "L51",
+      "id": "dre_engine_builddre",
+      "community": 8,
+      "norm_label": "builddre()"
+    },
+    {
+      "label": "amazon.ts",
+      "file_type": "code",
+      "source_file": "lib/integrations/amazon.ts",
+      "source_location": "L1",
+      "id": "lib_integrations_amazon_ts",
+      "community": 3,
+      "norm_label": "amazon.ts"
+    },
+    {
+      "label": "saveAmazonCredentials()",
+      "file_type": "code",
+      "source_file": "lib/integrations/amazon.ts",
+      "source_location": "L6",
+      "id": "integrations_amazon_saveamazoncredentials",
+      "community": 3,
+      "norm_label": "saveamazoncredentials()"
+    },
+    {
+      "label": "getValidAmazonToken()",
+      "file_type": "code",
+      "source_file": "lib/integrations/amazon.ts",
+      "source_location": "L13",
+      "id": "integrations_amazon_getvalidamazontoken",
+      "community": 3,
+      "norm_label": "getvalidamazontoken()"
+    },
+    {
+      "label": "amazonGet()",
+      "file_type": "code",
+      "source_file": "lib/integrations/amazon.ts",
+      "source_location": "L37",
+      "id": "integrations_amazon_amazonget",
+      "community": 3,
+      "norm_label": "amazonget()"
+    },
+    {
+      "label": "bling.ts",
+      "file_type": "code",
+      "source_file": "lib/integrations/bling.ts",
+      "source_location": "L1",
+      "id": "lib_integrations_bling_ts",
+      "community": 4,
+      "norm_label": "bling.ts"
+    },
+    {
+      "label": "getBlingAuthUrl()",
+      "file_type": "code",
+      "source_file": "lib/integrations/bling.ts",
+      "source_location": "L6",
+      "id": "integrations_bling_getblingauthurl",
+      "community": 4,
+      "norm_label": "getblingauthurl()"
+    },
+    {
+      "label": "blingAuthHeader()",
+      "file_type": "code",
+      "source_file": "lib/integrations/bling.ts",
+      "source_location": "L16",
+      "id": "integrations_bling_blingauthheader",
+      "community": 4,
+      "norm_label": "blingauthheader()"
+    },
+    {
+      "label": "exchangeBlingCode()",
+      "file_type": "code",
+      "source_file": "lib/integrations/bling.ts",
+      "source_location": "L20",
+      "id": "integrations_bling_exchangeblingcode",
+      "community": 4,
+      "norm_label": "exchangeblingcode()"
+    },
+    {
+      "label": "getValidBlingToken()",
+      "file_type": "code",
+      "source_file": "lib/integrations/bling.ts",
+      "source_location": "L35",
+      "id": "integrations_bling_getvalidblingtoken",
+      "community": 4,
+      "norm_label": "getvalidblingtoken()"
+    },
+    {
+      "label": "blingGet()",
+      "file_type": "code",
+      "source_file": "lib/integrations/bling.ts",
+      "source_location": "L55",
+      "id": "integrations_bling_blingget",
+      "community": 4,
+      "norm_label": "blingget()"
+    },
+    {
+      "label": "mercado-livre.ts",
+      "file_type": "code",
+      "source_file": "lib/integrations/mercado-livre.ts",
+      "source_location": "L1",
+      "id": "lib_integrations_mercado_livre_ts",
+      "community": 7,
+      "norm_label": "mercado-livre.ts"
+    },
+    {
+      "label": "getMercadoLivreAuthUrl()",
+      "file_type": "code",
+      "source_file": "lib/integrations/mercado-livre.ts",
+      "source_location": "L6",
+      "id": "integrations_mercado_livre_getmercadolivreauthurl",
+      "community": 4,
+      "norm_label": "getmercadolivreauthurl()"
+    },
+    {
+      "label": "exchangeMercadoLivreCode()",
+      "file_type": "code",
+      "source_file": "lib/integrations/mercado-livre.ts",
+      "source_location": "L15",
+      "id": "integrations_mercado_livre_exchangemercadolivrecode",
+      "community": 4,
+      "norm_label": "exchangemercadolivrecode()"
+    },
+    {
+      "label": "getValidMercadoLivreToken()",
+      "file_type": "code",
+      "source_file": "lib/integrations/mercado-livre.ts",
+      "source_location": "L37",
+      "id": "integrations_mercado_livre_getvalidmercadolivretoken",
+      "community": 7,
+      "norm_label": "getvalidmercadolivretoken()"
+    },
+    {
+      "label": "getMercadoLivreSellerId()",
+      "file_type": "code",
+      "source_file": "lib/integrations/mercado-livre.ts",
+      "source_location": "L65",
+      "id": "integrations_mercado_livre_getmercadolivresellerid",
+      "community": 7,
+      "norm_label": "getmercadolivresellerid()"
+    },
+    {
+      "label": "mlGet()",
+      "file_type": "code",
+      "source_file": "lib/integrations/mercado-livre.ts",
+      "source_location": "L71",
+      "id": "integrations_mercado_livre_mlget",
+      "community": 7,
+      "norm_label": "mlget()"
+    },
+    {
+      "label": "shopee.ts",
+      "file_type": "code",
+      "source_file": "lib/integrations/shopee.ts",
+      "source_location": "L1",
+      "id": "lib_integrations_shopee_ts",
+      "community": 3,
+      "norm_label": "shopee.ts"
+    },
+    {
+      "label": "shopeeSign()",
+      "file_type": "code",
+      "source_file": "lib/integrations/shopee.ts",
+      "source_location": "L6",
+      "id": "integrations_shopee_shopeesign",
+      "community": 3,
+      "norm_label": "shopeesign()"
+    },
+    {
+      "label": "saveShopeeCredentials()",
+      "file_type": "code",
+      "source_file": "lib/integrations/shopee.ts",
+      "source_location": "L13",
+      "id": "integrations_shopee_saveshopeecredentials",
+      "community": 3,
+      "norm_label": "saveshopeecredentials()"
+    },
+    {
+      "label": "shopeeGet()",
+      "file_type": "code",
+      "source_file": "lib/integrations/shopee.ts",
+      "source_location": "L20",
+      "id": "integrations_shopee_shopeeget",
+      "community": 3,
+      "norm_label": "shopeeget()"
+    },
+    {
+      "label": "calculator.ts",
+      "file_type": "code",
+      "source_file": "lib/landed-cost/calculator.ts",
+      "source_location": "L1",
+      "id": "lib_landed_cost_calculator_ts",
+      "community": 0,
+      "norm_label": "calculator.ts"
+    },
+    {
+      "label": "recalculateLandedCost()",
+      "file_type": "code",
+      "source_file": "lib/landed-cost/calculator.ts",
+      "source_location": "L11",
+      "id": "landed_cost_calculator_recalculatelandedcost",
+      "community": 0,
+      "norm_label": "recalculatelandedcost()"
+    },
+    {
+      "label": "recalculateCmp()",
+      "file_type": "code",
+      "source_file": "lib/landed-cost/calculator.ts",
+      "source_location": "L101",
+      "id": "landed_cost_calculator_recalculatecmp",
+      "community": 0,
+      "norm_label": "recalculatecmp()"
+    },
+    {
+      "label": "getCurrentCmp()",
+      "file_type": "code",
+      "source_file": "lib/landed-cost/calculator.ts",
+      "source_location": "L133",
+      "id": "landed_cost_calculator_getcurrentcmp",
+      "community": 0,
+      "norm_label": "getcurrentcmp()"
+    },
+    {
+      "label": "applyCmpToSale()",
+      "file_type": "code",
+      "source_file": "lib/landed-cost/calculator.ts",
+      "source_location": "L149",
+      "id": "landed_cost_calculator_applycmptosale",
+      "community": 0,
+      "norm_label": "applycmptosale()"
+    },
+    {
+      "label": "sync-amazon.ts",
+      "file_type": "code",
+      "source_file": "lib/marketplace/sync-amazon.ts",
+      "source_location": "L1",
+      "id": "lib_marketplace_sync_amazon_ts",
+      "community": 3,
+      "norm_label": "sync-amazon.ts"
+    },
+    {
+      "label": "amazonRequest()",
+      "file_type": "code",
+      "source_file": "lib/marketplace/sync-amazon.ts",
+      "source_location": "L7",
+      "id": "marketplace_sync_amazon_amazonrequest",
+      "community": 3,
+      "norm_label": "amazonrequest()"
+    },
+    {
+      "label": "syncAmazon()",
+      "file_type": "code",
+      "source_file": "lib/marketplace/sync-amazon.ts",
+      "source_location": "L50",
+      "id": "marketplace_sync_amazon_syncamazon",
+      "community": 3,
+      "norm_label": "syncamazon()"
+    },
+    {
+      "label": "sync-ml.ts",
+      "file_type": "code",
+      "source_file": "lib/marketplace/sync-ml.ts",
+      "source_location": "L1",
+      "id": "lib_marketplace_sync_ml_ts",
+      "community": 7,
+      "norm_label": "sync-ml.ts"
+    },
+    {
+      "label": "sleep()",
+      "file_type": "code",
+      "source_file": "lib/marketplace/sync-ml.ts",
+      "source_location": "L39",
+      "id": "marketplace_sync_ml_sleep",
+      "community": 7,
+      "norm_label": "sleep()"
+    },
+    {
+      "label": "isFulfillmentFull()",
+      "file_type": "code",
+      "source_file": "lib/marketplace/sync-ml.ts",
+      "source_location": "L41",
+      "id": "marketplace_sync_ml_isfulfillmentfull",
+      "community": 7,
+      "norm_label": "isfulfillmentfull()"
+    },
+    {
+      "label": "getShippingCostForSeller()",
+      "file_type": "code",
+      "source_file": "lib/marketplace/sync-ml.ts",
+      "source_location": "L49",
+      "id": "marketplace_sync_ml_getshippingcostforseller",
+      "community": 7,
+      "norm_label": "getshippingcostforseller()"
+    },
+    {
+      "label": "syncMercadoLivre()",
+      "file_type": "code",
+      "source_file": "lib/marketplace/sync-ml.ts",
+      "source_location": "L65",
+      "id": "marketplace_sync_ml_syncmercadolivre",
+      "community": 7,
+      "norm_label": "syncmercadolivre()"
+    },
+    {
+      "label": "sync-shopee.ts",
+      "file_type": "code",
+      "source_file": "lib/marketplace/sync-shopee.ts",
+      "source_location": "L1",
+      "id": "lib_marketplace_sync_shopee_ts",
+      "community": 3,
+      "norm_label": "sync-shopee.ts"
+    },
+    {
+      "label": "syncShopee()",
+      "file_type": "code",
+      "source_file": "lib/marketplace/sync-shopee.ts",
+      "source_location": "L50",
+      "id": "marketplace_sync_shopee_syncshopee",
+      "community": 3,
+      "norm_label": "syncshopee()"
+    },
+    {
+      "label": "import-processor.ts",
+      "file_type": "code",
+      "source_file": "lib/nfe/import-processor.ts",
+      "source_location": "L1",
+      "id": "lib_nfe_import_processor_ts",
+      "community": 5,
+      "norm_label": "import-processor.ts"
+    },
+    {
+      "label": "resolveProductSku()",
+      "file_type": "code",
+      "source_file": "lib/nfe/import-processor.ts",
+      "source_location": "L11",
+      "id": "nfe_import_processor_resolveproductsku",
+      "community": 5,
+      "norm_label": "resolveproductsku()"
+    },
+    {
+      "label": "processImportNFe()",
+      "file_type": "code",
+      "source_file": "lib/nfe/import-processor.ts",
+      "source_location": "L20",
+      "id": "nfe_import_processor_processimportnfe",
+      "community": 5,
+      "norm_label": "processimportnfe()"
+    },
+    {
+      "label": "parser.ts",
+      "file_type": "code",
+      "source_file": "lib/nfe/parser.ts",
+      "source_location": "L1",
+      "id": "lib_nfe_parser_ts",
+      "community": 5,
+      "norm_label": "parser.ts"
+    },
+    {
+      "label": "num()",
+      "file_type": "code",
+      "source_file": "lib/nfe/parser.ts",
+      "source_location": "L49",
+      "id": "nfe_parser_num",
+      "community": 5,
+      "norm_label": "num()"
+    },
+    {
+      "label": "str()",
+      "file_type": "code",
+      "source_file": "lib/nfe/parser.ts",
+      "source_location": "L54",
+      "id": "nfe_parser_str",
+      "community": 5,
+      "norm_label": "str()"
+    },
+    {
+      "label": "parseNFeXml()",
+      "file_type": "code",
+      "source_file": "lib/nfe/parser.ts",
+      "source_location": "L58",
+      "id": "nfe_parser_parsenfexml",
+      "community": 5,
+      "norm_label": "parsenfexml()"
+    },
+    {
+      "label": "sale-tax-extractor.ts",
+      "file_type": "code",
+      "source_file": "lib/nfe/sale-tax-extractor.ts",
+      "source_location": "L1",
+      "id": "lib_nfe_sale_tax_extractor_ts",
+      "community": 5,
+      "norm_label": "sale-tax-extractor.ts"
+    },
+    {
+      "label": "extractSaleTaxes()",
+      "file_type": "code",
+      "source_file": "lib/nfe/sale-tax-extractor.ts",
+      "source_location": "L13",
+      "id": "nfe_sale_tax_extractor_extractsaletaxes",
+      "community": 5,
+      "norm_label": "extractsaletaxes()"
+    },
+    {
+      "label": "client.ts",
+      "file_type": "code",
+      "source_file": "lib/supabase/client.ts",
+      "source_location": "L1",
+      "id": "lib_supabase_client_ts",
+      "community": 32,
+      "norm_label": "client.ts"
+    },
+    {
+      "label": "createSupabaseBrowserClient()",
+      "file_type": "code",
+      "source_file": "lib/supabase/client.ts",
+      "source_location": "L3",
+      "id": "supabase_client_createsupabasebrowserclient",
+      "community": 32,
+      "norm_label": "createsupabasebrowserclient()"
+    },
+    {
+      "label": "server.ts",
+      "file_type": "code",
+      "source_file": "lib/supabase/server.ts",
+      "source_location": "L1",
+      "id": "lib_supabase_server_ts",
+      "community": 0,
+      "norm_label": "server.ts"
+    },
+    {
+      "label": "createSupabaseServerClient()",
+      "file_type": "code",
+      "source_file": "lib/supabase/server.ts",
+      "source_location": "L5",
+      "id": "supabase_server_createsupabaseserverclient",
+      "community": 0,
+      "norm_label": "createsupabaseserverclient()"
+    },
+    {
+      "label": "createSupabaseServiceClient()",
+      "file_type": "code",
+      "source_file": "lib/supabase/server.ts",
+      "source_location": "L23",
+      "id": "supabase_server_createsupabaseserviceclient",
+      "community": 0,
+      "norm_label": "createsupabaseserviceclient()"
+    },
+    {
+      "label": "index.ts",
+      "file_type": "code",
+      "source_file": "types/index.ts",
+      "source_location": "L1",
+      "id": "types_index_ts",
+      "community": 39,
+      "norm_label": "index.ts"
+    },
+    {
+      "label": "Next.js Agent Rules",
+      "file_type": "document",
+      "source_file": "AGENTS.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "agents_nextjs_agent_rules",
+      "community": 6,
+      "norm_label": "next.js agent rules"
+    },
+    {
+      "label": "Next.js Breaking Changes Warning",
+      "file_type": "document",
+      "source_file": "AGENTS.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "agents_breaking_changes_warning",
+      "community": 6,
+      "norm_label": "next.js breaking changes warning"
+    },
+    {
+      "label": "Next.js Internal Docs Reference",
+      "file_type": "document",
+      "source_file": "AGENTS.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "agents_nextjs_docs_reference",
+      "community": 6,
+      "norm_label": "next.js internal docs reference"
+    },
+    {
+      "label": "CLAUDE.md References AGENTS.md",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "claude_agents_reference",
+      "community": 6,
+      "norm_label": "claude.md references agents.md"
+    },
+    {
+      "label": "MarketIntel Next.js Project",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "readme_nextjs_project",
+      "community": 6,
+      "norm_label": "marketintel next.js project"
+    },
+    {
+      "label": "create-next-app Bootstrap Tool",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "readme_create_next_app",
+      "community": 6,
+      "norm_label": "create-next-app bootstrap tool"
+    },
+    {
+      "label": "Development Server (localhost:3000)",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "readme_dev_server",
+      "community": 6,
+      "norm_label": "development server (localhost:3000)"
+    },
+    {
+      "label": "App Entry Point (app/page.tsx)",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "readme_app_page_tsx",
+      "community": 6,
+      "norm_label": "app entry point (app/page.tsx)"
+    },
+    {
+      "label": "next/font Geist Font Optimization",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "readme_next_font",
+      "community": 6,
+      "norm_label": "next/font geist font optimization"
+    },
+    {
+      "label": "Vercel Deployment Platform",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "readme_vercel_deployment",
+      "community": 6,
+      "norm_label": "vercel deployment platform"
+    },
+    {
+      "label": "Next.js Framework",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "readme_nextjs_framework",
+      "community": 6,
+      "norm_label": "next.js framework"
+    }
+  ],
+  "links": [
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "proxy.ts",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "proxy_ts",
+      "target": "marketplace_intel_proxy_proxy",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/layout.tsx",
+      "source_location": "L27",
+      "weight": 1.0,
+      "source": "app_layout_tsx",
+      "target": "app_layout_rootlayout",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/page.tsx",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "app_page_tsx",
+      "target": "app_page_rootpage",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/ai/chat/route.ts",
+      "source_location": "L28",
+      "weight": 1.0,
+      "source": "app_api_ai_chat_route_ts",
+      "target": "chat_route_post",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/auth/login/route.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "app_api_auth_login_route_ts",
+      "target": "login_route_post",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/auth/logout/route.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "app_api_auth_logout_route_ts",
+      "target": "logout_route_post",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/cron/sync/route.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "app_api_cron_sync_route_ts",
+      "target": "supabase_server_createsupabaseserviceclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/cron/sync/route.ts",
+      "source_location": "L10",
+      "weight": 1.0,
+      "source": "app_api_cron_sync_route_ts",
+      "target": "sync_route_getdaystosync",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/cron/sync/route.ts",
+      "source_location": "L31",
+      "weight": 1.0,
+      "source": "app_api_cron_sync_route_ts",
+      "target": "sync_route_get",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/cron/sync/route.ts",
+      "source_location": "L45",
+      "weight": 1.0,
+      "source": "sync_route_get",
+      "target": "sync_route_getdaystosync",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "app/api/cron/sync/route.ts",
+      "source_location": "L11",
+      "weight": 1.0,
+      "source": "sync_route_getdaystosync",
+      "target": "supabase_server_createsupabaseserviceclient"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/despesas/route.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "app_api_despesas_route_ts",
+      "target": "supabase_server_createsupabaseserviceclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/despesas/route.ts",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "app_api_despesas_route_ts",
+      "target": "despesas_route_post",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "app/api/despesas/route.ts",
+      "source_location": "L17",
+      "weight": 1.0,
+      "source": "despesas_route_post",
+      "target": "supabase_server_createsupabaseserviceclient"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/integrations/amazon/save/route.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "app_api_integrations_amazon_save_route_ts",
+      "target": "integrations_amazon_saveamazoncredentials",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/integrations/amazon/save/route.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "app_api_integrations_amazon_save_route_ts",
+      "target": "save_route_post",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/integrations/shopee/save/route.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "app_api_integrations_shopee_save_route_ts",
+      "target": "save_route_post",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "app/api/integrations/amazon/save/route.ts",
+      "source_location": "L8",
+      "weight": 1.0,
+      "source": "save_route_post",
+      "target": "integrations_amazon_saveamazoncredentials"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "app/api/integrations/shopee/save/route.ts",
+      "source_location": "L8",
+      "weight": 1.0,
+      "source": "save_route_post",
+      "target": "integrations_shopee_saveshopeecredentials"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/integrations/bling/callback/route.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "app_api_integrations_bling_callback_route_ts",
+      "target": "integrations_bling_exchangeblingcode",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/integrations/bling/callback/route.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "app_api_integrations_bling_callback_route_ts",
+      "target": "callback_route_get",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/integrations/ml/callback/route.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "app_api_integrations_ml_callback_route_ts",
+      "target": "callback_route_get",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "app/api/integrations/bling/callback/route.ts",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "callback_route_get",
+      "target": "integrations_bling_exchangeblingcode"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "app/api/integrations/ml/callback/route.ts",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "callback_route_get",
+      "target": "integrations_mercado_livre_exchangemercadolivrecode"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/integrations/bling/connect/route.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "app_api_integrations_bling_connect_route_ts",
+      "target": "integrations_bling_getblingauthurl",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/integrations/bling/connect/route.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "app_api_integrations_bling_connect_route_ts",
+      "target": "connect_route_get",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/integrations/ml/connect/route.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "app_api_integrations_ml_connect_route_ts",
+      "target": "connect_route_get",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "app/api/integrations/bling/connect/route.ts",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "connect_route_get",
+      "target": "integrations_bling_getblingauthurl"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "app/api/integrations/ml/connect/route.ts",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "connect_route_get",
+      "target": "integrations_mercado_livre_getmercadolivreauthurl"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/integrations/ml/callback/route.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "app_api_integrations_ml_callback_route_ts",
+      "target": "integrations_mercado_livre_exchangemercadolivrecode",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/integrations/ml/connect/route.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "app_api_integrations_ml_connect_route_ts",
+      "target": "integrations_mercado_livre_getmercadolivreauthurl",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/integrations/shopee/save/route.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "app_api_integrations_shopee_save_route_ts",
+      "target": "integrations_shopee_saveshopeecredentials",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/landed-cost/recalculate/route.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "app_api_landed_cost_recalculate_route_ts",
+      "target": "landed_cost_calculator_recalculatelandedcost",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/landed-cost/recalculate/route.ts",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "app_api_landed_cost_recalculate_route_ts",
+      "target": "recalculate_route_post",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "app/api/landed-cost/recalculate/route.ts",
+      "source_location": "L18",
+      "weight": 1.0,
+      "source": "recalculate_route_post",
+      "target": "landed_cost_calculator_recalculatelandedcost"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/nfe/costs/route.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "app_api_nfe_costs_route_ts",
+      "target": "supabase_server_createsupabaseserviceclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/nfe/costs/route.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "app_api_nfe_costs_route_ts",
+      "target": "landed_cost_calculator_recalculatelandedcost",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/nfe/costs/route.ts",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "app_api_nfe_costs_route_ts",
+      "target": "costs_route_post",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "app/api/nfe/costs/route.ts",
+      "source_location": "L18",
+      "weight": 1.0,
+      "source": "costs_route_post",
+      "target": "supabase_server_createsupabaseserviceclient"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "app/api/nfe/costs/route.ts",
+      "source_location": "L31",
+      "weight": 1.0,
+      "source": "costs_route_post",
+      "target": "landed_cost_calculator_recalculatelandedcost"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/nfe/upload/route.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "app_api_nfe_upload_route_ts",
+      "target": "supabase_server_createsupabaseserviceclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/nfe/upload/route.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "app_api_nfe_upload_route_ts",
+      "target": "nfe_parser_parsenfexml",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/nfe/upload/route.ts",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "app_api_nfe_upload_route_ts",
+      "target": "nfe_import_processor_processimportnfe",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/nfe/upload/route.ts",
+      "source_location": "L8",
+      "weight": 1.0,
+      "source": "app_api_nfe_upload_route_ts",
+      "target": "upload_route_post",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "app/api/nfe/upload/route.ts",
+      "source_location": "L16",
+      "weight": 1.0,
+      "source": "upload_route_post",
+      "target": "supabase_server_createsupabaseserviceclient"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "app/api/nfe/upload/route.ts",
+      "source_location": "L22",
+      "weight": 1.0,
+      "source": "upload_route_post",
+      "target": "nfe_parser_parsenfexml"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "app/api/nfe/upload/route.ts",
+      "source_location": "L29",
+      "weight": 1.0,
+      "source": "upload_route_post",
+      "target": "nfe_import_processor_processimportnfe"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/sales/live/route.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "app_api_sales_live_route_ts",
+      "target": "supabase_server_createsupabaseserviceclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/sales/live/route.ts",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "app_api_sales_live_route_ts",
+      "target": "live_route_get",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "app/api/sales/live/route.ts",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "live_route_get",
+      "target": "supabase_server_createsupabaseserviceclient"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/sync/bling/route.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "app_api_sync_bling_route_ts",
+      "target": "bling_sync_nfe_entrada_syncnfeentrada",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/sync/bling/route.ts",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "app_api_sync_bling_route_ts",
+      "target": "bling_sync_nfe_saida_syncnfesaida",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/sync/bling/route.ts",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "app_api_sync_bling_route_ts",
+      "target": "supabase_server_createsupabaseserviceclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/sync/bling/route.ts",
+      "source_location": "L11",
+      "weight": 1.0,
+      "source": "app_api_sync_bling_route_ts",
+      "target": "bling_route_post",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "app/api/sync/bling/route.ts",
+      "source_location": "L18",
+      "weight": 1.0,
+      "source": "bling_route_post",
+      "target": "supabase_server_createsupabaseserviceclient"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/sync/bling/status/route.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "app_api_sync_bling_status_route_ts",
+      "target": "supabase_server_createsupabaseserviceclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/sync/bling/status/route.ts",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "app_api_sync_bling_status_route_ts",
+      "target": "status_route_get",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/sync/marketplaces/status/route.ts",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "app_api_sync_marketplaces_status_route_ts",
+      "target": "status_route_get",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "app/api/sync/bling/status/route.ts",
+      "source_location": "L10",
+      "weight": 1.0,
+      "source": "status_route_get",
+      "target": "supabase_server_createsupabaseserviceclient"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/sync/marketplaces/route.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "app_api_sync_marketplaces_route_ts",
+      "target": "marketplace_sync_ml_syncmercadolivre",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/sync/marketplaces/route.ts",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "app_api_sync_marketplaces_route_ts",
+      "target": "marketplace_sync_shopee_syncshopee",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/sync/marketplaces/route.ts",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "app_api_sync_marketplaces_route_ts",
+      "target": "marketplace_sync_amazon_syncamazon",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/sync/marketplaces/route.ts",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "app_api_sync_marketplaces_route_ts",
+      "target": "supabase_server_createsupabaseserviceclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/sync/marketplaces/route.ts",
+      "source_location": "L12",
+      "weight": 1.0,
+      "source": "app_api_sync_marketplaces_route_ts",
+      "target": "marketplaces_route_post",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "app/api/sync/marketplaces/route.ts",
+      "source_location": "L18",
+      "weight": 1.0,
+      "source": "marketplaces_route_post",
+      "target": "supabase_server_createsupabaseserviceclient"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/api/sync/marketplaces/status/route.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "app_api_sync_marketplaces_status_route_ts",
+      "target": "supabase_server_createsupabaseserviceclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/layout.tsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "app_dashboard_layout_tsx",
+      "target": "dashboard_layout_dashboardlayout",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/page.tsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "app_dashboard_page_tsx",
+      "target": "supabase_server_createsupabaseserviceclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/page.tsx",
+      "source_location": "L12",
+      "weight": 1.0,
+      "source": "app_dashboard_page_tsx",
+      "target": "dashboard_page_fmtr",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/page.tsx",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "app_dashboard_page_tsx",
+      "target": "dashboard_page_fmtpct",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/page.tsx",
+      "source_location": "L136",
+      "weight": 1.0,
+      "source": "app_dashboard_page_tsx",
+      "target": "dashboard_page_margincolor",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/page.tsx",
+      "source_location": "L141",
+      "weight": 1.0,
+      "source": "app_dashboard_page_tsx",
+      "target": "dashboard_page_marginbg",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/configuracoes/page.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "app_dashboard_configuracoes_page_tsx",
+      "target": "configuracoes_blingsyncbutton_blingsyncbutton",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/configuracoes/page.tsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "app_dashboard_configuracoes_page_tsx",
+      "target": "configuracoes_marketplacesyncbutton_marketplacesyncbutton",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/configuracoes/page.tsx",
+      "source_location": "L8",
+      "weight": 1.0,
+      "source": "app_dashboard_configuracoes_page_tsx",
+      "target": "supabase_server_createsupabaseserviceclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/configuracoes/page.tsx",
+      "source_location": "L19",
+      "weight": 1.0,
+      "source": "app_dashboard_configuracoes_page_tsx",
+      "target": "configuracoes_page_formatrelativetime",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/despesas/page.tsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "app_dashboard_despesas_page_tsx",
+      "target": "supabase_server_createsupabaseserviceclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/despesas/page.tsx",
+      "source_location": "L17",
+      "weight": 1.0,
+      "source": "app_dashboard_despesas_page_tsx",
+      "target": "despesas_page_fmtr",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/dre/page.tsx",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "app_dashboard_dre_page_tsx",
+      "target": "dre_engine_builddre",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/importacoes/page.tsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "app_dashboard_importacoes_page_tsx",
+      "target": "supabase_server_createsupabaseserviceclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/importacoes/page.tsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "app_dashboard_importacoes_page_tsx",
+      "target": "importacoes_landedcostform_landedcostform",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/importacoes/page.tsx",
+      "source_location": "L17",
+      "weight": 1.0,
+      "source": "app_dashboard_importacoes_page_tsx",
+      "target": "importacoes_page_fmtr",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/precificacao/page.tsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "app_dashboard_precificacao_page_tsx",
+      "target": "supabase_server_createsupabaseserviceclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/precificacao/page.tsx",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "app_dashboard_precificacao_page_tsx",
+      "target": "landed_cost_calculator_getcurrentcmp",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/precificacao/page.tsx",
+      "source_location": "L18",
+      "weight": 1.0,
+      "source": "app_dashboard_precificacao_page_tsx",
+      "target": "precificacao_page_fmtr",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/produtos/page.tsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "app_dashboard_produtos_page_tsx",
+      "target": "supabase_server_createsupabaseserviceclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/produtos/page.tsx",
+      "source_location": "L15",
+      "weight": 1.0,
+      "source": "app_dashboard_produtos_page_tsx",
+      "target": "produtos_page_fmtr",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/tributario/page.tsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "app_dashboard_tributario_page_tsx",
+      "target": "supabase_server_createsupabaseserviceclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/tributario/page.tsx",
+      "source_location": "L17",
+      "weight": 1.0,
+      "source": "app_dashboard_tributario_page_tsx",
+      "target": "tributario_page_fmtr",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/tributario/page.tsx",
+      "source_location": "L22",
+      "weight": 1.0,
+      "source": "app_dashboard_tributario_page_tsx",
+      "target": "tributario_page_fmtpct",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/tributario/page.tsx",
+      "source_location": "L150",
+      "weight": 1.0,
+      "source": "app_dashboard_tributario_page_tsx",
+      "target": "tributario_page_prevmonth",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/tributario/page.tsx",
+      "source_location": "L151",
+      "weight": 1.0,
+      "source": "app_dashboard_tributario_page_tsx",
+      "target": "tributario_page_nextmonth",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/tributario/page.tsx",
+      "source_location": "L152",
+      "weight": 1.0,
+      "source": "app_dashboard_tributario_page_tsx",
+      "target": "tributario_page_fmtmonth",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/tributario/page.tsx",
+      "source_location": "L154",
+      "weight": 1.0,
+      "source": "app_dashboard_tributario_page_tsx",
+      "target": "tributario_page_navbtn",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/velocidade/page.tsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "app_dashboard_velocidade_page_tsx",
+      "target": "supabase_server_createsupabaseserviceclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/velocidade/page.tsx",
+      "source_location": "L73",
+      "weight": 1.0,
+      "source": "app_dashboard_velocidade_page_tsx",
+      "target": "velocidade_page_stockcolor",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/vendas/page.tsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "app_dashboard_vendas_page_tsx",
+      "target": "supabase_server_createsupabaseserviceclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/vendas/page.tsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "app_dashboard_vendas_page_tsx",
+      "target": "vendas_salesfilters_salesfilters",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/vendas/page.tsx",
+      "source_location": "L18",
+      "weight": 1.0,
+      "source": "app_dashboard_vendas_page_tsx",
+      "target": "vendas_page_fmtr",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/vendas/page.tsx",
+      "source_location": "L21",
+      "weight": 1.0,
+      "source": "app_dashboard_vendas_page_tsx",
+      "target": "vendas_page_fmtpct",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/dashboard/vendas-ao-vivo/page.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "app_dashboard_vendas_ao_vivo_page_tsx",
+      "target": "vendas_ao_vivo_page_vendasaovivopage",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/login/page.tsx",
+      "source_location": "L11",
+      "weight": 1.0,
+      "source": "app_login_page_tsx",
+      "target": "login_page_handlesubmit",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ai/OrymaIntelligence.tsx",
+      "source_location": "L12",
+      "weight": 1.0,
+      "source": "components_ai_orymaintelligence_tsx",
+      "target": "ai_orymaintelligence_getpagecontext",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ai/OrymaIntelligence.tsx",
+      "source_location": "L41",
+      "weight": 1.0,
+      "source": "components_ai_orymaintelligence_tsx",
+      "target": "ai_orymaintelligence_getsuggestions",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ai/OrymaIntelligence.tsx",
+      "source_location": "L70",
+      "weight": 1.0,
+      "source": "components_ai_orymaintelligence_tsx",
+      "target": "ai_orymaintelligence_sendmessage",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ai/OrymaIntelligence.tsx",
+      "source_location": "L98",
+      "weight": 1.0,
+      "source": "components_ai_orymaintelligence_tsx",
+      "target": "ai_orymaintelligence_handlekey",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ai/OrymaIntelligence.tsx",
+      "source_location": "L86",
+      "weight": 1.0,
+      "source": "ai_orymaintelligence_sendmessage",
+      "target": "ai_orymaintelligence_getpagecontext",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ai/OrymaIntelligence.tsx",
+      "source_location": "L101",
+      "weight": 1.0,
+      "source": "ai_orymaintelligence_handlekey",
+      "target": "ai_orymaintelligence_sendmessage",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/charts/RevenueLineChart.tsx",
+      "source_location": "L24",
+      "weight": 1.0,
+      "source": "components_charts_revenuelinechart_tsx",
+      "target": "charts_revenuelinechart_fmtr",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/configuracoes/BlingSyncButton.tsx",
+      "source_location": "L14",
+      "weight": 1.0,
+      "source": "components_configuracoes_blingsyncbutton_tsx",
+      "target": "configuracoes_blingsyncbutton_blingsyncbutton",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/configuracoes/ConfigCard.tsx",
+      "source_location": "L74",
+      "weight": 1.0,
+      "source": "components_configuracoes_configcard_tsx",
+      "target": "configuracoes_configcard_handlesaveshopee",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/configuracoes/ConfigCard.tsx",
+      "source_location": "L87",
+      "weight": 1.0,
+      "source": "components_configuracoes_configcard_tsx",
+      "target": "configuracoes_configcard_handlesaveamazon",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/configuracoes/MarketplaceSyncButton.tsx",
+      "source_location": "L14",
+      "weight": 1.0,
+      "source": "components_configuracoes_marketplacesyncbutton_tsx",
+      "target": "configuracoes_marketplacesyncbutton_marketplacesyncbutton",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "components/dashboard/InsightsPanel.tsx",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "components_dashboard_insightspanel_tsx",
+      "target": "supabase_server_createsupabaseserviceclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/dashboard/InsightsPanel.tsx",
+      "source_location": "L52",
+      "weight": 1.0,
+      "source": "components_dashboard_insightspanel_tsx",
+      "target": "dashboard_insightspanel_fmtr",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/dashboard/InsightsPanel.tsx",
+      "source_location": "L53",
+      "weight": 1.0,
+      "source": "components_dashboard_insightspanel_tsx",
+      "target": "dashboard_insightspanel_fmtpct",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/dashboard/InsightsPanel.tsx",
+      "source_location": "L205",
+      "weight": 1.0,
+      "source": "components_dashboard_insightspanel_tsx",
+      "target": "dashboard_insightspanel_calcmargin",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/dashboard/LiveSalesFeed.tsx",
+      "source_location": "L41",
+      "weight": 1.0,
+      "source": "components_dashboard_livesalesfeed_tsx",
+      "target": "dashboard_livesalesfeed_fmtr",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/dashboard/LiveSalesFeed.tsx",
+      "source_location": "L230",
+      "weight": 1.0,
+      "source": "components_dashboard_livesalesfeed_tsx",
+      "target": "dashboard_livesalesfeed_channeltotals",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "components/despesas/DespesaForm.tsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "components_despesas_despesaform_tsx",
+      "target": "ui_input_input",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "components/despesas/DespesaForm.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "components_despesas_despesaform_tsx",
+      "target": "ui_select_selectcontent",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "components/despesas/DespesaForm.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "components_despesas_despesaform_tsx",
+      "target": "ui_select_selectitem",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "components/despesas/DespesaForm.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "components_despesas_despesaform_tsx",
+      "target": "ui_select_selecttrigger",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "components/despesas/DespesaForm.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "components_despesas_despesaform_tsx",
+      "target": "ui_select_selectvalue",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/despesas/DespesaForm.tsx",
+      "source_location": "L23",
+      "weight": 1.0,
+      "source": "components_despesas_despesaform_tsx",
+      "target": "despesas_despesaform_handlesubmit",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/dre/DRETable.tsx",
+      "source_location": "L20",
+      "weight": 1.0,
+      "source": "components_dre_dretable_tsx",
+      "target": "dre_dretable_fmt",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/dre/DRETable.tsx",
+      "source_location": "L29",
+      "weight": 1.0,
+      "source": "components_dre_dretable_tsx",
+      "target": "dre_dretable_fmtfull",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "components/importacoes/LandedCostForm.tsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "components_importacoes_landedcostform_tsx",
+      "target": "ui_input_input",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "components/importacoes/LandedCostForm.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "components_importacoes_landedcostform_tsx",
+      "target": "ui_select_selectcontent",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "components/importacoes/LandedCostForm.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "components_importacoes_landedcostform_tsx",
+      "target": "ui_select_selectitem",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "components/importacoes/LandedCostForm.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "components_importacoes_landedcostform_tsx",
+      "target": "ui_select_selecttrigger",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "components/importacoes/LandedCostForm.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "components_importacoes_landedcostform_tsx",
+      "target": "ui_select_selectvalue",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/importacoes/LandedCostForm.tsx",
+      "source_location": "L10",
+      "weight": 1.0,
+      "source": "components_importacoes_landedcostform_tsx",
+      "target": "importacoes_landedcostform_landedcostform",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/importacoes/NFEUploadZone.tsx",
+      "source_location": "L17",
+      "weight": 1.0,
+      "source": "components_importacoes_nfeuploadzone_tsx",
+      "target": "importacoes_nfeuploadzone_handlefiles",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "components/layout/Sidebar.tsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "components_layout_sidebar_tsx",
+      "target": "lib_utils_cn",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/layout/Sidebar.tsx",
+      "source_location": "L71",
+      "weight": 1.0,
+      "source": "components_layout_sidebar_tsx",
+      "target": "layout_sidebar_orymaicon",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/layout/Sidebar.tsx",
+      "source_location": "L110",
+      "weight": 1.0,
+      "source": "components_layout_sidebar_tsx",
+      "target": "layout_sidebar_handler",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/layout/Sidebar.tsx",
+      "source_location": "L115",
+      "weight": 1.0,
+      "source": "components_layout_sidebar_tsx",
+      "target": "layout_sidebar_isactive",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/layout/TopBar.tsx",
+      "source_location": "L16",
+      "weight": 1.0,
+      "source": "components_layout_topbar_tsx",
+      "target": "layout_topbar_handlelogout",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ui/badge.tsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "components_ui_badge_tsx",
+      "target": "lib_utils_cn",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ui/badge.tsx",
+      "source_location": "L30",
+      "weight": 1.0,
+      "source": "components_ui_badge_tsx",
+      "target": "ui_badge_badge",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ui/button.tsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "components_ui_button_tsx",
+      "target": "lib_utils_cn",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ui/button.tsx",
+      "source_location": "L52",
+      "weight": 1.0,
+      "source": "components_ui_button_tsx",
+      "target": "ui_button_cn",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ui/card.tsx",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "components_ui_card_tsx",
+      "target": "lib_utils_cn",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ui/card.tsx",
+      "source_location": "L40",
+      "weight": 1.0,
+      "source": "components_ui_card_tsx",
+      "target": "ui_card_cn",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ui/card.tsx",
+      "source_location": "L59",
+      "weight": 1.0,
+      "source": "components_ui_card_tsx",
+      "target": "ui_card_cardaction",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ui/input.tsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "components_ui_input_tsx",
+      "target": "lib_utils_cn",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ui/input.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "components_ui_input_tsx",
+      "target": "ui_input_input",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "components/vendas/SalesFilters.tsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "components_vendas_salesfilters_tsx",
+      "target": "ui_input_input",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ui/label.tsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "components_ui_label_tsx",
+      "target": "lib_utils_cn",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ui/label.tsx",
+      "source_location": "L11",
+      "weight": 1.0,
+      "source": "components_ui_label_tsx",
+      "target": "ui_label_cn",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ui/select.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "components_ui_select_tsx",
+      "target": "lib_utils_cn",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ui/select.tsx",
+      "source_location": "L11",
+      "weight": 1.0,
+      "source": "components_ui_select_tsx",
+      "target": "ui_select_selectgroup",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ui/select.tsx",
+      "source_location": "L21",
+      "weight": 1.0,
+      "source": "components_ui_select_tsx",
+      "target": "ui_select_selectvalue",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ui/select.tsx",
+      "source_location": "L31",
+      "weight": 1.0,
+      "source": "components_ui_select_tsx",
+      "target": "ui_select_selecttrigger",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ui/select.tsx",
+      "source_location": "L59",
+      "weight": 1.0,
+      "source": "components_ui_select_tsx",
+      "target": "ui_select_selectcontent",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ui/select.tsx",
+      "source_location": "L98",
+      "weight": 1.0,
+      "source": "components_ui_select_tsx",
+      "target": "ui_select_selectlabel",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ui/select.tsx",
+      "source_location": "L111",
+      "weight": 1.0,
+      "source": "components_ui_select_tsx",
+      "target": "ui_select_selectitem",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ui/select.tsx",
+      "source_location": "L139",
+      "weight": 1.0,
+      "source": "components_ui_select_tsx",
+      "target": "ui_select_selectseparator",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ui/select.tsx",
+      "source_location": "L152",
+      "weight": 1.0,
+      "source": "components_ui_select_tsx",
+      "target": "ui_select_selectscrollupbutton",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ui/select.tsx",
+      "source_location": "L171",
+      "weight": 1.0,
+      "source": "components_ui_select_tsx",
+      "target": "ui_select_selectscrolldownbutton",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "components/vendas/SalesFilters.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "components_vendas_salesfilters_tsx",
+      "target": "ui_select_selectvalue",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "components/vendas/SalesFilters.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "components_vendas_salesfilters_tsx",
+      "target": "ui_select_selecttrigger",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "components/vendas/SalesFilters.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "components_vendas_salesfilters_tsx",
+      "target": "ui_select_selectcontent",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "components/vendas/SalesFilters.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "components_vendas_salesfilters_tsx",
+      "target": "ui_select_selectitem",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ui/table.tsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "components_ui_table_tsx",
+      "target": "lib_utils_cn",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ui/table.tsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "components_ui_table_tsx",
+      "target": "ui_table_table",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ui/table.tsx",
+      "source_location": "L22",
+      "weight": 1.0,
+      "source": "components_ui_table_tsx",
+      "target": "ui_table_tableheader",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ui/table.tsx",
+      "source_location": "L32",
+      "weight": 1.0,
+      "source": "components_ui_table_tsx",
+      "target": "ui_table_tablebody",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ui/table.tsx",
+      "source_location": "L85",
+      "weight": 1.0,
+      "source": "components_ui_table_tsx",
+      "target": "ui_table_cn",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ui/tabs.tsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "components_ui_tabs_tsx",
+      "target": "lib_utils_cn",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/ui/tabs.tsx",
+      "source_location": "L60",
+      "weight": 1.0,
+      "source": "components_ui_tabs_tsx",
+      "target": "ui_tabs_cn",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/vendas/SalesFilters.tsx",
+      "source_location": "L22",
+      "weight": 1.0,
+      "source": "components_vendas_salesfilters_tsx",
+      "target": "vendas_salesfilters_salesfilters",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/vendas/SalesTable.tsx",
+      "source_location": "L29",
+      "weight": 1.0,
+      "source": "components_vendas_salestable_tsx",
+      "target": "vendas_salestable_fmtr",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/vendas/SalesTable.tsx",
+      "source_location": "L32",
+      "weight": 1.0,
+      "source": "components_vendas_salestable_tsx",
+      "target": "vendas_salestable_fmtpct",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/vendas/SalesTable.tsx",
+      "source_location": "L35",
+      "weight": 1.0,
+      "source": "components_vendas_salestable_tsx",
+      "target": "vendas_salestable_margincolor",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/vendas/SalesTable.tsx",
+      "source_location": "L236",
+      "weight": 1.0,
+      "source": "components_vendas_salestable_tsx",
+      "target": "vendas_salestable_togglerow",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/vendas/VendasAoVivoFeed.tsx",
+      "source_location": "L45",
+      "weight": 1.0,
+      "source": "components_vendas_vendasaovivofeed_tsx",
+      "target": "vendas_vendasaovivofeed_fmtr",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/vendas/VendasAoVivoFeed.tsx",
+      "source_location": "L49",
+      "weight": 1.0,
+      "source": "components_vendas_vendasaovivofeed_tsx",
+      "target": "vendas_vendasaovivofeed_pct",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/vendas/VendasAoVivoFeed.tsx",
+      "source_location": "L51",
+      "weight": 1.0,
+      "source": "components_vendas_vendasaovivofeed_tsx",
+      "target": "vendas_vendasaovivofeed_calcsale",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/vendas/VendasAoVivoFeed.tsx",
+      "source_location": "L69",
+      "weight": 1.0,
+      "source": "components_vendas_vendasaovivofeed_tsx",
+      "target": "vendas_vendasaovivofeed_marginbadge",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components/vendas/VendasAoVivoFeed.tsx",
+      "source_location": "L81",
+      "weight": 1.0,
+      "source": "components_vendas_vendasaovivofeed_tsx",
+      "target": "vendas_vendasaovivofeed_plrow",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "components/vendas/VendasAoVivoFeed.tsx",
+      "source_location": "L84",
+      "weight": 1.0,
+      "source": "vendas_vendasaovivofeed_plrow",
+      "target": "vendas_vendasaovivofeed_fmtr",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/utils.ts",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "lib_utils_ts",
+      "target": "lib_utils_cn",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/bling/sync-nfe-entrada.ts",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "lib_bling_sync_nfe_entrada_ts",
+      "target": "integrations_bling_blingget",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/bling/sync-nfe-entrada.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "lib_bling_sync_nfe_entrada_ts",
+      "target": "supabase_server_createsupabaseserviceclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/bling/sync-nfe-entrada.ts",
+      "source_location": "L20",
+      "weight": 1.0,
+      "source": "lib_bling_sync_nfe_entrada_ts",
+      "target": "bling_sync_nfe_entrada_sleep",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/bling/sync-nfe-entrada.ts",
+      "source_location": "L22",
+      "weight": 1.0,
+      "source": "lib_bling_sync_nfe_entrada_ts",
+      "target": "bling_sync_nfe_entrada_syncnfeentrada",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/bling/sync-nfe-entrada.ts",
+      "source_location": "L45",
+      "weight": 1.0,
+      "source": "bling_sync_nfe_entrada_syncnfeentrada",
+      "target": "bling_sync_nfe_entrada_sleep",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "lib/bling/sync-nfe-entrada.ts",
+      "source_location": "L23",
+      "weight": 1.0,
+      "source": "bling_sync_nfe_entrada_syncnfeentrada",
+      "target": "supabase_server_createsupabaseserviceclient"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/bling/sync-nfe-saida.ts",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "lib_bling_sync_nfe_saida_ts",
+      "target": "integrations_bling_blingget",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/bling/sync-nfe-saida.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "lib_bling_sync_nfe_saida_ts",
+      "target": "supabase_server_createsupabaseserviceclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/bling/sync-nfe-saida.ts",
+      "source_location": "L18",
+      "weight": 1.0,
+      "source": "lib_bling_sync_nfe_saida_ts",
+      "target": "bling_sync_nfe_saida_isserievalida",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/bling/sync-nfe-saida.ts",
+      "source_location": "L24",
+      "weight": 1.0,
+      "source": "lib_bling_sync_nfe_saida_ts",
+      "target": "bling_sync_nfe_saida_sleep",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/bling/sync-nfe-saida.ts",
+      "source_location": "L26",
+      "weight": 1.0,
+      "source": "lib_bling_sync_nfe_saida_ts",
+      "target": "bling_sync_nfe_saida_extracttag",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/bling/sync-nfe-saida.ts",
+      "source_location": "L31",
+      "weight": 1.0,
+      "source": "lib_bling_sync_nfe_saida_ts",
+      "target": "bling_sync_nfe_saida_extractstr",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/bling/sync-nfe-saida.ts",
+      "source_location": "L41",
+      "weight": 1.0,
+      "source": "lib_bling_sync_nfe_saida_ts",
+      "target": "bling_sync_nfe_saida_parseinfoadicionais",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/bling/sync-nfe-saida.ts",
+      "source_location": "L59",
+      "weight": 1.0,
+      "source": "lib_bling_sync_nfe_saida_ts",
+      "target": "bling_sync_nfe_saida_findsalebyordernumber",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/bling/sync-nfe-saida.ts",
+      "source_location": "L80",
+      "weight": 1.0,
+      "source": "lib_bling_sync_nfe_saida_ts",
+      "target": "bling_sync_nfe_saida_syncnfesaida",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/bling/sync-nfe-saida.ts",
+      "source_location": "L106",
+      "weight": 1.0,
+      "source": "bling_sync_nfe_saida_syncnfesaida",
+      "target": "bling_sync_nfe_saida_isserievalida",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/bling/sync-nfe-saida.ts",
+      "source_location": "L116",
+      "weight": 1.0,
+      "source": "bling_sync_nfe_saida_syncnfesaida",
+      "target": "bling_sync_nfe_saida_sleep",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/bling/sync-nfe-saida.ts",
+      "source_location": "L129",
+      "weight": 1.0,
+      "source": "bling_sync_nfe_saida_syncnfesaida",
+      "target": "bling_sync_nfe_saida_extracttag",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "lib/nfe/sale-tax-extractor.ts",
+      "source_location": "L21",
+      "weight": 1.0,
+      "source": "nfe_sale_tax_extractor_extractsaletaxes",
+      "target": "bling_sync_nfe_saida_extracttag"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/bling/sync-nfe-saida.ts",
+      "source_location": "L42",
+      "weight": 1.0,
+      "source": "bling_sync_nfe_saida_parseinfoadicionais",
+      "target": "bling_sync_nfe_saida_extractstr",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/bling/sync-nfe-saida.ts",
+      "source_location": "L137",
+      "weight": 1.0,
+      "source": "bling_sync_nfe_saida_syncnfesaida",
+      "target": "bling_sync_nfe_saida_parseinfoadicionais",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/bling/sync-nfe-saida.ts",
+      "source_location": "L143",
+      "weight": 1.0,
+      "source": "bling_sync_nfe_saida_syncnfesaida",
+      "target": "bling_sync_nfe_saida_findsalebyordernumber",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "lib/bling/sync-nfe-saida.ts",
+      "source_location": "L81",
+      "weight": 1.0,
+      "source": "bling_sync_nfe_saida_syncnfesaida",
+      "target": "supabase_server_createsupabaseserviceclient"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/dre/engine.ts",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "lib_dre_engine_ts",
+      "target": "supabase_server_createsupabaseserviceclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/dre/engine.ts",
+      "source_location": "L15",
+      "weight": 1.0,
+      "source": "lib_dre_engine_ts",
+      "target": "dre_engine_zero",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/dre/engine.ts",
+      "source_location": "L19",
+      "weight": 1.0,
+      "source": "lib_dre_engine_ts",
+      "target": "dre_engine_add",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/dre/engine.ts",
+      "source_location": "L24",
+      "weight": 1.0,
+      "source": "lib_dre_engine_ts",
+      "target": "dre_engine_subtract",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/dre/engine.ts",
+      "source_location": "L33",
+      "weight": 1.0,
+      "source": "lib_dre_engine_ts",
+      "target": "dre_engine_torow",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/dre/engine.ts",
+      "source_location": "L47",
+      "weight": 1.0,
+      "source": "lib_dre_engine_ts",
+      "target": "dre_engine_headerrow",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/dre/engine.ts",
+      "source_location": "L51",
+      "weight": 1.0,
+      "source": "lib_dre_engine_ts",
+      "target": "dre_engine_builddre",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/dre/engine.ts",
+      "source_location": "L71",
+      "weight": 1.0,
+      "source": "dre_engine_builddre",
+      "target": "dre_engine_zero",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/dre/engine.ts",
+      "source_location": "L87",
+      "weight": 1.0,
+      "source": "dre_engine_builddre",
+      "target": "dre_engine_add",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/dre/engine.ts",
+      "source_location": "L126",
+      "weight": 1.0,
+      "source": "dre_engine_builddre",
+      "target": "dre_engine_subtract",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/dre/engine.ts",
+      "source_location": "L224",
+      "weight": 1.0,
+      "source": "dre_engine_builddre",
+      "target": "dre_engine_torow",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/dre/engine.ts",
+      "source_location": "L223",
+      "weight": 1.0,
+      "source": "dre_engine_builddre",
+      "target": "dre_engine_headerrow",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "lib/dre/engine.ts",
+      "source_location": "L52",
+      "weight": 1.0,
+      "source": "dre_engine_builddre",
+      "target": "supabase_server_createsupabaseserviceclient"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/integrations/amazon.ts",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "lib_integrations_amazon_ts",
+      "target": "integrations_amazon_saveamazoncredentials",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/integrations/amazon.ts",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "lib_integrations_amazon_ts",
+      "target": "integrations_amazon_getvalidamazontoken",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/integrations/amazon.ts",
+      "source_location": "L37",
+      "weight": 1.0,
+      "source": "lib_integrations_amazon_ts",
+      "target": "integrations_amazon_amazonget",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/integrations/amazon.ts",
+      "source_location": "L38",
+      "weight": 1.0,
+      "source": "integrations_amazon_amazonget",
+      "target": "integrations_amazon_getvalidamazontoken",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/marketplace/sync-amazon.ts",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "lib_marketplace_sync_amazon_ts",
+      "target": "integrations_amazon_getvalidamazontoken",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "lib/marketplace/sync-amazon.ts",
+      "source_location": "L8",
+      "weight": 1.0,
+      "source": "marketplace_sync_amazon_amazonrequest",
+      "target": "integrations_amazon_getvalidamazontoken"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/integrations/bling.ts",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "lib_integrations_bling_ts",
+      "target": "integrations_bling_getblingauthurl",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/integrations/bling.ts",
+      "source_location": "L16",
+      "weight": 1.0,
+      "source": "lib_integrations_bling_ts",
+      "target": "integrations_bling_blingauthheader",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/integrations/bling.ts",
+      "source_location": "L20",
+      "weight": 1.0,
+      "source": "lib_integrations_bling_ts",
+      "target": "integrations_bling_exchangeblingcode",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/integrations/bling.ts",
+      "source_location": "L35",
+      "weight": 1.0,
+      "source": "lib_integrations_bling_ts",
+      "target": "integrations_bling_getvalidblingtoken",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/integrations/bling.ts",
+      "source_location": "L55",
+      "weight": 1.0,
+      "source": "lib_integrations_bling_ts",
+      "target": "integrations_bling_blingget",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/integrations/bling.ts",
+      "source_location": "L23",
+      "weight": 1.0,
+      "source": "integrations_bling_exchangeblingcode",
+      "target": "integrations_bling_blingauthheader",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/integrations/bling.ts",
+      "source_location": "L42",
+      "weight": 1.0,
+      "source": "integrations_bling_getvalidblingtoken",
+      "target": "integrations_bling_blingauthheader",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/integrations/bling.ts",
+      "source_location": "L56",
+      "weight": 1.0,
+      "source": "integrations_bling_blingget",
+      "target": "integrations_bling_getvalidblingtoken",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/integrations/mercado-livre.ts",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "lib_integrations_mercado_livre_ts",
+      "target": "integrations_mercado_livre_getmercadolivreauthurl",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/integrations/mercado-livre.ts",
+      "source_location": "L15",
+      "weight": 1.0,
+      "source": "lib_integrations_mercado_livre_ts",
+      "target": "integrations_mercado_livre_exchangemercadolivrecode",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/integrations/mercado-livre.ts",
+      "source_location": "L37",
+      "weight": 1.0,
+      "source": "lib_integrations_mercado_livre_ts",
+      "target": "integrations_mercado_livre_getvalidmercadolivretoken",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/integrations/mercado-livre.ts",
+      "source_location": "L65",
+      "weight": 1.0,
+      "source": "lib_integrations_mercado_livre_ts",
+      "target": "integrations_mercado_livre_getmercadolivresellerid",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/integrations/mercado-livre.ts",
+      "source_location": "L71",
+      "weight": 1.0,
+      "source": "lib_integrations_mercado_livre_ts",
+      "target": "integrations_mercado_livre_mlget",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/integrations/mercado-livre.ts",
+      "source_location": "L72",
+      "weight": 1.0,
+      "source": "integrations_mercado_livre_mlget",
+      "target": "integrations_mercado_livre_getvalidmercadolivretoken",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/marketplace/sync-ml.ts",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "lib_marketplace_sync_ml_ts",
+      "target": "integrations_mercado_livre_getmercadolivresellerid",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "lib/marketplace/sync-ml.ts",
+      "source_location": "L76",
+      "weight": 1.0,
+      "source": "marketplace_sync_ml_syncmercadolivre",
+      "target": "integrations_mercado_livre_getmercadolivresellerid"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/marketplace/sync-ml.ts",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "lib_marketplace_sync_ml_ts",
+      "target": "integrations_mercado_livre_mlget",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/integrations/shopee.ts",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "lib_integrations_shopee_ts",
+      "target": "integrations_shopee_shopeesign",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/integrations/shopee.ts",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "lib_integrations_shopee_ts",
+      "target": "integrations_shopee_saveshopeecredentials",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/integrations/shopee.ts",
+      "source_location": "L20",
+      "weight": 1.0,
+      "source": "lib_integrations_shopee_ts",
+      "target": "integrations_shopee_shopeeget",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/integrations/shopee.ts",
+      "source_location": "L26",
+      "weight": 1.0,
+      "source": "integrations_shopee_shopeeget",
+      "target": "integrations_shopee_shopeesign",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/marketplace/sync-shopee.ts",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "lib_marketplace_sync_shopee_ts",
+      "target": "integrations_shopee_shopeeget",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/landed-cost/calculator.ts",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "lib_landed_cost_calculator_ts",
+      "target": "supabase_server_createsupabaseserviceclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/landed-cost/calculator.ts",
+      "source_location": "L11",
+      "weight": 1.0,
+      "source": "lib_landed_cost_calculator_ts",
+      "target": "landed_cost_calculator_recalculatelandedcost",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/landed-cost/calculator.ts",
+      "source_location": "L101",
+      "weight": 1.0,
+      "source": "lib_landed_cost_calculator_ts",
+      "target": "landed_cost_calculator_recalculatecmp",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/landed-cost/calculator.ts",
+      "source_location": "L133",
+      "weight": 1.0,
+      "source": "lib_landed_cost_calculator_ts",
+      "target": "landed_cost_calculator_getcurrentcmp",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/landed-cost/calculator.ts",
+      "source_location": "L149",
+      "weight": 1.0,
+      "source": "lib_landed_cost_calculator_ts",
+      "target": "landed_cost_calculator_applycmptosale",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/landed-cost/calculator.ts",
+      "source_location": "L91",
+      "weight": 1.0,
+      "source": "landed_cost_calculator_recalculatelandedcost",
+      "target": "landed_cost_calculator_recalculatecmp",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "lib/landed-cost/calculator.ts",
+      "source_location": "L12",
+      "weight": 1.0,
+      "source": "landed_cost_calculator_recalculatelandedcost",
+      "target": "supabase_server_createsupabaseserviceclient"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "lib/landed-cost/calculator.ts",
+      "source_location": "L102",
+      "weight": 1.0,
+      "source": "landed_cost_calculator_recalculatecmp",
+      "target": "supabase_server_createsupabaseserviceclient"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/landed-cost/calculator.ts",
+      "source_location": "L160",
+      "weight": 1.0,
+      "source": "landed_cost_calculator_applycmptosale",
+      "target": "landed_cost_calculator_getcurrentcmp",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "lib/landed-cost/calculator.ts",
+      "source_location": "L134",
+      "weight": 1.0,
+      "source": "landed_cost_calculator_getcurrentcmp",
+      "target": "supabase_server_createsupabaseserviceclient"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "lib/landed-cost/calculator.ts",
+      "source_location": "L150",
+      "weight": 1.0,
+      "source": "landed_cost_calculator_applycmptosale",
+      "target": "supabase_server_createsupabaseserviceclient"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/marketplace/sync-amazon.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "lib_marketplace_sync_amazon_ts",
+      "target": "supabase_server_createsupabaseserviceclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/marketplace/sync-amazon.ts",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "lib_marketplace_sync_amazon_ts",
+      "target": "marketplace_sync_amazon_amazonrequest",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/marketplace/sync-amazon.ts",
+      "source_location": "L50",
+      "weight": 1.0,
+      "source": "lib_marketplace_sync_amazon_ts",
+      "target": "marketplace_sync_amazon_syncamazon",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "lib/marketplace/sync-amazon.ts",
+      "source_location": "L51",
+      "weight": 1.0,
+      "source": "marketplace_sync_amazon_syncamazon",
+      "target": "supabase_server_createsupabaseserviceclient"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/marketplace/sync-ml.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "lib_marketplace_sync_ml_ts",
+      "target": "supabase_server_createsupabaseserviceclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/marketplace/sync-ml.ts",
+      "source_location": "L39",
+      "weight": 1.0,
+      "source": "lib_marketplace_sync_ml_ts",
+      "target": "marketplace_sync_ml_sleep",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/marketplace/sync-ml.ts",
+      "source_location": "L41",
+      "weight": 1.0,
+      "source": "lib_marketplace_sync_ml_ts",
+      "target": "marketplace_sync_ml_isfulfillmentfull",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/marketplace/sync-ml.ts",
+      "source_location": "L49",
+      "weight": 1.0,
+      "source": "lib_marketplace_sync_ml_ts",
+      "target": "marketplace_sync_ml_getshippingcostforseller",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/marketplace/sync-ml.ts",
+      "source_location": "L65",
+      "weight": 1.0,
+      "source": "lib_marketplace_sync_ml_ts",
+      "target": "marketplace_sync_ml_syncmercadolivre",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/marketplace/sync-ml.ts",
+      "source_location": "L108",
+      "weight": 1.0,
+      "source": "marketplace_sync_ml_syncmercadolivre",
+      "target": "marketplace_sync_ml_sleep",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/marketplace/sync-ml.ts",
+      "source_location": "L100",
+      "weight": 1.0,
+      "source": "marketplace_sync_ml_syncmercadolivre",
+      "target": "marketplace_sync_ml_isfulfillmentfull",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/marketplace/sync-ml.ts",
+      "source_location": "L109",
+      "weight": 1.0,
+      "source": "marketplace_sync_ml_syncmercadolivre",
+      "target": "marketplace_sync_ml_getshippingcostforseller",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "lib/marketplace/sync-ml.ts",
+      "source_location": "L71",
+      "weight": 1.0,
+      "source": "marketplace_sync_ml_syncmercadolivre",
+      "target": "supabase_server_createsupabaseserviceclient"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/marketplace/sync-shopee.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "lib_marketplace_sync_shopee_ts",
+      "target": "supabase_server_createsupabaseserviceclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/marketplace/sync-shopee.ts",
+      "source_location": "L50",
+      "weight": 1.0,
+      "source": "lib_marketplace_sync_shopee_ts",
+      "target": "marketplace_sync_shopee_syncshopee",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "lib/marketplace/sync-shopee.ts",
+      "source_location": "L51",
+      "weight": 1.0,
+      "source": "marketplace_sync_shopee_syncshopee",
+      "target": "supabase_server_createsupabaseserviceclient"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/nfe/import-processor.ts",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "lib_nfe_import_processor_ts",
+      "target": "supabase_server_createsupabaseserviceclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/nfe/import-processor.ts",
+      "source_location": "L11",
+      "weight": 1.0,
+      "source": "lib_nfe_import_processor_ts",
+      "target": "nfe_import_processor_resolveproductsku",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/nfe/import-processor.ts",
+      "source_location": "L20",
+      "weight": 1.0,
+      "source": "lib_nfe_import_processor_ts",
+      "target": "nfe_import_processor_processimportnfe",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/nfe/import-processor.ts",
+      "source_location": "L48",
+      "weight": 1.0,
+      "source": "nfe_import_processor_processimportnfe",
+      "target": "nfe_import_processor_resolveproductsku",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "lib/nfe/import-processor.ts",
+      "source_location": "L24",
+      "weight": 1.0,
+      "source": "nfe_import_processor_processimportnfe",
+      "target": "supabase_server_createsupabaseserviceclient"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/nfe/parser.ts",
+      "source_location": "L49",
+      "weight": 1.0,
+      "source": "lib_nfe_parser_ts",
+      "target": "nfe_parser_num",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/nfe/parser.ts",
+      "source_location": "L54",
+      "weight": 1.0,
+      "source": "lib_nfe_parser_ts",
+      "target": "nfe_parser_str",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/nfe/parser.ts",
+      "source_location": "L58",
+      "weight": 1.0,
+      "source": "lib_nfe_parser_ts",
+      "target": "nfe_parser_parsenfexml",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/nfe/parser.ts",
+      "source_location": "L114",
+      "weight": 1.0,
+      "source": "nfe_parser_parsenfexml",
+      "target": "nfe_parser_num",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/nfe/parser.ts",
+      "source_location": "L69",
+      "weight": 1.0,
+      "source": "nfe_parser_parsenfexml",
+      "target": "nfe_parser_str",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/nfe/sale-tax-extractor.ts",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "lib_nfe_sale_tax_extractor_ts",
+      "target": "nfe_parser_parsenfexml",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "lib/nfe/sale-tax-extractor.ts",
+      "source_location": "L14",
+      "weight": 1.0,
+      "source": "nfe_sale_tax_extractor_extractsaletaxes",
+      "target": "nfe_parser_parsenfexml"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/nfe/sale-tax-extractor.ts",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "lib_nfe_sale_tax_extractor_ts",
+      "target": "nfe_sale_tax_extractor_extractsaletaxes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/supabase/client.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "lib_supabase_client_ts",
+      "target": "supabase_client_createsupabasebrowserclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/supabase/server.ts",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "lib_supabase_server_ts",
+      "target": "supabase_server_createsupabaseserverclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "lib/supabase/server.ts",
+      "source_location": "L23",
+      "weight": 1.0,
+      "source": "lib_supabase_server_ts",
+      "target": "supabase_server_createsupabaseserviceclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "claude_agents_reference",
+      "target": "agents_nextjs_agent_rules",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "source_file": "AGENTS.md",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "agents_nextjs_agent_rules",
+      "target": "agents_breaking_changes_warning",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "AGENTS.md",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "agents_nextjs_agent_rules",
+      "target": "agents_nextjs_docs_reference",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "source_file": "AGENTS.md",
+      "source_location": null,
+      "weight": 0.8,
+      "source": "agents_nextjs_agent_rules",
+      "target": "readme_nextjs_project",
+      "confidence_score": 0.5
+    },
+    {
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "source_file": "AGENTS.md",
+      "source_location": null,
+      "weight": 0.7,
+      "source": "agents_breaking_changes_warning",
+      "target": "readme_nextjs_framework",
+      "confidence_score": 0.5
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "readme_nextjs_project",
+      "target": "readme_create_next_app",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "readme_nextjs_project",
+      "target": "readme_nextjs_framework",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "readme_nextjs_project",
+      "target": "readme_dev_server",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "readme_nextjs_project",
+      "target": "readme_app_page_tsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "readme_nextjs_project",
+      "target": "readme_next_font",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "readme_nextjs_project",
+      "target": "readme_vercel_deployment",
+      "confidence_score": 1.0
+    }
+  ],
+  "hyperedges": [],
+  "built_at_commit": "47c48937db2307ef4b56501526318d0ca23bc859"
+}

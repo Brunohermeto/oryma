@@ -1,6 +1,7 @@
 import { getValidAmazonToken } from '@/lib/integrations/amazon'
 import { getCredential } from '@/lib/integrations/credentials'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { toBrazilDate } from '@/lib/utils/brazil-time'
 
 const AMAZON_BASE = 'https://sellingpartnerapi-na.amazon.com'
 
@@ -86,7 +87,7 @@ export async function syncAmazon(startDate: string, endDate: string): Promise<nu
           fulfillment_type: fulfillmentType,
           product_id: product?.id ?? null,
           sku,
-          sale_date: order.PurchaseDate.slice(0, 10),
+          sale_date: toBrazilDate(order.PurchaseDate),
           quantity: item.QuantityOrdered,
           gross_price: grossPrice,
           shipping_received: 0,

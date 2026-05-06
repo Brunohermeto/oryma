@@ -1,0 +1,378 @@
+{
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\eslint.config.mjs": {
+    "mtime": 1777573421.6539266,
+    "hash": "dfa1f5f6a7037bf39dc510f30b180002"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\next-env.d.ts": {
+    "mtime": 1777992232.4259331,
+    "hash": "d0f8375ae1199dc7acd3977fc33b78b8"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\next.config.ts": {
+    "mtime": 1777573422.0406168,
+    "hash": "9b77af189a21a7a64e4bd7a426f64176"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\postcss.config.mjs": {
+    "mtime": 1777573421.7582443,
+    "hash": "239f3ebf717465dc636818a1a619398d"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\proxy.ts": {
+    "mtime": 1777577505.7697294,
+    "hash": "fb761ef8a3440ab88c7062f5c65a3993"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\layout.tsx": {
+    "mtime": 1777591379.5747616,
+    "hash": "4df289efe8e54c046aeffb8bbde50965"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\page.tsx": {
+    "mtime": 1777577363.046239,
+    "hash": "7fc07483250fc5c773522ea2d4999474"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\api\\ai\\chat\\route.ts": {
+    "mtime": 1777592054.3740473,
+    "hash": "2a4d1bdef9804465d93e0ab7d13d24b6"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\api\\auth\\login\\route.ts": {
+    "mtime": 1777577370.4906032,
+    "hash": "89e18ae5ab01820419edc85a1385523b"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\api\\auth\\logout\\route.ts": {
+    "mtime": 1777577371.2754526,
+    "hash": "2e1e5a2d7968234eeb078c3f9595f262"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\api\\cron\\sync\\route.ts": {
+    "mtime": 1777651172.505937,
+    "hash": "a6333f5cdee707b06ecb2cceee831a28"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\api\\despesas\\route.ts": {
+    "mtime": 1777582400.2697706,
+    "hash": "9ee726b2fd69876a6ea232ca4c2a6146"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\api\\integrations\\amazon\\save\\route.ts": {
+    "mtime": 1777578036.2000647,
+    "hash": "0e46236ad99d2e36cb6a16211f33f5db"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\api\\integrations\\bling\\callback\\route.ts": {
+    "mtime": 1777578027.5759203,
+    "hash": "bf2e0c13a7f5ef49c212cceadc8abc7b"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\api\\integrations\\bling\\connect\\route.ts": {
+    "mtime": 1777578023.9297385,
+    "hash": "9ea1479d4603a4e30304a21ef1d8a09b"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\api\\integrations\\ml\\callback\\route.ts": {
+    "mtime": 1777578021.1715724,
+    "hash": "cf8f7e5690c57cd035126c0d50314754"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\api\\integrations\\ml\\connect\\route.ts": {
+    "mtime": 1777578016.8108213,
+    "hash": "bae9bd2d79caf20c44a4439044e5fbd2"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\api\\integrations\\shopee\\save\\route.ts": {
+    "mtime": 1777578032.1833482,
+    "hash": "b5e4709489b82e3566e6b6c536c2e3c0"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\api\\landed-cost\\recalculate\\route.ts": {
+    "mtime": 1777581733.9568174,
+    "hash": "e2a0fbca01f7e767cc0592e0d54344f6"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\api\\nfe\\costs\\route.ts": {
+    "mtime": 1777581741.4508326,
+    "hash": "a17e71865c086ab2645174ba2223c56d"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\api\\nfe\\upload\\route.ts": {
+    "mtime": 1777581139.9260375,
+    "hash": "ec7e45804e3cc109acd8421975065739"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\api\\sales\\live\\route.ts": {
+    "mtime": 1777643898.412649,
+    "hash": "83ebd377d825c371ea1151aa9617ceeb"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\api\\sync\\bling\\route.ts": {
+    "mtime": 1777994061.2749946,
+    "hash": "fe4f6ee083111f49df6a27092d558dee"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\api\\sync\\bling\\status\\route.ts": {
+    "mtime": 1777650407.3852654,
+    "hash": "bc51fd78c435d42144d6e71713c3f6c5"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\api\\sync\\marketplaces\\route.ts": {
+    "mtime": 1777990200.3470366,
+    "hash": "17a0cc49bcb13d00977a075010f45856"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\api\\sync\\marketplaces\\status\\route.ts": {
+    "mtime": 1777650421.9346442,
+    "hash": "45c5f1e91d7c337b756bf76c9cd390c4"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\dashboard\\layout.tsx": {
+    "mtime": 1777653320.979705,
+    "hash": "7f817480d19c9814b31aecaf2b12c05e"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\dashboard\\page.tsx": {
+    "mtime": 1777653311.5460277,
+    "hash": "a1ba005f53998aadbe1094d8a8a2237c"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\dashboard\\configuracoes\\page.tsx": {
+    "mtime": 1777994067.213868,
+    "hash": "5099d9b387db578bdd556fef80c3ba65"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\dashboard\\despesas\\page.tsx": {
+    "mtime": 1777592006.8950596,
+    "hash": "46931e77690581aaa383289a6897975b"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\dashboard\\dre\\page.tsx": {
+    "mtime": 1777582024.78956,
+    "hash": "a401ac4205aa8fca19456f53c106182e"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\dashboard\\importacoes\\page.tsx": {
+    "mtime": 1777649942.5799804,
+    "hash": "3d7aaa9fd719250091d5f81dfaa054f8"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\dashboard\\precificacao\\page.tsx": {
+    "mtime": 1777592032.2750578,
+    "hash": "2aa0899b4127464f9aa1c2972b097fdb"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\dashboard\\produtos\\page.tsx": {
+    "mtime": 1777649932.0951905,
+    "hash": "b77d9edb0c6f5e4887395b9c5b8a4caa"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\dashboard\\tributario\\page.tsx": {
+    "mtime": 1777591842.553946,
+    "hash": "016b64cfb4d2b91493f1e4aa31f226d5"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\dashboard\\velocidade\\page.tsx": {
+    "mtime": 1777600982.3405826,
+    "hash": "706bccfcd3daad77f14fd2fb671b482b"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\dashboard\\vendas\\page.tsx": {
+    "mtime": 1777600916.969678,
+    "hash": "18524c9d935a7c506867df951e96e813"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\dashboard\\vendas-ao-vivo\\page.tsx": {
+    "mtime": 1777644026.5729606,
+    "hash": "e3a8ec0b97f8e2f856ae31bc62ab23e6"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\app\\login\\page.tsx": {
+    "mtime": 1777591649.5927434,
+    "hash": "c58c6d711869ce5ff9fde9bca4702969"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\components\\ai\\OrymaIntelligence.tsx": {
+    "mtime": 1777652636.6554773,
+    "hash": "6c0e8a56c5cf2dcd037032b63346dc65"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\components\\charts\\MarketplaceBarChart.tsx": {
+    "mtime": 1777591446.947527,
+    "hash": "543814c47ac2666745350fd876b4fce0"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\components\\charts\\RevenueLineChart.tsx": {
+    "mtime": 1777591442.260172,
+    "hash": "6b695692b40047bf8bae4d200dddde83"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\components\\charts\\SalesCurveChart.tsx": {
+    "mtime": 1777591782.4059064,
+    "hash": "a5351c998c5e0efba8e18f53913e50b3"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\components\\configuracoes\\BlingSyncButton.tsx": {
+    "mtime": 1777641715.918416,
+    "hash": "eaca367b7e4fec3212945b35da439e16"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\components\\configuracoes\\ConfigCard.tsx": {
+    "mtime": 1777602119.684551,
+    "hash": "9782588a9de5eaddf54330a37e998204"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\components\\configuracoes\\MarketplaceSyncButton.tsx": {
+    "mtime": 1777641730.0047667,
+    "hash": "3d3199ce454cc4cee81cf7147a02f626"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\components\\dashboard\\InsightsPanel.tsx": {
+    "mtime": 1777652652.737565,
+    "hash": "f3de1c12dccfab28a691a4aedb299d3d"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\components\\dashboard\\LiveSalesFeed.tsx": {
+    "mtime": 1777653050.2075174,
+    "hash": "f23558e9bb5bb595df87e7bbcff4d3fa"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\components\\despesas\\DespesaForm.tsx": {
+    "mtime": 1777582396.4841588,
+    "hash": "295744f696939fece138fb3a09514b4b"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\components\\dre\\DRETable.tsx": {
+    "mtime": 1777632102.493949,
+    "hash": "3cc0da2238d880ed1db081e4a4dee61e"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\components\\importacoes\\LandedCostForm.tsx": {
+    "mtime": 1777581323.5642004,
+    "hash": "d25af4c19a76f36ab589bdc090d9ec4a"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\components\\importacoes\\NFEUploadZone.tsx": {
+    "mtime": 1777581157.7483847,
+    "hash": "c87203aee6cf9101e1ed6497eba1373b"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\components\\layout\\Sidebar.tsx": {
+    "mtime": 1777653377.4394817,
+    "hash": "2ce797a836f87181e618ac6748b9169d"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\components\\layout\\TopBar.tsx": {
+    "mtime": 1777652571.527488,
+    "hash": "202ceffc6244ed30522bc3c3ce2809cb"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\components\\ui\\badge.tsx": {
+    "mtime": 1777573665.2006795,
+    "hash": "e4ec840217040d5630ee6ed7213a1d72"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\components\\ui\\button.tsx": {
+    "mtime": 1777573631.231975,
+    "hash": "705bf3552a39e0c722665ccbecb30654"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\components\\ui\\card.tsx": {
+    "mtime": 1777573664.2661252,
+    "hash": "77a10bd948ca424972a28e704a3df604"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\components\\ui\\input.tsx": {
+    "mtime": 1777573665.5095382,
+    "hash": "0607b02d99a2e92f9509223f36ccc6ec"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\components\\ui\\label.tsx": {
+    "mtime": 1777573666.0931313,
+    "hash": "a70440da86bfc6a07f15197cca48cb08"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\components\\ui\\select.tsx": {
+    "mtime": 1777573665.886592,
+    "hash": "ab95f478cb74d1906b07425c15b124cc"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\components\\ui\\table.tsx": {
+    "mtime": 1777573664.804431,
+    "hash": "44f87727e60080863edb00fdd2fcd8da"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\components\\ui\\tabs.tsx": {
+    "mtime": 1777573666.331493,
+    "hash": "429035bc858475cd3bcedbb08a5ba8da"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\components\\vendas\\SalesFilters.tsx": {
+    "mtime": 1777588447.087404,
+    "hash": "cad637b68661d1e5105b0deed6823c97"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\components\\vendas\\SalesTable.tsx": {
+    "mtime": 1777602190.0836923,
+    "hash": "67a5f5852226a7aba671a19a1674633a"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\components\\vendas\\VendasAoVivoFeed.tsx": {
+    "mtime": 1777653050.2885246,
+    "hash": "b649b58c69a4c5c8881ea9c608fe5b56"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\lib\\utils.ts": {
+    "mtime": 1777573631.4492283,
+    "hash": "5a6fd53fdcf2be529e9cc0b718fde352"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\lib\\bling\\sync-nfe-entrada.ts": {
+    "mtime": 1777651387.1747372,
+    "hash": "3e70d245a4ed30a5517b0b5b57869e38"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\lib\\bling\\sync-nfe-saida.ts": {
+    "mtime": 1777994057.5775528,
+    "hash": "8ea5d7a8255d5e1e6c57b0a4b6ee0f09"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\lib\\dre\\engine.ts": {
+    "mtime": 1777581992.7138643,
+    "hash": "88a1626669238a83171ab28c5672bd50"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\lib\\integrations\\amazon.ts": {
+    "mtime": 1777578001.1506808,
+    "hash": "aedb21fe35095849dc236033f21da091"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\lib\\integrations\\bling.ts": {
+    "mtime": 1777635651.861683,
+    "hash": "d6577efdb96aeb997e0b12572894dedf"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\lib\\integrations\\mercado-livre.ts": {
+    "mtime": 1777990237.115689,
+    "hash": "b280ab1dab87bb413cd7ebda95135763"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\lib\\integrations\\shopee.ts": {
+    "mtime": 1777577993.2635505,
+    "hash": "a118ef6596ba44825b3f3dcf6026f060"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\lib\\landed-cost\\calculator.ts": {
+    "mtime": 1777581728.5627444,
+    "hash": "1915f8675d6bb5eef4ec0e21e9da8ddf"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\lib\\marketplace\\sync-amazon.ts": {
+    "mtime": 1777580134.6454046,
+    "hash": "10d6e51cef4be6c7f21ff00d52734417"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\lib\\marketplace\\sync-ml.ts": {
+    "mtime": 1777990219.006013,
+    "hash": "0a70125d39899ec8c5fe39425e62b382"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\lib\\marketplace\\sync-shopee.ts": {
+    "mtime": 1777990231.4379098,
+    "hash": "e10cdf15e30499fe21396a151c25ce51"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\lib\\nfe\\import-processor.ts": {
+    "mtime": 1777580470.1246622,
+    "hash": "fb99fdda2fcaf4d281691a0197d1ed3c"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\lib\\nfe\\parser.ts": {
+    "mtime": 1777580455.9170976,
+    "hash": "68fc47e55fa2fa84aa45bef54e36a8e2"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\lib\\nfe\\sale-tax-extractor.ts": {
+    "mtime": 1777580476.98917,
+    "hash": "282a7ae4a6afd433201a975679d8f27f"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\lib\\supabase\\client.ts": {
+    "mtime": 1777576348.1027138,
+    "hash": "34aae651adb29e523d6312f6400fde87"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\lib\\supabase\\server.ts": {
+    "mtime": 1777576345.3490639,
+    "hash": "6ce3376fbf1e8b088f6dfb9027c77096"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\supabase\\migrations\\001_schema.sql": {
+    "mtime": 1777576540.9473803,
+    "hash": "ea5ea373e5d1d0b351164e6ee75b7e5a"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\supabase\\migrations\\002_indexes.sql": {
+    "mtime": 1777575047.3829315,
+    "hash": "22eb519f9ffb476633df11dbf9e3048b"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\types\\index.ts": {
+    "mtime": 1777576544.0297875,
+    "hash": "40e953b9f81e7577471d67a413abc495"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\AGENTS.md": {
+    "mtime": 1777573482.7916753,
+    "hash": "9e09241799026ac05be315a2f0b50055"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\CLAUDE.md": {
+    "mtime": 1777573482.7921805,
+    "hash": "5c27369b226fcf2be8a6cfe52224e767"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\README.md": {
+    "mtime": 1777573421.5802956,
+    "hash": "f15aaa42d5d299d091b1171097ea56ad"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\public\\mockup-oryma.html": {
+    "mtime": 1777589345.4655476,
+    "hash": "7dbbed1bc6c104b28aba099a17a7a6bb"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\public\\file.svg": {
+    "mtime": 1777573421.7864487,
+    "hash": "d09f95206c3fa0bb9bd9fefabfd0ea71"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\public\\globe.svg": {
+    "mtime": 1777573421.823444,
+    "hash": "2aaafa6a49b6563925fe440891e32717"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\public\\next.svg": {
+    "mtime": 1777573421.870404,
+    "hash": "8e061864f388b47f33a1c3780831193e"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\public\\vercel.svg": {
+    "mtime": 1777573421.9178996,
+    "hash": "c0af2f507b369b085b35ef4bbe3bcf1e"
+  },
+  "C:\\Users\\bruno.vinhas\\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\\Projetos Pessoais\\Market_Intel\\marketplace-intel\\public\\window.svg": {
+    "mtime": 1777573421.9571874,
+    "hash": "a2760511c65806022ad20adf74370ff3"
+  }
+}
