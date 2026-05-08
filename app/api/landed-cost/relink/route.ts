@@ -145,12 +145,28 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Debug: mostra o que estava disponível
+  const cmpProductIds  = [...cmpMap.keys()]
+  const salesProductIds = [...new Set((allSales ?? []).map(s => s.product_id).filter(Boolean))]
+  const skuDebug = (products ?? []).filter(p => salesProductIds.includes(p.id) || cmpProductIds.includes(p.id))
+    .map(p => ({
+      sku: p.sku,
+      has_cmp: cmpProductIds.includes(p.id),
+      in_sales: salesProductIds.includes(p.id),
+    }))
+
   return NextResponse.json({
     ok: true,
     linked,
     sales_linked: salesLinked,
     orders_recalculated: recalculated,
     sales_updated: salesUpdated,
+    debug: {
+      cmp_products: cmpProductIds.length,
+      sales_with_product: salesProductIds.length,
+      sale_cost_rows_built: saleCostRows.length,
+      sku_matrix: skuDebug,
+    },
     message: `CMP calculado (${recalculated} NF-e) · ${salesLinked} vendas vinculadas · ${salesUpdated} vendas atualizadas`,
   })
 }
