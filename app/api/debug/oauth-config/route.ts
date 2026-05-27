@@ -26,6 +26,9 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     env_vars: {
+      NEXT_PUBLIC_SUPABASE_URL:   process.env.NEXT_PUBLIC_SUPABASE_URL ?? '❌ NÃO DEFINIDA',
+      SUPABASE_SERVICE_ROLE_KEY:  maskSecret(process.env.SUPABASE_SERVICE_ROLE_KEY),
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: maskSecret(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
       BLING_CLIENT_ID:      maskSecret(process.env.BLING_CLIENT_ID),
       BLING_CLIENT_SECRET:  maskSecret(process.env.BLING_CLIENT_SECRET),
       BLING_REDIRECT_URI:   process.env.BLING_REDIRECT_URI ?? '❌ NÃO DEFINIDA',

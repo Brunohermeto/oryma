@@ -17,11 +17,12 @@ export async function saveCredential(
   }
 ) {
   const db = createSupabaseServiceClient()
-  await db.from('credentials').upsert({
+  const { error } = await db.from('credentials').upsert({
     id,
     ...data,
     updated_at: new Date().toISOString(),
   })
+  if (error) throw new Error(`Falha ao salvar credencial '${id}': ${error.message}`)
 }
 
 export async function getAllCredentials() {
