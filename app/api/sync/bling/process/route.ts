@@ -41,9 +41,22 @@ function extractStr(xml: string, tag: string): string | null {
 interface BlingNFeCompleta {
   id?: number
   chaveAcesso?: string | null
-  numeroPedidoLoja?: string | null  // Campo direto — sem parsear XML!
-  xml?: string | null
+  numeroPedidoLoja?: string | null  // Código buyer-facing ML (alfanumérico)
+  xml?: string | null               // Pode ser URL S3 ou XML raw
   serie?: string | null
+  numero?: string | null
+  dataEmissao?: string | null       // "YYYY-MM-DD HH:mm:ss" — campo direto, sem XML
+  valorTotal?: number | null        // Valor total direto — sem XML
+  contato?: {
+    nome?: string | null
+    email?: string | null
+    cpfCnpj?: string | null
+  } | null
+  itens?: Array<{
+    valor?: number | null
+    quantidade?: number | null
+    descricao?: string | null
+  }> | null
 }
 
 export async function POST(request: NextRequest) {
@@ -86,7 +99,7 @@ export async function POST(request: NextRequest) {
     let saleId: string | null = null
     const numeroPedidoLoja = nfeData.numeroPedidoLoja?.trim() ?? null
 
-    // Estratégia 1: numeroPedidoLoja campo direto da API (ML, Shopee, Amazon)
+    // Estratégia 1a: numeroPedidoLoja campo direto (ID numérico ML/Shopee/Amazon)
     if (numeroPedidoLoja) {
       const prefixes = [
         `ml_${numeroPedidoLoja}`,
@@ -100,7 +113,20 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Estratégia 2: infCpl do XML (fallback — cobre caso numeroPedidoLoja ausente)
+    // Estratégia 1b: numeroPedidoLoja pode ser código alfanumérico buyer-facing do ML
+    // ex: "260519RPR9AXGX" → extrai sufixo alfabético e tenta pack_id ou SKU match
+    if (!saleId && numeroPedidoLoja) {
+      // Tenta o sufixo alfabético (ex: "RPR9AXGX" de "260519RPR9AXGX")
+      const alphaMatch = numeroPedidoLoja.match(/[A-Z][A-Z0-9]{5,}$/i)
+      if (alphaMatch) {
+        const suffix = alphaMatch[0]
+        const { data } = await db.from('sales').select('id')
+          .like('external_order_id', `%${suffix}%`).limit(1)
+        saleId = data?.[0]?.id ?? null
+      }
+    }
+
+    // Estratégia 2: infCpl do XML (cobre caso numeroPedidoLoja ausente)
     if (!saleId && xml) {
       const infCpl = extractStr(xml, 'infCpl') ?? ''
       const canalMatch = infCpl.match(/Canal:\s*(Mercado Livre|Shopee|Amazon)/i)
@@ -116,10 +142,26 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Estratégia 3: data + valor (fallback final, ±1 dia p/ compat. com registros UTC antigos)
-    if (!saleId && xml) {
-      const vNF   = extractTag(xml, 'vNF')
-      const dhEmi = xml.match(/<dhEmi>([^<]+)<\/dhEmi>/)?.[1]?.slice(0, 10) ?? ''
+    // Estratégia 3: data + valor
+    // Usa campos DIRETOS do Bling (dataEmissao, valorTotal, itens) antes de tentar XML
+    // O XML pode ser uma URL S3 (não parseable), mas campos diretos sempre funcionam
+    if (!saleId) {
+      // Valor: campo direto valorTotal ou soma dos itens
+      const vDireto = nfeData.valorTotal
+        ?? (nfeData.itens ?? []).reduce((s, i) => s + Number(i.valor ?? 0), 0)
+        ?? 0
+
+      // Data: campo direto dataEmissao ou fallback para XML
+      const dataDireta = nfeData.dataEmissao?.slice(0, 10) ?? null
+      const dataXml    = xml?.match(/<dhEmi>([^<]+)<\/dhEmi>/)?.[1]?.slice(0, 10)
+                      ?? xml?.match(/<dEmi>([^<]+)<\/dEmi>/)?.[1]?.slice(0, 10)
+                      ?? null
+      const dhEmi = dataDireta ?? dataXml ?? null
+
+      // Valor: fallback para XML se direto não disponível
+      const vNF = vDireto > 0 ? vDireto
+        : (xml?.includes('<') ? extractTag(xml, 'vNF') : 0)
+
       if (vNF > 0 && dhEmi) {
         const tol       = vNF * 0.02
         const d         = new Date(dhEmi)
@@ -134,15 +176,19 @@ export async function POST(request: NextRequest) {
     }
 
     if (!saleId) {
-      const vNF2  = xml ? extractTag(xml, 'vNF') : 0
-      const dhEmi2 = xml?.match(/<dhEmi>([^<]+)<\/dhEmi>/)?.[1]?.slice(0, 10) ?? ''
+      const vDiag  = nfeData.valorTotal ?? 0
+      const dDiag  = nfeData.dataEmissao?.slice(0, 10) ?? ''
+      const xmlIsUrl = xml ? !xml.includes('<') : false
       return NextResponse.json({
         ok: true, matched: false, reason: 'no_sale_match',
         debug: {
           numeroPedidoLoja,
-          canal_xml: xml ? (extractStr(xml, 'infCpl') ?? '').slice(0, 100) : '(sem xml)',
-          vNF: vNF2,
-          dhEmi: dhEmi2,
+          canal_xml: xml ? (extractStr(xml, 'infCpl') ?? '(vazio)').slice(0, 100) : '(sem xml)',
+          xml_tipo: xml ? (xmlIsUrl ? 'url_s3' : 'xml_raw') : 'nulo',
+          valorDireto: vDiag,
+          dataDireta: dDiag,
+          vNF: xml?.includes('<') ? extractTag(xml, 'vNF') : 0,
+          dhEmi: xml?.match(/<dhEmi>([^<]+)<\/dhEmi>/)?.[1]?.slice(0, 10) ?? '',
         },
       })
     }
