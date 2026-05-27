@@ -110,7 +110,7 @@ export default async function VendasPage({
         <div className="grid grid-cols-5 gap-3">
           {[
             { label: 'Faturamento Bruto', value: fmtR(summary.revenue), color: B.text, href: undefined },
-            { label: 'Impostos + Tarifas + ADS', value: fmtR(summary.taxes + summary.fees), color: '#dc2626', href: undefined },
+            { label: 'Impostos + Tarifas + ADS', value: fmtR(summary.taxes + summary.commission + summary.ads - summary.freteNeto - summary.rebates), color: '#dc2626', href: undefined },
             { label: 'CMV (Custo Landed)', value: fmtR(summary.cmv), color: '#dc2626', href: undefined },
             { label: 'Lucro Bruto', value: fmtR(grossProfit), color: grossProfit >= 0 ? '#16a34a' : '#dc2626', href: undefined },
             { label: 'Margem Média', value: summary.marginCount > 0 ? fmtPct(avgMargin) : '—', color: avgMargin >= 0.35 ? '#16a34a' : avgMargin >= 0.20 ? '#d97706' : '#dc2626', href: undefined },
