@@ -4,6 +4,7 @@ import { NFEUploadZone } from '@/components/importacoes/NFEUploadZone'
 import { LandedCostForm } from '@/components/importacoes/LandedCostForm'
 import { ManualCostForm } from '@/components/importacoes/ManualCostForm'
 import { RelinkButton } from '@/components/importacoes/RelinkButton'
+import { CmpEvolutionTable } from '@/components/importacoes/CmpEvolutionTable'
 
 export const dynamic = 'force-dynamic'
 export const preferredRegion = 'gru1'
@@ -143,6 +144,9 @@ export default async function ImportacoesPage() {
           </p>
           <RelinkButton />
         </div>
+
+        {/* Evolução de CMP e margem por lote de importação */}
+        <CmpEvolutionTable />
 
         {/* Entrada manual de custo */}
         <ManualCostForm products={productsData.data ?? []} />
