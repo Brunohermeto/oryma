@@ -29,7 +29,15 @@ function formatRelativeTime(isoDate: string | null): string {
   return `há ${days} dia${days > 1 ? 's' : ''}`
 }
 
-export default async function ConfiguracoesPage() {
+export default async function ConfiguracoesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ oauth_error?: string; connected?: string }>
+}) {
+  const params = await searchParams
+  const oauthError   = params.oauth_error ? decodeURIComponent(params.oauth_error) : null
+  const oauthSuccess = params.connected ?? null
+
   const credentials = await getAllCredentials()
   const credMap = Object.fromEntries(credentials.map(c => [c.id, c]))
 
@@ -52,7 +60,27 @@ export default async function ConfiguracoesPage() {
       <TopBar title="Configurações" subtitle="Conexões com marketplaces e sistemas" />
       <div className="px-4 md:px-8 py-6 space-y-4 max-w-2xl">
 
+        {/* Feedback OAuth */}
+        {oauthError && (
+          <div className="rounded-xl px-5 py-4 flex items-start gap-3" style={{ background: 'oklch(0.97 0.03 25)', border: '1px solid oklch(0.88 0.06 25)' }}>
+            <AlertCircle size={16} className="mt-0.5 flex-shrink-0" style={{ color: '#dc2626' }} />
+            <div>
+              <div className="text-[13px] font-semibold" style={{ color: '#991b1b' }}>Erro ao conectar via OAuth</div>
+              <div className="text-[12px] mt-0.5 font-mono" style={{ color: '#7f1d1d' }}>{oauthError}</div>
+            </div>
+          </div>
+        )}
+        {oauthSuccess && (
+          <div className="rounded-xl px-5 py-4 flex items-center gap-3" style={{ background: 'oklch(0.96 0.06 145)', border: '1px solid oklch(0.88 0.10 145)' }}>
+            <CheckCircle2 size={16} style={{ color: '#16a34a' }} />
+            <div className="text-[13px] font-semibold" style={{ color: '#14532d' }}>
+              {oauthSuccess === 'bling' ? 'Bling conectado com sucesso!' : 'Mercado Livre conectado com sucesso!'}
+            </div>
+          </div>
+        )}
+
         {/* Sincronização automática — status */}
+
         <div
           className="rounded-xl px-5 py-4 flex items-start gap-3"
           style={{ background: 'oklch(0.95 0.03 258)', border: `1px solid oklch(0.85 0.04 258)` }}
