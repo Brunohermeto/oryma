@@ -25,5 +25,17 @@ export async function GET(req: NextRequest) {
     .limit(200)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ sales: sales ?? [], since, today })
+
+  // sale_costs pode vir como array (sem UNIQUE constraint) ou objeto — normaliza para objeto
+  const normalized = (sales ?? []).map(s => ({
+    ...s,
+    sale_costs: Array.isArray(s.sale_costs)
+      ? (s.sale_costs[0] ?? null)
+      : s.sale_costs,
+    products: Array.isArray(s.products)
+      ? (s.products[0] ?? null)
+      : s.products,
+  }))
+
+  return NextResponse.json({ sales: normalized, since, today })
 }
