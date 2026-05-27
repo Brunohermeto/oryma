@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
   const productMap = Object.fromEntries(products.map(p => [p.id, p.sku]))
 
   // Diagnóstico por venda
-  const salesDiag = sales.map(s => ({
+  const salesDiag = (sales ?? []).map(s => ({
     id:           s.id.slice(-8),
     date:         s.sale_date,
     sku_stored:   s.sku,
@@ -68,15 +68,16 @@ export async function GET(request: NextRequest) {
   }))
 
   // Resumo
-  const totalSales         = sales.length
-  const withProductId      = sales.filter(s => s.product_id !== null).length
-  const withCommission     = sales.filter(s => Number(s.marketplace_commission ?? 0) > 0).length
-  const withCosts          = sales.filter(s => saleCosts.has(s.id)).length
-  const withTaxes          = sales.filter(s => saleTaxes.has(s.id)).length
-  const rebateColExists    = sales.length > 0 && sales[0].rebate !== undefined
+  const salesArr           = sales ?? []
+  const totalSales         = salesArr.length
+  const withProductId      = salesArr.filter(s => s.product_id !== null).length
+  const withCommission     = salesArr.filter(s => Number(s.marketplace_commission ?? 0) > 0).length
+  const withCosts          = salesArr.filter(s => saleCosts.has(s.id)).length
+  const withTaxes          = salesArr.filter(s => saleTaxes.has(s.id)).length
+  const rebateColExists    = salesArr.length > 0 && salesArr[0].rebate !== undefined
 
   // SKUs únicos nas vendas vs produtos
-  const skusInSales    = [...new Set(sales.map(s => s.sku).filter(Boolean))]
+  const skusInSales    = [...new Set(salesArr.map(s => s.sku).filter(Boolean))]
   const skusInProducts = products.map(p => p.sku)
   const skuMatches     = skusInSales.filter(sku => skusInProducts.includes(sku ?? ''))
   const skuMismatches  = skusInSales.filter(sku => !skusInProducts.includes(sku ?? ''))
@@ -98,7 +99,7 @@ export async function GET(request: NextRequest) {
       matches:           skuMatches,
       mismatches_warn:   skuMismatches,
     },
-    cmp_costs: (cmpRes.data ?? []).map(c => ({
+    cmp_costs: (cmpData ?? []).map(c => ({
       product: productMap[c.product_id] ?? c.product_id?.slice(-8),
       cmp:     Number(c.cmp_value).toFixed(2),
       date:    c.effective_date,
