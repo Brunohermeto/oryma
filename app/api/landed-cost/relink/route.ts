@@ -77,10 +77,12 @@ export async function POST(request: NextRequest) {
   const [{ data: allCmps }, { data: allSales }] = await Promise.all([
     db.from('cmp_costs')
       .select('id, product_id, cmp_value, effective_date')
-      .order('effective_date', { ascending: true }),
+      .order('effective_date', { ascending: true })
+      .limit(10000),
     db.from('sales')
       .select('id, product_id, gross_price, shipping_received, marketplace_commission, marketplace_shipping_fee, ads_cost, cancellation, discounts, rebate, quantity, sale_date')
-      .not('product_id', 'is', null),
+      .not('product_id', 'is', null)
+      .limit(10000),
   ])
 
   // Mapa: product_id → CMPs ordenados por effective_date ASC
