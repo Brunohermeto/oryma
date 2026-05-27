@@ -57,9 +57,17 @@ export default async function VelocidadePage() {
 
     const totalRecent  = recentSales.reduce((s, r) => s + Number(r.quantity), 0)
     const totalPrev    = prevSales.reduce((s, r) => s + Number(r.quantity), 0)
-    const unitsPerDay  = totalRecent / 30
-    const daysOfStock  = unitsPerDay > 0 ? Math.floor(Number(product.stock_quantity) / unitsPerDay) : null
-    const trend        = totalRecent > totalPrev * 1.1 ? 'up' : totalRecent < totalPrev * 0.9 ? 'down' : 'stable'
+    const total90d     = productSales.reduce((s, r) => s + Number(r.quantity), 0)
+
+    // Velocidade: usa 30d se houver vendas, senão usa 90d como fallback histórico
+    const unitsPerDay30 = totalRecent / 30
+    const unitsPerDay90 = total90d / 90
+    const unitsPerDay   = unitsPerDay30 > 0 ? unitsPerDay30 : unitsPerDay90
+    const velocityLabel = unitsPerDay30 > 0 ? '30d' : unitsPerDay90 > 0 ? '90d (est.)' : null
+
+    const stock         = Number(product.stock_quantity ?? 0)
+    const daysOfStock   = unitsPerDay > 0 ? Math.floor(stock / unitsPerDay) : null
+    const trend         = totalRecent > totalPrev * 1.1 ? 'up' : totalRecent < totalPrev * 0.9 ? 'down' : 'stable'
 
     const curveData = days30.map(day => {
       const dayStr = format(day, 'yyyy-MM-dd')
@@ -67,7 +75,7 @@ export default async function VelocidadePage() {
       return { date: format(day, 'dd/MM'), units }
     })
 
-    return { product, byMP, totalRecent, unitsPerDay, daysOfStock, trend, curveData }
+    return { product, byMP, totalRecent, total90d, unitsPerDay, velocityLabel, daysOfStock, trend, curveData }
   }).filter(r => r.totalRecent > 0 || Number(r.product.stock_quantity) > 0)
     .sort((a, b) => b.totalRecent - a.totalRecent)
 
@@ -89,7 +97,22 @@ export default async function VelocidadePage() {
           </div>
         )}
 
-        {productRows.map(({ product, byMP, totalRecent, unitsPerDay, daysOfStock, trend, curveData }) => (
+        {productRows.length > 0 && productRows.every(r => r.unitsPerDay === 0) && (
+          <div className="rounded-xl px-5 py-4 flex items-start gap-3"
+            style={{ background: 'oklch(0.97 0.04 70)', border: '1px solid oklch(0.90 0.06 70)' }}>
+            <span className="text-base mt-0.5">⚠️</span>
+            <div>
+              <div className="text-[13px] font-semibold" style={{ color: '#92400e' }}>Vendas não vinculadas aos produtos</div>
+              <div className="text-[12px] mt-0.5" style={{ color: '#92400e' }}>
+                Os produtos têm estoque mas nenhuma venda foi associada a eles.
+                Vá em <strong>Importações → Vincular produtos e recalcular CMP</strong> para corrigir.
+                Se as vendas ainda não foram sincronizadas, acesse <strong>Configurações → Sincronizar Marketplaces</strong> primeiro.
+              </div>
+            </div>
+          </div>
+        )}
+
+        {productRows.map(({ product, byMP, totalRecent, total90d, unitsPerDay, velocityLabel, daysOfStock, trend, curveData }) => (
           <div key={product.id} className="bg-white rounded-xl overflow-hidden" style={{ border: `1px solid ${B.border}` }}>
 
             {/* Header */}
@@ -116,10 +139,28 @@ export default async function VelocidadePage() {
 
               <div className="flex items-center gap-8 text-right">
                 {[
-                  { label: 'Vendidos (30d)', value: `${totalRecent.toFixed(0)} un.`, color: B.text },
-                  { label: 'Un./dia',        value: unitsPerDay.toFixed(1), color: B.brand },
-                  { label: 'Estoque atual',  value: Number(product.stock_quantity).toFixed(0), color: B.text },
-                  { label: 'Dias restantes', value: daysOfStock === null ? '∞' : `${daysOfStock}d`, color: stockColor(daysOfStock) },
+                  {
+                    label: 'Vendidos (30d)',
+                    value: totalRecent > 0 ? `${totalRecent.toFixed(0)} un.` : total90d > 0 ? `${total90d.toFixed(0)} un. (90d)` : '0 un.',
+                    color: B.text,
+                  },
+                  {
+                    label: velocityLabel ? `Un./dia (${velocityLabel})` : 'Un./dia',
+                    value: unitsPerDay > 0 ? unitsPerDay.toFixed(2) : '—',
+                    color: unitsPerDay > 0 ? B.brand : B.muted,
+                  },
+                  {
+                    label: 'Estoque atual',
+                    value: `${Number(product.stock_quantity ?? 0).toFixed(0)} un.`,
+                    color: B.text,
+                  },
+                  {
+                    label: 'Dias restantes',
+                    value: daysOfStock === null
+                      ? (unitsPerDay === 0 ? 'Sem dados' : '∞')
+                      : `${daysOfStock}d`,
+                    color: daysOfStock === null ? B.muted : stockColor(daysOfStock),
+                  },
                 ].map(item => (
                   <div key={item.label}>
                     <div className="text-[11px] uppercase tracking-wide" style={{ color: B.muted }}>{item.label}</div>
