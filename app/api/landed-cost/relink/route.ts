@@ -1,14 +1,14 @@
 /**
  * POST /api/landed-cost/relink
  *
- * Re-vincula import_items aos produtos por SKU, recalcula CMP e
- * aplica o CMP retroativamente a todas as vendas existentes.
+ * Re-vincula import_items e sales aos produtos por SKU, recalcula CMP
+ * e aplica o CMP correto para a data de cada venda (CMP histórico).
  *
  * Fluxo:
- *   1. Busca import_items com product_id NULL → vincula por SKU
- *   2. Recalcula landed cost / CMP para todas as NF-e
- *   3. Vincula sales com product_id NULL → vincula por SKU
- *   4. Aplica CMP a todas as vendas (sale_costs) — preenche histórico
+ *   1. import_items com product_id NULL → vincula por SKU
+ *   2. Recalcula landed cost / CMP para todas as NF-e (com effective_date)
+ *   3. sales com product_id NULL → vincula por SKU
+ *   4. Para cada venda, aplica o CMP vigente NA DATA DA VENDA
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
@@ -37,10 +37,9 @@ export async function POST(request: NextRequest) {
   const { data: products } = await db.from('products').select('id, sku')
   const productMap = Object.fromEntries((products ?? []).map(p => [p.sku.toUpperCase(), p.id]))
 
-  // 3. Vincula itens sem product_id
+  // 3. Vincula import_items sem product_id
   let linked = 0
   const ordersToRecalc = new Set<string>()
-
   for (const item of unlinked ?? []) {
     const productId = productMap[item.sku.toUpperCase()]
     if (!productId) continue
@@ -49,26 +48,19 @@ export async function POST(request: NextRequest) {
     linked++
   }
 
-  // 4. Sempre recalcula TODAS as ordens (não só as recém-vinculadas)
+  // 4. Recalcula TODAS as ordens (gera cmp_costs com effective_date = issue_date da NF-e)
   const { data: allOrders } = await db.from('import_orders').select('id')
-  for (const order of allOrders ?? []) {
-    ordersToRecalc.add(order.id)
-  }
+  for (const order of allOrders ?? []) ordersToRecalc.add(order.id)
 
   let recalculated = 0
   for (const orderId of ordersToRecalc) {
-    try {
-      await recalculateLandedCost(orderId)
-      recalculated++
-    } catch { continue }
+    try { await recalculateLandedCost(orderId); recalculated++ } catch { continue }
   }
 
-  // 5a. Vincula vendas sem product_id por SKU (vendas sincronizadas antes dos produtos existirem)
+  // 5. Vincula sales sem product_id por SKU
   const { data: unlinkedSales } = await db
-    .from('sales')
-    .select('id, sku')
-    .is('product_id', null)
-    .not('sku', 'is', null)
+    .from('sales').select('id, sku')
+    .is('product_id', null).not('sku', 'is', null)
 
   let salesLinked = 0
   for (const sale of unlinkedSales ?? []) {
@@ -78,82 +70,79 @@ export async function POST(request: NextRequest) {
     salesLinked++
   }
 
-  // 5b. Aplica CMP a TODAS as vendas com product_id (preenche sale_costs histórico)
-  //    Bulk: carrega CMPs e vendas de uma vez, faz upsert em lote — evita timeout
-  const [{ data: latestCmps }, { data: allSales }] = await Promise.all([
+  // 6. Aplica CMP histórico a TODAS as vendas
+  //    Para cada venda usa o CMP com effective_date <= sale_date (CMP vigente na época)
+  //    Bulk: carrega todos os CMPs ordenados por data e todas as vendas de uma vez
+
+  const [{ data: allCmps }, { data: allSales }] = await Promise.all([
     db.from('cmp_costs')
-      .select('id, product_id, cmp_value')
-      .order('calculated_at', { ascending: false }),
+      .select('id, product_id, cmp_value, effective_date')
+      .order('effective_date', { ascending: true }),
     db.from('sales')
-      .select('id, product_id, gross_price, marketplace_commission, marketplace_shipping_fee, quantity, cancellation')
+      .select('id, product_id, gross_price, marketplace_commission, marketplace_shipping_fee, quantity, cancellation, sale_date')
       .not('product_id', 'is', null),
   ])
 
-  // Mapa: product_id → CMP mais recente (primeiro por ordem DESC de calculated_at)
-  const cmpMap = new Map<string, { id: string; value: number }>()
-  for (const c of latestCmps ?? []) {
-    if (!cmpMap.has(c.product_id)) {
-      cmpMap.set(c.product_id, { id: c.id, value: Number(c.cmp_value) })
-    }
-  }
-
-  // Monta registros de sale_costs em bulk
-  const saleCostRows: Array<{
-    sale_id: string
-    cmp_cost_id: string | null
-    unit_cost_applied: number
-    total_cost: number
-    margin_value: number
-    margin_pct: number
-  }> = []
-
-  for (const sale of allSales ?? []) {
-    const cmp = cmpMap.get(sale.product_id)
-    if (!cmp) continue
-    const qty        = Number(sale.quantity) || 1
-    const totalCost  = cmp.value * qty
-    const netRevenue = Number(sale.gross_price)
-                     - Number(sale.marketplace_commission ?? 0)
-                     - Number(sale.marketplace_shipping_fee ?? 0)
-                     - Number(sale.cancellation ?? 0)
-    const marginValue = netRevenue - totalCost
-    const marginPct   = netRevenue > 0 ? marginValue / netRevenue : 0
-    saleCostRows.push({
-      sale_id:            sale.id,
-      cmp_cost_id:        cmp.id,
-      unit_cost_applied:  cmp.value,
-      total_cost:         totalCost,
-      margin_value:       marginValue,
-      margin_pct:         marginPct,
+  // Mapa: product_id → CMPs ordenados por effective_date ASC
+  const cmpsByProduct = new Map<string, Array<{ id: string; value: number; date: string }>>()
+  for (const c of allCmps ?? []) {
+    if (!cmpsByProduct.has(c.product_id)) cmpsByProduct.set(c.product_id, [])
+    cmpsByProduct.get(c.product_id)!.push({
+      id:    c.id,
+      value: Number(c.cmp_value),
+      date:  c.effective_date ?? '1900-01-01',
     })
   }
 
-  // Delete + insert (evita dependência de UNIQUE constraint em sale_id)
-  let salesUpdated = 0
-  if (saleCostRows.length > 0) {
-    const saleIds = saleCostRows.map(r => r.sale_id)
-    // Remove registros anteriores (em lotes de 500 para evitar limite de URL)
-    const BATCH = 500
-    for (let i = 0; i < saleIds.length; i += BATCH) {
-      await db.from('sale_costs').delete().in('sale_id', saleIds.slice(i, i + BATCH))
+  // Para cada venda: encontra o CMP com effective_date <= sale_date (mais recente antes da venda)
+  function getCmpForDate(productId: string, saleDate: string) {
+    const list = cmpsByProduct.get(productId)
+    if (!list?.length) return null
+    // Lista está em ASC — pega o último com date <= saleDate
+    let best = null
+    for (const c of list) {
+      if (c.date <= saleDate) best = c
+      else break
     }
-    // Insere todos de uma vez (ou em lotes)
-    for (let i = 0; i < saleCostRows.length; i += BATCH) {
-      const batch = saleCostRows.slice(i, i + BATCH)
-      const { error } = await db.from('sale_costs').insert(batch)
-      if (!error) salesUpdated += batch.length
-    }
+    return best ?? list[0] // fallback: CMP mais antigo se venda anterior ao primeiro lote
   }
 
-  // Debug: mostra o que estava disponível
-  const cmpProductIds  = [...cmpMap.keys()]
-  const salesProductIds = [...new Set((allSales ?? []).map(s => s.product_id).filter(Boolean))]
-  const skuDebug = (products ?? []).filter(p => salesProductIds.includes(p.id) || cmpProductIds.includes(p.id))
-    .map(p => ({
-      sku: p.sku,
-      has_cmp: cmpProductIds.includes(p.id),
-      in_sales: salesProductIds.includes(p.id),
-    }))
+  const saleCostRows: Array<{
+    sale_id: string; cmp_cost_id: string | null
+    unit_cost_applied: number; total_cost: number
+    margin_value: number; margin_pct: number
+  }> = []
+
+  for (const sale of allSales ?? []) {
+    const cmp = getCmpForDate(sale.product_id, sale.sale_date)
+    if (!cmp) continue
+    const qty         = Number(sale.quantity) || 1
+    const totalCost   = cmp.value * qty
+    const netRevenue  = Number(sale.gross_price)
+                      - Number(sale.marketplace_commission ?? 0)
+                      - Number(sale.marketplace_shipping_fee ?? 0)
+                      - Number(sale.cancellation ?? 0)
+    const marginValue = netRevenue - totalCost
+    const marginPct   = netRevenue > 0 ? marginValue / netRevenue : 0
+    saleCostRows.push({
+      sale_id: sale.id, cmp_cost_id: cmp.id,
+      unit_cost_applied: cmp.value, total_cost: totalCost,
+      margin_value: marginValue, margin_pct: marginPct,
+    })
+  }
+
+  // Delete + insert (sem dependência de UNIQUE constraint)
+  let salesUpdated = 0
+  const BATCH = 500
+  if (saleCostRows.length > 0) {
+    const saleIds = saleCostRows.map(r => r.sale_id)
+    for (let i = 0; i < saleIds.length; i += BATCH)
+      await db.from('sale_costs').delete().in('sale_id', saleIds.slice(i, i + BATCH))
+    for (let i = 0; i < saleCostRows.length; i += BATCH) {
+      const { error } = await db.from('sale_costs').insert(saleCostRows.slice(i, i + BATCH))
+      if (!error) salesUpdated += Math.min(BATCH, saleCostRows.length - i)
+    }
+  }
 
   return NextResponse.json({
     ok: true,
@@ -161,12 +150,6 @@ export async function POST(request: NextRequest) {
     sales_linked: salesLinked,
     orders_recalculated: recalculated,
     sales_updated: salesUpdated,
-    debug: {
-      cmp_products: cmpProductIds.length,
-      sales_with_product: salesProductIds.length,
-      sale_cost_rows_built: saleCostRows.length,
-      sku_matrix: skuDebug,
-    },
     message: `CMP calculado (${recalculated} NF-e) · ${salesLinked} vendas vinculadas · ${salesUpdated} vendas atualizadas`,
   })
 }
