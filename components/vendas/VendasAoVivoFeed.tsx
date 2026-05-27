@@ -78,14 +78,22 @@ function MarginBadge({ m }: { m: number | null }) {
   )
 }
 
-function PLRow({ label, value, color, indent = false, bold = false, sep = false, positive = false }: {
-  label: string; value: number | null; color?: string; indent?: boolean; bold?: boolean; sep?: boolean; positive?: boolean
+function PLRow({ label, value, color, indent = false, bold = false, sep = false, positive = false, cost = false }: {
+  label: string; value: number | null; color?: string; indent?: boolean; bold?: boolean; sep?: boolean; positive?: boolean; cost?: boolean
 }) {
-  const display = value === null || value === 0 ? '—' : `${positive && value > 0 ? '+' : value < 0 ? '' : '(-)'} ${fmtR(value)}`
+  // cost=true  → sempre mostra (-) e cor vermelha (ex: comissão, frete, CMV)
+  // positive=true → mostra sem prefixo ou com + (ex: preço de venda, frete recebido)
+  // default    → subtotal: positivo sem prefixo, negativo com (-)
+  const display = value === null || value === 0 ? '—'
+    : cost            ? `(-) ${fmtR(Math.abs(value))}`
+    : positive        ? fmtR(Math.abs(value))
+    : value >= 0      ? fmtR(value)
+    : `(-) ${fmtR(Math.abs(value))}`
   const autoColor = value === null || value === 0 ? B.muted
-    : positive ? '#16a34a'
-    : value < 0 ? '#16a34a'   // lucro positivo
-    : '#dc2626'                // custo = vermelho
+    : cost            ? '#dc2626'
+    : positive        ? B.text
+    : value >= 0      ? B.text
+    : '#dc2626'
   return (
     <>
       {sep && <div className="my-1" style={{ height: 1, background: 'oklch(0.90 0.010 258)' }} />}
@@ -174,11 +182,11 @@ function SaleRow({ sale }: { sale: Sale }) {
               <div className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: B.muted }}>
                 Receita
               </div>
-              <PLRow label="Preço de venda"        value={c.grossPrice}     color={B.brand} bold />
+              <PLRow label="Preço de venda"        value={c.grossPrice}     color={B.brand} bold positive />
               {c.shippingRec > 0  && <PLRow label="(+) Frete cobrado ao cliente" value={c.shippingRec}  color="#16a34a" indent positive />}
-              {c.cancellation > 0 && <PLRow label="(-) Cancelamento"            value={c.cancellation} color="#dc2626" indent />}
-              {c.discounts > 0    && <PLRow label="(-) Desconto / cupom"         value={c.discounts}    color="#d97706" indent />}
-              <PLRow label="= Faturamento líquido" value={c.faturamento} bold sep color={c.faturamento >= 0 ? B.text : '#dc2626'} />
+              {c.cancellation > 0 && <PLRow label="(-) Cancelamento"            value={c.cancellation} color="#dc2626" indent cost />}
+              {c.discounts > 0    && <PLRow label="(-) Desconto / cupom"         value={c.discounts}    color="#d97706" indent cost />}
+              <PLRow label="= Faturamento líquido" value={c.faturamento} bold sep />
             </div>
 
             {/* Coluna direita: custos */}
@@ -186,11 +194,11 @@ function SaleRow({ sale }: { sale: Sale }) {
               <div className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: B.muted }}>
                 Custos & Resultado
               </div>
-              <PLRow label="(-) Comissão ML"        value={c.commission}  color="#dc2626" indent />
-              <PLRow label="(-) Frete ao vendedor"  value={c.shippingFee > 0 ? c.shippingFee : null} color="#dc2626" indent />
-              {c.ads > 0 && <PLRow label="(-) ADS" value={c.ads}          color="#dc2626" indent />}
-              <PLRow label="= Receita líquida"      value={c.receitaLiq}  bold sep color={c.receitaLiq >= 0 ? B.text : '#dc2626'} />
-              <PLRow label="(-) CMV"                value={c.cmv > 0 ? c.cmv : null} color="#dc2626" indent />
+              <PLRow label="(-) Comissão ML"        value={c.commission || null}              indent cost />
+              <PLRow label="(-) Frete ao vendedor"  value={c.shippingFee > 0 ? c.shippingFee : null} indent cost />
+              {c.ads > 0 && <PLRow label="(-) ADS" value={c.ads} indent cost />}
+              <PLRow label="= Receita líquida"      value={c.receitaLiq} bold sep />
+              <PLRow label="(-) CMV"                value={c.cmv > 0 ? c.cmv : null} indent cost />
               <PLRow
                 label="= Lucro estimado"
                 value={c.lucro}
