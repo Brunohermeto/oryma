@@ -137,14 +137,31 @@ export async function POST(request: NextRequest) {
 
   // Delete + insert (sem dependência de UNIQUE constraint)
   let salesUpdated = 0
+  let insertError: string | null = null
   const BATCH = 500
+
   if (saleCostRows.length > 0) {
     const saleIds = saleCostRows.map(r => r.sale_id)
+
+    // Delete existentes
     for (let i = 0; i < saleIds.length; i += BATCH)
       await db.from('sale_costs').delete().in('sale_id', saleIds.slice(i, i + BATCH))
+
+    // Insert — tenta primeiro em batch; se falhar, insere um a um para identificar o erro
     for (let i = 0; i < saleCostRows.length; i += BATCH) {
-      const { error } = await db.from('sale_costs').insert(saleCostRows.slice(i, i + BATCH))
-      if (!error) salesUpdated += Math.min(BATCH, saleCostRows.length - i)
+      const batch = saleCostRows.slice(i, i + BATCH)
+      const { error } = await db.from('sale_costs').insert(batch)
+      if (!error) {
+        salesUpdated += batch.length
+      } else {
+        insertError = error.message
+        // Tenta um a um para identificar linha problemática
+        for (const row of batch) {
+          const { error: rowErr } = await db.from('sale_costs').insert(row)
+          if (!rowErr) salesUpdated++
+          else if (!insertError) insertError = `row ${row.sale_id.slice(-6)}: ${rowErr.message}`
+        }
+      }
     }
   }
 
@@ -154,6 +171,11 @@ export async function POST(request: NextRequest) {
     sales_linked: salesLinked,
     orders_recalculated: recalculated,
     sales_updated: salesUpdated,
-    message: `CMP calculado (${recalculated} NF-e) · ${salesLinked} vendas vinculadas · ${salesUpdated} vendas atualizadas`,
+    sale_cost_rows_built: saleCostRows.length,
+    insert_error: insertError,
+    cmp_products_found: cmpsByProduct.size,
+    message: insertError
+      ? `⚠️ Erro ao salvar custos: ${insertError}`
+      : `CMP calculado (${recalculated} NF-e) · ${salesLinked} vendas vinculadas · ${salesUpdated} vendas atualizadas`,
   })
 }
