@@ -172,26 +172,27 @@ export async function syncMercadoLivre(
 
         const productId = productMap[sku] ?? null
 
-        await db.from('sales').upsert({
-          external_order_id:       `ml_${order.id}_${item.item.id}`,
-          marketplace:             'mercado_livre',
-          fulfillment_type:        fulfillmentType,
-          product_id:              productId,
+        const { error: upsertErr } = await db.from('sales').upsert({
+          external_order_id:        `ml_${order.id}_${item.item.id}`,
+          marketplace:              'mercado_livre',
+          fulfillment_type:         fulfillmentType,
+          product_id:               productId,
           sku,
-          pack_id:                 order.pack_id ? String(order.pack_id) : null,
-          sale_date:               toBrazilDate(order.date_created),
-          quantity:                qty,
-          gross_price:             grossPrice,
-          shipping_received:       shippingReceived,
-          marketplace_commission:  commission,
+          pack_id:                  order.pack_id ? String(order.pack_id) : null,
+          sale_date:                toBrazilDate(order.date_created),
+          quantity:                 qty,
+          gross_price:              grossPrice,
+          shipping_received:        shippingReceived,
+          marketplace_commission:   commission,
           marketplace_shipping_fee: shippingCost,
-          ads_cost:                0,
-          cancellation:            0,
-          discounts:               payment.coupon_amount ?? 0,
-          rebate:                  itemRebate,
-          synced_at:               new Date().toISOString(),
+          ads_cost:                 0,
+          cancellation:             0,
+          discounts:                payment.coupon_amount ?? 0,
+          rebate:                   itemRebate,
+          synced_at:                new Date().toISOString(),
         }, { onConflict: 'external_order_id' })
 
+        if (upsertErr) throw new Error(`Falha ao salvar venda ml_${order.id}: ${upsertErr.message}`)
         synced++
       }
     }
