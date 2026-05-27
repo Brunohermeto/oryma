@@ -7,6 +7,7 @@ import { ConfigCard } from '@/components/configuracoes/ConfigCard'
 import { BlingSyncButton } from '@/components/configuracoes/BlingSyncButton'
 import { MarketplaceSyncButton } from '@/components/configuracoes/MarketplaceSyncButton'
 import { DiagnosticoCustoButton } from '@/components/configuracoes/DiagnosticoCustoButton'
+import { RelinkButton } from '@/components/configuracoes/RelinkButton'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { Clock, CheckCircle2, AlertCircle } from 'lucide-react'
 
@@ -179,6 +180,9 @@ export default async function ConfiguracoesPage({
           </p>
           <MarketplaceSyncButton />
         </div>
+
+        {/* Relink: recalcula CMV e margens de todas as vendas */}
+        <RelinkButton />
 
         {/* Diagnóstico de custo — botão temporário */}
         <DiagnosticoCustoButton />
