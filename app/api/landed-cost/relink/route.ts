@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
       .select('id, product_id, cmp_value, effective_date')
       .order('effective_date', { ascending: true }),
     db.from('sales')
-      .select('id, product_id, gross_price, marketplace_commission, marketplace_shipping_fee, quantity, cancellation, sale_date')
+      .select('id, product_id, gross_price, shipping_received, marketplace_commission, marketplace_shipping_fee, ads_cost, cancellation, discounts, rebate, quantity, sale_date')
       .not('product_id', 'is', null),
   ])
 
@@ -119,9 +119,13 @@ export async function POST(request: NextRequest) {
     const qty         = Number(sale.quantity) || 1
     const totalCost   = cmp.value * qty
     const netRevenue  = Number(sale.gross_price)
-                      - Number(sale.marketplace_commission ?? 0)
+                      + Number(sale.shipping_received        ?? 0)
+                      - Number(sale.marketplace_commission   ?? 0)
                       - Number(sale.marketplace_shipping_fee ?? 0)
-                      - Number(sale.cancellation ?? 0)
+                      - Number(sale.ads_cost                 ?? 0)
+                      - Number(sale.cancellation             ?? 0)
+                      - Number(sale.discounts                ?? 0)
+                      + Number(sale.rebate                   ?? 0)
     const marginValue = netRevenue - totalCost
     const marginPct   = netRevenue > 0 ? marginValue / netRevenue : 0
     saleCostRows.push({

@@ -46,7 +46,7 @@ export default async function VendasPage({
     .select(`
       id, external_order_id, marketplace, fulfillment_type, sku, sale_date,
       quantity, gross_price, shipping_received, marketplace_commission,
-      marketplace_shipping_fee, ads_cost, cancellation, discounts,
+      marketplace_shipping_fee, ads_cost, cancellation, discounts, rebate,
       products(name, sku),
       sale_taxes(pis, cofins, icms, icms_difal, ipi, total_taxes),
       sale_costs(unit_cost_applied, total_cost, margin_value, margin_pct)
@@ -73,19 +73,22 @@ export default async function VendasPage({
   const summary = (sales ?? []).reduce((acc, s) => {
     const taxes = unwrap<{ total_taxes: number }>(s.sale_taxes)
     const cost  = unwrap<{ total_cost: number; margin_pct: number }>(s.sale_costs)
-    acc.revenue += Number(s.gross_price) - Number(s.cancellation)
-    acc.fees    += Number(s.marketplace_commission) + Number(s.marketplace_shipping_fee) + Number(s.ads_cost)
-    acc.taxes   += Number(taxes?.total_taxes ?? 0)
-    acc.cmv     += Number(cost?.total_cost ?? 0)
+    acc.revenue      += Number(s.gross_price) - Number(s.cancellation) - Number((s as any).discounts ?? 0)
+    acc.freteNeto    += Number(s.shipping_received ?? 0) - Number(s.marketplace_shipping_fee ?? 0)
+    acc.commission   += Number(s.marketplace_commission)
+    acc.ads          += Number(s.ads_cost)
+    acc.rebates      += Number((s as any).rebate ?? 0)
+    acc.taxes        += Number(taxes?.total_taxes ?? 0)
+    acc.cmv          += Number(cost?.total_cost ?? 0)
     acc.orders++
     if (cost?.margin_pct !== null && cost?.margin_pct !== undefined) {
       acc.marginSum += Number(cost.margin_pct)
       acc.marginCount++
     }
     return acc
-  }, { revenue: 0, fees: 0, taxes: 0, cmv: 0, orders: 0, marginSum: 0, marginCount: 0 })
+  }, { revenue: 0, freteNeto: 0, commission: 0, ads: 0, rebates: 0, taxes: 0, cmv: 0, orders: 0, marginSum: 0, marginCount: 0 })
 
-  const netRevenue  = summary.revenue - summary.taxes - summary.fees
+  const netRevenue  = summary.revenue + summary.freteNeto + summary.rebates - summary.commission - summary.ads - summary.taxes
   const grossProfit = netRevenue - summary.cmv
   const avgMargin   = summary.marginCount > 0 ? summary.marginSum / summary.marginCount : 0
 

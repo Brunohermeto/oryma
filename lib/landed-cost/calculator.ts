@@ -195,7 +195,7 @@ export async function applyCmpToSale(saleId: string): Promise<void> {
 
   const { data: sale } = await db
     .from('sales')
-    .select('product_id, gross_price, marketplace_commission, marketplace_shipping_fee, quantity, sale_date, cancellation')
+    .select('product_id, gross_price, shipping_received, marketplace_commission, marketplace_shipping_fee, ads_cost, cancellation, discounts, rebate, quantity, sale_date')
     .eq('id', saleId)
     .single()
 
@@ -204,12 +204,26 @@ export async function applyCmpToSale(saleId: string): Promise<void> {
   const cmp = await getCmpAtDate(sale.product_id, sale.sale_date)
   if (!cmp) return
 
-  const qty         = Number(sale.quantity) || 1
-  const totalCost   = cmp.value * qty
-  const netRevenue  = Number(sale.gross_price)
-                    - Number(sale.marketplace_commission ?? 0)
-                    - Number(sale.marketplace_shipping_fee ?? 0)
-                    - Number(sale.cancellation ?? 0)
+  const qty = Number(sale.quantity) || 1
+  const totalCost = cmp.value * qty
+
+  // Receita líquida completa:
+  // + gross_price         (preço do produto)
+  // + shipping_received   (frete cobrado do comprador → é receita do vendedor)
+  // - marketplace_commission (comissão do canal)
+  // - marketplace_shipping_fee (frete pago pelo vendedor ao canal/transportadora)
+  // - ads_cost            (investimento em anúncios)
+  // - cancellation        (devoluções/cancelamentos)
+  // - discounts           (cupons/descontos concedidos ao comprador)
+  // + rebate              (rebates recebidos: desconto tarifário ML, bonificação fornecedor, etc.)
+  const netRevenue = Number(sale.gross_price)
+                   + Number(sale.shipping_received  ?? 0)
+                   - Number(sale.marketplace_commission ?? 0)
+                   - Number(sale.marketplace_shipping_fee ?? 0)
+                   - Number(sale.ads_cost            ?? 0)
+                   - Number(sale.cancellation        ?? 0)
+                   - Number(sale.discounts           ?? 0)
+                   + Number(sale.rebate              ?? 0)
   const marginValue = netRevenue - totalCost
   const marginPct   = netRevenue > 0 ? marginValue / netRevenue : 0
 
