@@ -74,15 +74,32 @@ export async function POST(request: NextRequest) {
   //    Para cada venda usa o CMP com effective_date <= sale_date (CMP vigente na época)
   //    Bulk: carrega todos os CMPs ordenados por data e todas as vendas de uma vez
 
-  const [{ data: allCmps }, { data: allSales }] = await Promise.all([
-    db.from('cmp_costs')
-      .select('id, product_id, cmp_value, effective_date')
-      .order('effective_date', { ascending: true })
-      .limit(10000),
-    db.from('sales')
-      .select('id, product_id, gross_price, shipping_received, marketplace_commission, marketplace_shipping_fee, ads_cost, cancellation, discounts, rebate, quantity, sale_date')
-      .not('product_id', 'is', null)
-      .limit(10000),
+  // Pagina pelas tabelas em blocos de 1000 para contornar o max-rows do PostgREST
+  async function fetchAll<T>(
+    builder: () => ReturnType<typeof db.from>
+  ): Promise<T[]> {
+    const PAGE = 1000
+    const rows: T[] = []
+    for (let offset = 0; ; offset += PAGE) {
+      const { data, error } = await (builder() as any).range(offset, offset + PAGE - 1)
+      if (error || !data?.length) break
+      rows.push(...(data as T[]))
+      if (data.length < PAGE) break
+    }
+    return rows
+  }
+
+  const [allCmps, allSales] = await Promise.all([
+    fetchAll(() =>
+      db.from('cmp_costs')
+        .select('id, product_id, cmp_value, effective_date')
+        .order('effective_date', { ascending: true })
+    ),
+    fetchAll(() =>
+      db.from('sales')
+        .select('id, product_id, gross_price, shipping_received, marketplace_commission, marketplace_shipping_fee, ads_cost, cancellation, discounts, rebate, quantity, sale_date')
+        .not('product_id', 'is', null)
+    ),
   ])
 
   // Mapa: product_id → CMPs ordenados por effective_date ASC
