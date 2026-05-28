@@ -3,8 +3,14 @@
  * Corrige sales que usam SKU do ML mas o produto correto (com CMP) está cadastrado
  * com o EAN/código diferente no Bling.
  *
- * Caso mais comum: MOVEDUO (ML) → 7908488105732 (EAN na NF-e de entrada).
- * Mesclamos as vendas para o produto que tem CMP.
+ * Body (opcional):
+ *   { mapping: { "SKU_ML": "SKU_BLING" } }
+ *   Se não enviado, usa o mapeamento padrão conhecido.
+ *
+ * Fluxo:
+ *   1. Usa mapeamento do body (se enviado) ou o padrão
+ *   2. Para cada par, atualiza sales.product_id para o produto com CMP
+ *   3. Dispara relink automático ao final
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
@@ -13,6 +19,11 @@ export const dynamic     = 'force-dynamic'
 export const maxDuration = 60
 export const preferredRegion = 'gru1'
 
+// Mapeamento padrão (atualizar conforme novos casos forem descobertos)
+const DEFAULT_MAPPING: Record<string, string> = {
+  'MOVEDUO': '7908488105732',
+}
+
 export async function POST(request: NextRequest) {
   const authCookie = request.cookies.get('mi_auth')?.value
   if (authCookie !== process.env.APP_PASSWORD) {
@@ -20,6 +31,13 @@ export async function POST(request: NextRequest) {
   }
 
   const db = createSupabaseServiceClient()
+  const body = await request.json().catch(() => ({}))
+
+  // Aceita mapeamento do body ou usa o padrão
+  const SKU_MAPPING: Record<string, string> = (body.mapping && typeof body.mapping === 'object')
+    ? { ...DEFAULT_MAPPING, ...body.mapping }
+    : DEFAULT_MAPPING
+
   const log: string[] = []
   let totalFixed = 0
 
@@ -32,7 +50,6 @@ export async function POST(request: NextRequest) {
 
   if (prodErr) return NextResponse.json({ error: prodErr.message }, { status: 500 })
 
-  // Produtos que têm pelo menos 1 CMP
   const { data: cmps, error: cmpErr } = await db
     .from('cmp_costs')
     .select('product_id')
@@ -43,63 +60,59 @@ export async function POST(request: NextRequest) {
   const prodMap = Object.fromEntries((products ?? []).map((p: { id: string; sku: string; name: string }) => [p.sku, p]))
 
   log.push(`${products?.length ?? 0} produtos, ${prodWithCmp.size} com CMP`)
+  log.push(`Mapeamentos a processar: ${Object.keys(SKU_MAPPING).length}`)
 
   // ──────────────────────────────────────────────────────────────────────────
-  // 2. Mapeamento manual de SKU ML → EAN/SKU Bling (base inicial, expansível)
+  // 2. Processa cada mapeamento
   // ──────────────────────────────────────────────────────────────────────────
-  const SKU_MAPPING: Record<string, string> = {
-    'MOVEDUO': '7908488105732',
-    // Adicione outros conforme necessário:
-    // 'SKU_ML': 'SKU_BLING_COM_CMP',
-  }
-
   for (const [mlSku, blingSku] of Object.entries(SKU_MAPPING)) {
-    const mlProduct  = prodMap[mlSku]
+    const mlProduct    = prodMap[mlSku]
     const blingProduct = prodMap[blingSku]
 
     if (!mlProduct) {
-      log.push(`SKIP ${mlSku}: produto não encontrado`)
+      log.push(`SKIP ${mlSku}: produto não encontrado no banco`)
       continue
     }
     if (!blingProduct) {
-      log.push(`SKIP ${mlSku}: produto Bling ${blingSku} não encontrado`)
+      log.push(`SKIP ${mlSku}: produto Bling "${blingSku}" não encontrado`)
       continue
     }
     if (mlProduct.id === blingProduct.id) {
-      log.push(`SKIP ${mlSku}: já aponta para o mesmo produto`)
+      log.push(`OK ${mlSku}: já aponta para o mesmo produto (sem mudança)`)
       continue
     }
     if (!prodWithCmp.has(blingProduct.id)) {
-      log.push(`SKIP ${mlSku}: produto Bling ${blingSku} também não tem CMP`)
+      log.push(`SKIP ${mlSku}: produto Bling "${blingSku}" também não tem CMP — verifique NF-e de entrada`)
       continue
     }
 
-    // Quantas vendas serão afetadas?
     const { count: salesCount } = await db
       .from('sales')
       .select('id', { count: 'exact', head: true })
       .eq('product_id', mlProduct.id)
 
-    log.push(`${mlSku} → ${blingSku}: ${salesCount ?? 0} vendas para atualizar`)
+    if (!salesCount || salesCount === 0) {
+      log.push(`SKIP ${mlSku}: nenhuma venda com esse product_id`)
+      continue
+    }
 
-    if (!salesCount || salesCount === 0) continue
+    log.push(`${mlSku} → ${blingSku}: ${salesCount} vendas`)
 
-    // Atualiza sales.product_id para o produto com CMP
     const { error: updErr } = await db
       .from('sales')
       .update({ product_id: blingProduct.id })
       .eq('product_id', mlProduct.id)
 
     if (updErr) {
-      log.push(`ERRO ao atualizar ${mlSku}: ${updErr.message}`)
+      log.push(`ERRO ${mlSku}: ${updErr.message}`)
     } else {
-      log.push(`✓ ${salesCount} vendas de ${mlSku} atualizadas → ${blingSku} (id: ${blingProduct.id.slice(0, 8)})`)
+      log.push(`✓ ${salesCount} vendas migradas — "${mlProduct.name}" → "${blingProduct.name}"`)
       totalFixed += salesCount
     }
   }
 
   // ──────────────────────────────────────────────────────────────────────────
-  // 3. Dispara relink automático se corrigiu algo
+  // 3. Relink automático se corrigiu algo
   // ──────────────────────────────────────────────────────────────────────────
   let relinkResult = null
   if (totalFixed > 0) {
@@ -127,6 +140,7 @@ export async function POST(request: NextRequest) {
     message: totalFixed > 0
       ? `${totalFixed} vendas corrigidas e CMV recalculado`
       : 'Nenhuma venda precisou de correção',
+    mapping_used: SKU_MAPPING,
     log,
     relink: relinkResult,
   })
