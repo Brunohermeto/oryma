@@ -1,16 +1,18 @@
 'use client'
 import { useState } from 'react'
-import { Link2, CheckCircle, XCircle, Search, RefreshCw } from 'lucide-react'
+import { Link2, CheckCircle, XCircle, Search, RefreshCw, AlertCircle } from 'lucide-react'
 
 const B = { border: 'oklch(0.88 0.016 258)', bg: 'oklch(0.96 0.010 258)', muted: 'oklch(0.50 0.025 258)', brand: '#125BFF' }
+
+interface BlingInfo { codigo: string; nome: string; gtin: string | null }
 
 interface SuggestedMatch {
   product_id: string
   sku: string
   name: string
   cmp_value: number
-  similarity_score: number
-  confidence: 'alta' | 'média' | 'baixa'
+  effective_date: string
+  source: string
 }
 
 interface ProductWithoutCmp {
@@ -19,7 +21,10 @@ interface ProductWithoutCmp {
   name: string
   sales_count: number
   marketplaces: string[]
+  bling: BlingInfo | null
   suggested_match: SuggestedMatch | null
+  ean_found_in_bling_but_no_local_product: string | null
+  ean_found_but_no_cmp: string | null
 }
 
 interface DiagResult {
@@ -27,23 +32,20 @@ interface DiagResult {
     total_products_with_sales: number
     products_with_cmp: number
     products_WITHOUT_cmp: number
-    with_suggestion: number
+    resolved_via_bling: number
+    ean_found_no_local_product: number
+    not_found_in_bling: number
   }
   products_without_cmp: ProductWithoutCmp[]
-}
-
-const CONFIDENCE_STYLE: Record<string, { bg: string; text: string; label: string }> = {
-  alta:  { bg: 'oklch(0.96 0.06 145)', text: '#14532d', label: 'Alta' },
-  média: { bg: 'oklch(0.97 0.07 85)',  text: '#713f12', label: 'Média' },
-  baixa: { bg: 'oklch(0.97 0.04 25)',  text: '#991b1b', label: 'Baixa' },
+  bling_catalog_size: number
+  bling_error: string | null
 }
 
 export function FixProductLinksButton() {
   const [diagStatus, setDiagStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
   const [diagData,   setDiagData]   = useState<DiagResult | null>(null)
 
-  // Mapeamento confirmado pelo usuário: mlSku → blingSku
-  // Começa com todas as sugestões de confiança alta/média pré-selecionadas
+  // Mapeamento confirmado: mlSku → blingSku (EAN)
   const [confirmed, setConfirmed] = useState<Record<string, string>>({})
 
   const [fixStatus, setFixStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
@@ -63,11 +65,10 @@ export function FixProductLinksButton() {
       if (!res.ok) { setDiagStatus('error'); return }
       setDiagData(data)
       setDiagStatus('done')
-
-      // Pré-seleciona sugestões de confiança alta e média
+      // Pré-seleciona todos os que têm match via catálogo Bling
       const preSelected: Record<string, string> = {}
       for (const p of data.products_without_cmp) {
-        if (p.suggested_match && (p.suggested_match.confidence === 'alta' || p.suggested_match.confidence === 'média')) {
+        if (p.suggested_match) {
           preSelected[p.sku] = p.suggested_match.sku
         }
       }
@@ -80,9 +81,7 @@ export function FixProductLinksButton() {
   function toggleConfirm(mlSku: string, blingSku: string) {
     setConfirmed(prev => {
       if (prev[mlSku] === blingSku) {
-        const next = { ...prev }
-        delete next[mlSku]
-        return next
+        const next = { ...prev }; delete next[mlSku]; return next
       }
       return { ...prev, [mlSku]: blingSku }
     })
@@ -122,70 +121,78 @@ export function FixProductLinksButton() {
         Mapear Produtos: SKU ML ↔ EAN Bling
       </div>
       <p className="text-[13px] mb-4" style={{ color: B.muted }}>
-        Produtos cadastrados com SKU diferente no ML e no Bling ficam sem CMV.
-        Diagnostique para ver os casos, confirme os pares corretos e aplique a correção.
+        Busca o catálogo do Bling para encontrar o EAN de cada produto vendido no ML.
+        Isso garante que o CMV seja calculado corretamente para todos os produtos.
       </p>
 
-      {/* Botão Diagnosticar */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <button
-          onClick={handleDiag}
-          disabled={diagStatus === 'running'}
-          className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-lg transition-all"
-          style={{
-            background: 'white',
-            color:      diagStatus === 'running' ? B.muted : B.brand,
-            border:     `1px solid ${diagStatus === 'running' ? B.border : B.brand}`,
-            cursor:     diagStatus === 'running' ? 'not-allowed' : 'pointer',
-          }}
-        >
-          <Search size={13} className={diagStatus === 'running' ? 'animate-pulse' : ''} />
-          {diagStatus === 'running' ? 'Analisando…' : diagData ? 'Reanalisar' : 'Diagnosticar'}
-        </button>
-      </div>
+      <button
+        onClick={handleDiag}
+        disabled={diagStatus === 'running'}
+        className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-lg transition-all"
+        style={{
+          background: 'white', color: diagStatus === 'running' ? B.muted : B.brand,
+          border: `1px solid ${diagStatus === 'running' ? B.border : B.brand}`,
+          cursor: diagStatus === 'running' ? 'not-allowed' : 'pointer',
+        }}
+      >
+        <Search size={13} className={diagStatus === 'running' ? 'animate-pulse' : ''} />
+        {diagStatus === 'running' ? 'Consultando Bling…' : diagData ? 'Reanalisar' : 'Diagnosticar via Bling'}
+      </button>
 
-      {/* Resultado do diagnóstico */}
-      {diagData && (
+      {diagData?.bling_error && (
+        <div className="mt-3 flex items-start gap-2 text-[12px] rounded-lg px-3 py-2.5"
+          style={{ background: 'oklch(0.97 0.03 25)', border: '1px solid oklch(0.88 0.06 25)', color: '#991b1b' }}>
+          <AlertCircle size={13} className="mt-0.5 flex-shrink-0" />
+          <span>Erro ao consultar Bling: {diagData.bling_error}</span>
+        </div>
+      )}
+
+      {diagData && !diagData.bling_error && (
         <div className="mt-4">
+          {/* Resumo */}
+          <div className="flex flex-wrap gap-3 mb-4">
+            {[
+              { label: 'Catálogo Bling', value: diagData.bling_catalog_size, color: '#0B1023' },
+              { label: 'Resolvidos', value: diagData.summary.resolved_via_bling, color: '#16a34a' },
+              { label: 'EAN sem NF-e importada', value: diagData.summary.ean_found_no_local_product, color: '#d97706' },
+              { label: 'Não encontrado no Bling', value: diagData.summary.not_found_in_bling, color: '#dc2626' },
+            ].map(s => (
+              <div key={s.label} className="rounded-lg px-3 py-2 text-center" style={{ background: B.bg, border: `1px solid ${B.border}`, minWidth: 80 }}>
+                <div className="text-[18px] font-bold" style={{ color: s.color }}>{s.value}</div>
+                <div className="text-[10px]" style={{ color: B.muted }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+
           {diagData.summary.products_WITHOUT_cmp === 0 ? (
             <div className="flex items-center gap-2 text-[13px]" style={{ color: '#16a34a' }}>
-              <CheckCircle size={14} />
-              <span>Todos os produtos com vendas já têm CMP. Nenhuma ação necessária.</span>
+              <CheckCircle size={14} /> Todos os produtos com vendas já têm CMP.
             </div>
           ) : (
             <>
-              <div className="text-[12px] mb-3" style={{ color: B.muted }}>
-                <strong style={{ color: '#0B1023' }}>{diagData.summary.products_WITHOUT_cmp}</strong> produto(s) sem CMP •{' '}
-                <strong style={{ color: '#0B1023' }}>{diagData.summary.with_suggestion}</strong> com sugestão automática.
-                Confirme os pares corretos e clique em <em>Aplicar</em>.
-              </div>
-
-              {/* Tabela de mapeamento */}
+              {/* Tabela */}
               <div className="rounded-lg overflow-hidden mb-4" style={{ border: `1px solid ${B.border}` }}>
-                {/* Cabeçalho */}
-                <div className="grid grid-cols-12 px-3 py-2 text-[10px] font-bold uppercase tracking-wider" style={{ background: B.bg, color: B.muted }}>
-                  <span className="col-span-3">SKU no ML (sem CMP)</span>
+                {/* Header */}
+                <div className="grid grid-cols-12 px-3 py-2 text-[10px] font-bold uppercase tracking-wider"
+                  style={{ background: B.bg, color: B.muted }}>
+                  <span className="col-span-2">SKU ML</span>
                   <span className="col-span-1 text-center">Vendas</span>
-                  <span className="col-span-4">Produto Bling sugerido (com CMP)</span>
+                  <span className="col-span-1 text-center">EAN Bling</span>
+                  <span className="col-span-4">Produto com CMP</span>
                   <span className="col-span-2 text-center">CMP</span>
-                  <span className="col-span-2 text-center">Confiança</span>
+                  <span className="col-span-2 text-center">Aplicar</span>
                 </div>
 
                 {diagData.products_without_cmp.map((p, i) => {
                   const isConfirmed = p.suggested_match ? confirmed[p.sku] === p.suggested_match.sku : false
-                  const conf = p.suggested_match ? CONFIDENCE_STYLE[p.suggested_match.confidence] : null
+                  const rowBg = isConfirmed ? 'oklch(0.98 0.03 145)' : 'white'
 
                   return (
-                    <div
-                      key={p.product_id}
-                      className="grid grid-cols-12 px-3 py-2.5 items-center text-[12px] gap-1"
-                      style={{
-                        borderTop: i > 0 ? `1px solid ${B.border}` : undefined,
-                        background: isConfirmed ? 'oklch(0.98 0.03 145)' : 'white',
-                      }}
-                    >
+                    <div key={p.product_id} className="grid grid-cols-12 px-3 py-2.5 items-center text-[12px] gap-1"
+                      style={{ borderTop: i > 0 ? `1px solid ${B.border}` : undefined, background: rowBg }}>
+
                       {/* SKU ML */}
-                      <div className="col-span-3">
+                      <div className="col-span-2">
                         <div className="font-mono font-semibold text-[11px] text-blue-600">{p.sku}</div>
                         <div className="text-[10px] truncate" style={{ color: B.muted }}>{p.name}</div>
                       </div>
@@ -195,7 +202,17 @@ export function FixProductLinksButton() {
                         {p.sales_count}
                       </div>
 
-                      {/* Sugestão */}
+                      {/* EAN Bling */}
+                      <div className="col-span-1 text-center font-mono text-[10px]" style={{ color: B.muted }}>
+                        {p.bling?.gtin
+                          ? <span style={{ color: '#16a34a' }}>✓</span>
+                          : p.bling
+                          ? <span style={{ color: '#d97706' }}>sem EAN</span>
+                          : <span style={{ color: '#dc2626' }}>não encontrado</span>
+                        }
+                      </div>
+
+                      {/* Produto com CMP */}
                       <div className="col-span-4">
                         {p.suggested_match ? (
                           <>
@@ -206,8 +223,18 @@ export function FixProductLinksButton() {
                               {p.suggested_match.name}
                             </div>
                           </>
+                        ) : p.ean_found_in_bling_but_no_local_product ? (
+                          <span className="text-[10px]" style={{ color: '#d97706' }}>
+                            EAN {p.ean_found_in_bling_but_no_local_product} — importe a NF-e de entrada
+                          </span>
+                        ) : p.ean_found_but_no_cmp ? (
+                          <span className="text-[10px]" style={{ color: '#d97706' }}>
+                            Produto encontrado mas sem CMP ainda
+                          </span>
                         ) : (
-                          <span className="text-[11px] italic" style={{ color: B.muted }}>sem sugestão — informe manualmente</span>
+                          <span className="text-[10px] italic" style={{ color: B.muted }}>
+                            {p.bling ? 'produto Bling sem EAN cadastrado' : 'SKU não encontrado no Bling'}
+                          </span>
                         )}
                       </div>
 
@@ -216,23 +243,22 @@ export function FixProductLinksButton() {
                         {p.suggested_match ? `R$ ${p.suggested_match.cmp_value.toFixed(2)}` : '—'}
                       </div>
 
-                      {/* Confiança + checkbox */}
-                      <div className="col-span-2 flex items-center justify-center gap-2">
-                        {conf && (
-                          <span
-                            className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                            style={{ background: conf.bg, color: conf.text }}
-                          >
-                            {conf.label}
-                          </span>
-                        )}
-                        {p.suggested_match && (
-                          <input
-                            type="checkbox"
-                            checked={isConfirmed}
-                            onChange={() => toggleConfirm(p.sku, p.suggested_match!.sku)}
-                            className="w-3.5 h-3.5 accent-blue-600 cursor-pointer"
-                          />
+                      {/* Checkbox */}
+                      <div className="col-span-2 flex items-center justify-center">
+                        {p.suggested_match ? (
+                          <label className="flex items-center gap-1.5 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={isConfirmed}
+                              onChange={() => toggleConfirm(p.sku, p.suggested_match!.sku)}
+                              className="w-3.5 h-3.5 accent-blue-600"
+                            />
+                            <span className="text-[10px]" style={{ color: B.muted }}>
+                              {isConfirmed ? 'OK' : 'confirmar'}
+                            </span>
+                          </label>
+                        ) : (
+                          <span className="text-[10px]" style={{ color: B.muted }}>—</span>
                         )}
                       </div>
                     </div>
@@ -255,7 +281,7 @@ export function FixProductLinksButton() {
                 >
                   {fixStatus === 'running'
                     ? <><RefreshCw size={13} className="animate-spin" /> Aplicando…</>
-                    : <><Link2 size={13} /> Aplicar {confirmedCount > 0 ? `${confirmedCount} correção(ões)` : 'correções'}</>
+                    : <><Link2 size={13} /> Aplicar {confirmedCount > 0 ? `${confirmedCount} mapeamento(s)` : 'mapeamentos'}</>
                   }
                 </button>
 
@@ -271,11 +297,13 @@ export function FixProductLinksButton() {
                 )}
               </div>
 
-              {/* Log detalhado */}
               {fixLog.length > 0 && (
                 <details className="mt-3">
-                  <summary className="text-[11px] cursor-pointer" style={{ color: B.muted }}>Ver log detalhado</summary>
-                  <div className="mt-1 rounded-lg p-3 font-mono text-[11px] space-y-0.5" style={{ background: B.bg, color: B.muted }}>
+                  <summary className="text-[11px] cursor-pointer" style={{ color: B.muted }}>
+                    Ver log detalhado
+                  </summary>
+                  <div className="mt-1 rounded-lg p-3 font-mono text-[11px] space-y-0.5"
+                    style={{ background: B.bg, color: B.muted }}>
                     {fixLog.map((line, i) => <div key={i}>{line}</div>)}
                   </div>
                 </details>
