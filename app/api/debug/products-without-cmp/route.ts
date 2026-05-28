@@ -1,53 +1,61 @@
 /**
  * GET /api/debug/products-without-cmp
  *
- * 1. Busca o catálogo completo de produtos no Bling (código + gtin/EAN)
- * 2. Cruza com os produtos locais que têm vendas mas sem CMP
- * 3. Para cada um, tenta encontrar o produto correto via:
- *    a) código Bling == SKU do ML  →  retorna o EAN (gtin) do produto Bling
- *    b) Se o EAN estiver cadastrado localmente como produto com CMP, faz o link
+ * Lista todos os produtos com vendas mas sem CMP, e sugere o match correto usando:
  *
- * Retorna a lista completa pronta para o usuário confirmar e aplicar.
+ *  1. Mapeamento manual (MOVEDUO → 7908488105732, etc.)
+ *  2. Strip de sufixo de cor/variante: RAGA003-C → RAGA003, RAGA002-CINZA → RAGA002
+ *  3. Similaridade de nome (fallback Jaccard)
+ *
+ * Não depende de EAN no Bling — funciona 100% com os dados locais.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
-import { blingGet } from '@/lib/integrations/bling'
 
 export const dynamic     = 'force-dynamic'
-export const maxDuration = 60
+export const maxDuration = 30
 export const preferredRegion = 'gru1'
 
-interface BlingProduct {
-  id: number
-  nome: string
-  codigo: string        // SKU / código interno
-  gtin?: string         // EAN 13
-  codigoFabricante?: string
+// ─── Mapeamentos manuais conhecidos (ML SKU → SKU com CMP) ────────────────────
+const MANUAL_MAP: Record<string, string> = {
+  'MOVEDUO':            '7908488105732',
+  '7908488105732-DUO':  '7908488105732',
 }
 
-interface BlingProductsResponse {
-  data: BlingProduct[]
+// Sufixos de cor/variante comuns que aparecem depois de "-"
+const COLOR_SUFFIXES = new Set([
+  'C', 'R', 'A', 'B', 'P', 'G',
+  'PT', 'CZ', 'BG', 'VD', 'AZ', 'RS',
+  'PRETO', 'CINZA', 'BEGE', 'VERMELHO', 'AZUL', 'ROSA', 'VERDE',
+  'BLACK', 'GREY', 'GRAY', 'WHITE', 'BRANCO',
+  'DUO', 'PLUS', 'MAX',
+])
+
+// Tenta encontrar o SKU base removendo sufixo após o último "-"
+function stripColorSuffix(sku: string): string | null {
+  const idx = sku.lastIndexOf('-')
+  if (idx <= 0) return null
+  const suffix = sku.slice(idx + 1).toUpperCase()
+  if (COLOR_SUFFIXES.has(suffix)) return sku.slice(0, idx)
+  return null
 }
 
-// Busca todos os produtos do Bling paginando (100 por página)
-async function fetchAllBlingProducts(): Promise<BlingProduct[]> {
-  const all: BlingProduct[] = []
-  let page = 1
-  const limit = 100
+// Normaliza para comparação por nome
+function words(str: string): Set<string> {
+  return new Set(
+    str.toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length > 2)
+  )
+}
 
-  while (true) {
-    const res = await blingGet<BlingProductsResponse>('/produtos', {
-      pagina: String(page),
-      limite: String(limit),
-    })
-    const items = res?.data ?? []
-    all.push(...items)
-    if (items.length < limit) break
-    page++
-    if (page > 50) break // segurança: máximo 5000 produtos
-  }
-
-  return all
+function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
+  if (!a.size && !b.size) return 0
+  let inter = 0
+  for (const w of a) if (b.has(w)) inter++
+  return inter / new Set([...a, ...b]).size
 }
 
 export async function GET(request: NextRequest) {
@@ -58,39 +66,34 @@ export async function GET(request: NextRequest) {
 
   const db = createSupabaseServiceClient()
 
-  // ── 1. Produtos locais e CMPs ──────────────────────────────────────────────
-  const { data: products } = await db
-    .from('products')
-    .select('id, sku, name')
+  // ── Produtos locais ──────────────────────────────────────────────────────────
+  const { data: products } = await db.from('products').select('id, sku, name')
 
+  const prodById:  Record<string, { id: string; sku: string; name: string }> = {}
+  const prodBySku: Record<string, { id: string; sku: string; name: string }> = {}
+  for (const p of (products ?? []) as { id: string; sku: string; name: string }[]) {
+    prodById[p.id]  = p
+    prodBySku[p.sku] = p
+  }
+
+  // ── CMPs ─────────────────────────────────────────────────────────────────────
   const { data: cmps } = await db
     .from('cmp_costs')
     .select('product_id, cmp_value, effective_date')
     .order('effective_date', { ascending: false })
 
   const prodWithCmp = new Set((cmps ?? []).map((c: { product_id: string }) => c.product_id))
-
   const cmpByProduct: Record<string, { cmp_value: number; effective_date: string }> = {}
   for (const c of (cmps ?? []) as { product_id: string; cmp_value: number; effective_date: string }[]) {
-    if (!cmpByProduct[c.product_id]) {
-      cmpByProduct[c.product_id] = { cmp_value: c.cmp_value, effective_date: c.effective_date }
-    }
+    if (!cmpByProduct[c.product_id]) cmpByProduct[c.product_id] = { cmp_value: c.cmp_value, effective_date: c.effective_date }
   }
 
-  const prodById: Record<string, { id: string; sku: string; name: string }> = {}
-  const prodBySku: Record<string, { id: string; sku: string; name: string }> = {}
-  for (const p of (products ?? []) as { id: string; sku: string; name: string }[]) {
-    prodById[p.id] = p
-    prodBySku[p.sku] = p
-  }
-
-  // ── 2. Vendas por product_id (paginado) ────────────────────────────────────
+  // ── Vendas por product_id (paginado) ──────────────────────────────────────────
   const PAGE = 1000
   const allSales: { product_id: string; sku: string; marketplace: string }[] = []
   for (let offset = 0; ; offset += PAGE) {
     const { data, error } = await db
-      .from('sales')
-      .select('product_id, sku, marketplace')
+      .from('sales').select('product_id, sku, marketplace')
       .not('product_id', 'is', null)
       .range(offset, offset + PAGE - 1)
     if (error || !data?.length) break
@@ -98,94 +101,96 @@ export async function GET(request: NextRequest) {
     if (data.length < PAGE) break
   }
 
-  const salesByProduct: Record<string, { count: number; skus: Set<string>; marketplaces: Set<string> }> = {}
+  const salesByProduct: Record<string, { count: number; marketplaces: Set<string> }> = {}
   for (const s of allSales) {
     if (!s.product_id) continue
-    if (!salesByProduct[s.product_id]) {
-      salesByProduct[s.product_id] = { count: 0, skus: new Set(), marketplaces: new Set() }
-    }
+    if (!salesByProduct[s.product_id]) salesByProduct[s.product_id] = { count: 0, marketplaces: new Set() }
     salesByProduct[s.product_id].count++
-    salesByProduct[s.product_id].skus.add(s.sku ?? '')
     salesByProduct[s.product_id].marketplaces.add(s.marketplace ?? '')
   }
 
-  // ── 3. Catálogo Bling ──────────────────────────────────────────────────────
-  let blingProducts: BlingProduct[] = []
-  let blingError: string | null = null
-  try {
-    blingProducts = await fetchAllBlingProducts()
-  } catch (e) {
-    blingError = String(e)
-  }
+  // Produtos COM CMP (para usar como candidatos de match)
+  const candidatesWithCmp = Object.entries(cmpByProduct).map(([pid, cmp]) => ({
+    product_id: pid,
+    sku: prodById[pid]?.sku ?? '',
+    name: prodById[pid]?.name ?? '',
+    cmp_value: cmp.cmp_value,
+    effective_date: cmp.effective_date,
+  }))
 
-  // Index Bling por código (SKU) e por GTIN (EAN)
-  const blingByCodigo: Record<string, BlingProduct> = {}
-  const blingByGtin: Record<string, BlingProduct> = {}
-  for (const bp of blingProducts) {
-    if (bp.codigo) blingByCodigo[bp.codigo.trim()] = bp
-    if (bp.gtin)   blingByGtin[bp.gtin.trim()] = bp
-  }
-
-  // ── 4. Produtos SEM CMP — tenta resolver via Bling ────────────────────────
+  // ── Resolve match para cada produto sem CMP ────────────────────────────────────
   const productsWithoutCmp = Object.entries(salesByProduct)
-    .filter(([productId]) => !prodWithCmp.has(productId))
-    .map(([productId, info]) => {
-      const localProd = prodById[productId]
-      const mlSku = localProd?.sku ?? ''
+    .filter(([pid]) => !prodWithCmp.has(pid))
+    .map(([pid, info]) => {
+      const local = prodById[pid]
+      const mlSku = local?.sku ?? ''
 
-      // Estratégia A: código Bling == SKU do ML → pega o GTIN/EAN
-      const blingMatch = blingByCodigo[mlSku]
-      const ean = blingMatch?.gtin?.trim() ?? blingMatch?.codigoFabricante?.trim() ?? null
+      let match: typeof candidatesWithCmp[0] | null = null
+      let matchSource = ''
 
-      // Estratégia B: o EAN está cadastrado como produto local com CMP?
-      const localEanProd = ean ? prodBySku[ean] : null
-      const hasCmp = localEanProd ? prodWithCmp.has(localEanProd.id) : false
-      const cmpInfo = localEanProd ? cmpByProduct[localEanProd.id] : null
+      // Estratégia 1: mapeamento manual
+      const manualTargetSku = MANUAL_MAP[mlSku]
+      if (manualTargetSku) {
+        const targetProd = prodBySku[manualTargetSku]
+        if (targetProd && prodWithCmp.has(targetProd.id)) {
+          match = candidatesWithCmp.find(c => c.product_id === targetProd.id) ?? null
+          matchSource = 'manual'
+        }
+      }
+
+      // Estratégia 2: strip sufixo de cor (ex: RAGA003-C → RAGA003)
+      if (!match) {
+        const baseSku = stripColorSuffix(mlSku)
+        if (baseSku) {
+          const baseProd = prodBySku[baseSku]
+          if (baseProd && prodWithCmp.has(baseProd.id)) {
+            match = candidatesWithCmp.find(c => c.product_id === baseProd.id) ?? null
+            matchSource = 'suffix_strip'
+          }
+        }
+      }
+
+      // Estratégia 3: similaridade de nome (fallback)
+      if (!match) {
+        const nameW = words(local?.name ?? '')
+        let best = 0
+        for (const c of candidatesWithCmp) {
+          const score = jaccardSimilarity(nameW, words(c.name))
+          if (score > best) { best = score; if (score >= 0.35) match = c }
+        }
+        if (match) matchSource = `name_similarity_${Math.round(best * 100)}pct`
+      }
 
       return {
-        product_id: productId,
+        product_id: pid,
         sku: mlSku,
-        name: localProd?.name ?? '???',
+        name: local?.name ?? '???',
         sales_count: info.count,
         marketplaces: Array.from(info.marketplaces).filter(Boolean),
-        // Dados do Bling para este SKU
-        bling: blingMatch ? {
-          codigo: blingMatch.codigo,
-          nome: blingMatch.nome,
-          gtin: ean,
+        suggested_match: match ? {
+          product_id: match.product_id,
+          sku: match.sku,
+          name: match.name,
+          cmp_value: match.cmp_value,
+          effective_date: match.effective_date,
+          source: matchSource,
         } : null,
-        // Match no banco local via EAN
-        suggested_match: (hasCmp && localEanProd && cmpInfo) ? {
-          product_id: localEanProd.id,
-          sku: localEanProd.sku,
-          name: localEanProd.name,
-          cmp_value: cmpInfo.cmp_value,
-          effective_date: cmpInfo.effective_date,
-          source: 'bling_catalog', // match via catálogo Bling
-        } : null,
-        // Flag se o EAN foi encontrado no Bling mas não está no banco local
-        ean_found_in_bling_but_no_local_product: (ean && !localEanProd) ? ean : null,
-        ean_found_but_no_cmp: (ean && localEanProd && !hasCmp) ? ean : null,
       }
     })
     .sort((a, b) => b.sales_count - a.sales_count)
 
-  // ── 5. Resumo ──────────────────────────────────────────────────────────────
-  const withMatch    = productsWithoutCmp.filter(p => p.suggested_match).length
-  const withEanOnly  = productsWithoutCmp.filter(p => !p.suggested_match && p.bling?.gtin).length
-  const withNothing  = productsWithoutCmp.filter(p => !p.bling).length
+  const withMatch   = productsWithoutCmp.filter(p => p.suggested_match).length
+  const withNothing = productsWithoutCmp.filter(p => !p.suggested_match).length
 
   return NextResponse.json({
     summary: {
       total_products_with_sales: Object.keys(salesByProduct).length,
       products_with_cmp: prodWithCmp.size,
       products_WITHOUT_cmp: productsWithoutCmp.length,
-      resolved_via_bling: withMatch,
-      ean_found_no_local_product: withEanOnly,
-      not_found_in_bling: withNothing,
+      resolved: withMatch,
+      no_match_found: withNothing,
     },
     products_without_cmp: productsWithoutCmp,
-    bling_catalog_size: blingProducts.length,
-    bling_error: blingError,
+    products_with_cmp: candidatesWithCmp.sort((a, b) => a.sku.localeCompare(b.sku)),
   })
 }
