@@ -75,9 +75,8 @@ export async function POST(request: NextRequest) {
   //    Bulk: carrega todos os CMPs ordenados por data e todas as vendas de uma vez
 
   // Pagina pelas tabelas em blocos de 1000 para contornar o max-rows do PostgREST
-  async function fetchAll<T>(
-    builder: () => ReturnType<typeof db.from>
-  ): Promise<T[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async function fetchAll<T>(builder: () => any): Promise<T[]> {
     const PAGE = 1000
     const rows: T[] = []
     for (let offset = 0; ; offset += PAGE) {
