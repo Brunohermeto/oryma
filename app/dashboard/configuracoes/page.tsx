@@ -8,6 +8,7 @@ import { BlingSyncButton } from '@/components/configuracoes/BlingSyncButton'
 import { MarketplaceSyncButton } from '@/components/configuracoes/MarketplaceSyncButton'
 import { DiagnosticoCustoButton } from '@/components/configuracoes/DiagnosticoCustoButton'
 import { RelinkButton } from '@/components/configuracoes/RelinkButton'
+import { FixCommissionButton } from '@/components/configuracoes/FixCommissionButton'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { Clock, CheckCircle2, AlertCircle } from 'lucide-react'
 
@@ -183,6 +184,9 @@ export default async function ConfiguracoesPage({
 
         {/* Relink: recalcula CMV e margens de todas as vendas */}
         <RelinkButton />
+
+        {/* Corrige comissão de produtos de catálogo ML (RAGA001-C etc.) */}
+        <FixCommissionButton />
 
         {/* Diagnóstico de custo — botão temporário */}
         <DiagnosticoCustoButton />
