@@ -88,13 +88,14 @@ export async function POST(request: NextRequest) {
     return rows
   }
 
-  const [allCmps, allSales] = await Promise.all([
-    fetchAll(() =>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [allCmps, allSales]: [any[], any[]] = await Promise.all([
+    fetchAll<any>(() =>
       db.from('cmp_costs')
         .select('id, product_id, cmp_value, effective_date')
         .order('effective_date', { ascending: true })
     ),
-    fetchAll(() =>
+    fetchAll<any>(() =>
       db.from('sales')
         .select('id, product_id, gross_price, shipping_received, marketplace_commission, marketplace_shipping_fee, ads_cost, cancellation, discounts, rebate, quantity, sale_date')
         .not('product_id', 'is', null)
