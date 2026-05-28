@@ -64,6 +64,26 @@ async function getShippingCostForSeller(shipmentId: number): Promise<number> {
 }
 
 /**
+ * Extrai frete cobrado ao VENDEDOR pelo ML a partir de fee_details.
+ *
+ * No ML, fee_details com type contendo 'shipping' e amount > 0
+ * representa o custo de envio cobrado do vendedor pelo Mercado Envios.
+ * Isso evita a chamada extra ao endpoint /shipments/{id}/costs.
+ */
+function extractSellerShippingCost(order: MLOrder): number {
+  if (!order.fee_details?.length) return 0
+  const SHIPPING_TYPES = new Set(['shipping', 'shipping_fee', 'carrier_fee', 'logistic'])
+  let total = 0
+  for (const fee of order.fee_details) {
+    const amount = Number(fee.amount ?? fee.fee_amount ?? 0)
+    if (amount > 0 && (SHIPPING_TYPES.has(fee.type) || fee.type?.includes('shipping'))) {
+      total += amount
+    }
+  }
+  return total
+}
+
+/**
  * Extrai rebate do pedido ML.
  *
  * Fontes de rebate no ML:
@@ -78,32 +98,11 @@ async function getShippingCostForSeller(shipmentId: number): Promise<number> {
  */
 function extractRebate(order: MLOrder): number {
   if (!order.fee_details?.length) return 0
-
-  // Tipos de fee que representam crédito/rebate ao vendedor (valor negativo no array)
-  const REBATE_TYPES = new Set([
-    'coupon_ml',          // ML subsidia parte do cupom
-    'campaign',           // participação em campanha comercial
-    'campaign_discount',  // desconto de campanha
-    'estorno',            // estorno de tarifa
-    'reversal',           // reversão
-    'discount',           // desconto de tarifa por reputação/programa
-    'seller_deal',        // promoção negociada com ML
-  ])
-
   let rebateTotal = 0
   for (const fee of order.fee_details) {
     const amount = Number(fee.amount ?? fee.fee_amount ?? 0)
-    // Créditos ao vendedor aparecem como NEGATIVOS em fee_details
-    // (são valores que ML está devolvendo/concedendo ao vendedor)
-    if (amount < 0) {
-      // Se for um tipo conhecido de rebate OU qualquer crédito (amount < 0),
-      // soma como rebate. Tipos conhecidos têm prioridade mas capturamos tudo.
-      if (REBATE_TYPES.has(fee.type) || amount < 0) {
-        rebateTotal += Math.abs(amount)
-      }
-    }
+    if (amount < 0) rebateTotal += Math.abs(amount)
   }
-
   return rebateTotal
 }
 
@@ -144,8 +143,10 @@ export async function syncMercadoLivre(
       const isFull         = isFulfillmentFull(order)
       const fulfillmentType = isFull ? 'full_ml' : 'galpao'
 
-      let shippingCost = 0
-      if (!isFull && order.shipping?.id && fetchShipmentCosts) {
+      // Frete cobrado ao vendedor: extraído de fee_details (sem chamada extra à API)
+      // Fallback: endpoint /shipments/{id}/costs se fee_details estiver vazio e habilitado
+      let shippingCost = extractSellerShippingCost(order)
+      if (shippingCost === 0 && !isFull && order.shipping?.id && fetchShipmentCosts) {
         await sleep(150)
         shippingCost = await getShippingCostForSeller(order.shipping.id)
       }
