@@ -50,9 +50,10 @@ export async function POST(request: NextRequest) {
     .from('cmp_costs')
     .insert(
       valid.map(e => ({
-        product_id:     e.product_id,
-        cmp_value:      e.cmp_value,
-        effective_date: e.effective_date,
+        product_id:      e.product_id,
+        cmp_value:       e.cmp_value,
+        effective_date:  e.effective_date,
+        total_stock_qty: 1,   // placeholder para entrada manual
       }))
     )
 
