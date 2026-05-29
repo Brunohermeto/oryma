@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
         const suffix = alphaMatch[0]
         const { data } = await db.from('sales').select('id')
           .like('external_order_id', `%${suffix}%`).is('nfe_saida_key', null).limit(1)
-        if (data?.[0]) { saleId = data[0].id; matchedSaleIds = [saleId] }
+        if (data?.[0]) { saleId = data[0].id; matchedSaleIds = [saleId as string] }
       }
     }
 
@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
       if (canal && numeroPedido) {
         const { data } = await db.from('sales').select('id')
           .like('external_order_id', `${canal}_${numeroPedido}_%`).limit(1)
-        if (data?.[0]) { saleId = data[0].id; matchedSaleIds = [saleId] }
+        if (data?.[0]) { saleId = data[0].id; matchedSaleIds = [saleId as string] }
       }
     }
 
