@@ -16,29 +16,8 @@ export const dynamic     = 'force-dynamic'
 export const maxDuration = 30
 export const preferredRegion = 'gru1'
 
-// ─── Mapeamentos manuais conhecidos (ML SKU → SKU com CMP) ────────────────────
-const MANUAL_MAP: Record<string, string> = {
-  'MOVEDUO':            '7908488105732',
-  '7908488105732-DUO':  '7908488105732',
-}
-
-// Sufixos de cor/variante comuns que aparecem depois de "-"
-const COLOR_SUFFIXES = new Set([
-  'C', 'R', 'A', 'B', 'P', 'G',
-  'PT', 'CZ', 'BG', 'VD', 'AZ', 'RS',
-  'PRETO', 'CINZA', 'BEGE', 'VERMELHO', 'AZUL', 'ROSA', 'VERDE',
-  'BLACK', 'GREY', 'GRAY', 'WHITE', 'BRANCO',
-  'DUO', 'PLUS', 'MAX',
-])
-
-// Tenta encontrar o SKU base removendo sufixo após o último "-"
-function stripColorSuffix(sku: string): string | null {
-  const idx = sku.lastIndexOf('-')
-  if (idx <= 0) return null
-  const suffix = sku.slice(idx + 1).toUpperCase()
-  if (COLOR_SUFFIXES.has(suffix)) return sku.slice(0, idx)
-  return null
-}
+// Não fazemos strip de sufixo — RAGA002-C ≠ RAGA002 (produtos distintos, custos distintos).
+// O match deve ser sempre exato (SKU = SKU) ou via similaridade de nome como fallback.
 
 // Normaliza para comparação por nome
 function words(str: string): Set<string> {
@@ -128,46 +107,28 @@ export async function GET(request: NextRequest) {
       let match: typeof candidatesWithCmp[0] | null = null
       let matchSource = ''
 
-      // Estratégia 1: mapeamento manual
-      const manualTargetSku = MANUAL_MAP[mlSku]
-      if (manualTargetSku) {
-        const targetProd = prodBySku[manualTargetSku]
-        if (targetProd && prodWithCmp.has(targetProd.id)) {
-          match = candidatesWithCmp.find(c => c.product_id === targetProd.id) ?? null
-          matchSource = 'manual'
-        }
+      // Estratégia 1: match exato por SKU (SKU ML == SKU com CMP)
+      const exactProd = prodBySku[mlSku]
+      if (exactProd && prodWithCmp.has(exactProd.id)) {
+        match = candidatesWithCmp.find(c => c.product_id === exactProd.id) ?? null
+        matchSource = 'exact'
       }
 
-      // Estratégia 2: strip sufixo de cor (ex: RAGA003-C → RAGA003)
-      let baseSkuDiag: string | null = null
-      let baseSkuStatus: 'not_in_db' | 'no_cmp' | 'ok' | null = null
-      if (!match) {
-        const baseSku = stripColorSuffix(mlSku)
-        if (baseSku) {
-          baseSkuDiag = baseSku
-          const baseProd = prodBySku[baseSku]
-          if (!baseProd) {
-            baseSkuStatus = 'not_in_db'  // produto base não existe → NF-e nunca importada
-          } else if (!prodWithCmp.has(baseProd.id)) {
-            baseSkuStatus = 'no_cmp'     // produto base existe mas sem CMP → NF-e não processou custo
-          } else {
-            baseSkuStatus = 'ok'
-            match = candidatesWithCmp.find(c => c.product_id === baseProd.id) ?? null
-            matchSource = 'suffix_strip'
-          }
-        }
-      }
-
-      // Estratégia 3: similaridade de nome (fallback)
+      // Estratégia 2: similaridade de nome (fallback — apenas quando não há match exato)
+      let nameSimilarityScore = 0
       if (!match) {
         const nameW = words(local?.name ?? '')
         let best = 0
         for (const c of candidatesWithCmp) {
           const score = jaccardSimilarity(nameW, words(c.name))
-          if (score > best) { best = score; if (score >= 0.35) match = c }
+          if (score > best) { best = score; match = score >= 0.40 ? c : null }
         }
-        if (match) matchSource = `name_similarity_${Math.round(best * 100)}pct`
+        if (match) { matchSource = `name_similarity`; nameSimilarityScore = Math.round(best * 100) }
       }
+
+      // Diagnóstico: por que não encontrou match?
+      const exactExists = !!prodBySku[mlSku]
+      const exactHasCmp = exactExists && prodWithCmp.has(prodBySku[mlSku].id)
 
       return {
         product_id: pid,
@@ -175,13 +136,12 @@ export async function GET(request: NextRequest) {
         name: local?.name ?? '???',
         sales_count: info.count,
         marketplaces: Array.from(info.marketplaces).filter(Boolean),
-        // Diagnóstico do motivo quando não há match
         no_match_reason: !match ? (
-          baseSkuStatus === 'not_in_db' ? `Produto base "${baseSkuDiag}" não existe na base — NF-e de entrada não importada` :
-          baseSkuStatus === 'no_cmp'    ? `Produto base "${baseSkuDiag}" existe mas sem CMP — verificar NF-e` :
-          MANUAL_MAP[mlSku]             ? `Mapeamento manual aponta para "${MANUAL_MAP[mlSku]}" mas esse produto não tem CMP` :
+          !exactExists   ? `"${mlSku}" não existe na base — NF-e de entrada não foi importada (sincronize o Bling)` :
+          !exactHasCmp   ? `"${mlSku}" existe mas sem CMP — NF-e importada sem calcular custo (re-sincronize o Bling)` :
           'Nenhum match encontrado'
         ) : null,
+        name_similarity_pct: matchSource === 'name_similarity' ? nameSimilarityScore : null,
         suggested_match: match ? {
           product_id: match.product_id,
           sku: match.sku,
