@@ -73,20 +73,30 @@ export async function syncNFeSaida(startDate: string, endDate: string, maxItems 
 
   // ── FASE 1: 2 queries para pré-carregar tudo ────────────────────────────
 
-  const [linkedResult, unmatchedResult] = await Promise.all([
-    db.from('sales').select('nfe_saida_key').not('nfe_saida_key', 'is', null),
-    db.from('sales').select('id, external_order_id, sale_date, gross_price').is('nfe_saida_key', null),
-  ])
+  // Carrega chaves já vinculadas (para skip imediato)
+  const { data: linkedData } = await db.from('sales').select('nfe_saida_key').not('nfe_saida_key', 'is', null)
+  const linkedChaves = new Set((linkedData ?? []).map(s => s.nfe_saida_key as string))
 
-  // Set de chaves já vinculadas — skip imediato sem baixar XML
-  const linkedChaves = new Set((linkedResult.data ?? []).map(s => s.nfe_saida_key as string))
+  // Carrega TODAS as vendas sem NF-e (paginado — sem esse fix só pega 1000 de ~3270)
+  const unmatchedSales: Array<{ id: string; external_order_id: string; sale_date: string; gross_price: number }> = []
+  for (let offset = 0; ; offset += 1000) {
+    const { data: page, error } = await db
+      .from('sales')
+      .select('id, external_order_id, sale_date, gross_price')
+      .is('nfe_saida_key', null)
+      .range(offset, offset + 999)
+    if (error || !page?.length) break
+    unmatchedSales.push(...page)
+    if (page.length < 1000) break
+  }
 
   // Mapa para matching por número do pedido: "ml_ORDERID" → sale_id
   const orderPrefixMap = new Map<string, string>()
   // Mapa para matching por data+valor: "YYYY-MM-DD" → [{id, gross_price}]
+  // Inclui ±2 dias de tolerância para cobrir NF-e emitidas após o pedido
   const dateValueMap = new Map<string, Array<{ id: string; gross_price: number }>>()
 
-  for (const s of (unmatchedResult.data ?? [])) {
+  for (const s of unmatchedSales) {
     // external_order_id = "ml_ORDERID_ITEMID" ou "shopee_ORDERID_SKU"
     // Prefixo = "canal_orderId" (primeiros 2 componentes separados por _)
     const firstUnderscore = s.external_order_id.indexOf('_')
@@ -154,15 +164,26 @@ export async function syncNFeSaida(startDate: string, endDate: string, maxItems 
           saleId = orderPrefixMap.get(prefix) ?? null
         }
 
-        // Estratégia 2: data + valor (fallback)
+        // Estratégia 2: data + valor com tolerância ±2 dias
+        // NF-e pode ser emitida até 2 dias após o pedido
         if (!saleId) {
           const vNF   = extractTag(xml, 'vNF')
           const dhEmi = xml.match(/<dhEmi>([^<]+)<\/dhEmi>/)?.[1]?.slice(0, 10) ?? nfe.dataEmissao.slice(0, 10)
-          if (vNF > 0) {
-            const tol = vNF * 0.02
-            const candidates = dateValueMap.get(dhEmi) ?? []
-            const found = candidates.find(c => c.gross_price >= vNF - tol && c.gross_price <= vNF + tol)
-            saleId = found?.id ?? null
+          if (vNF > 0 && dhEmi) {
+            const tol = vNF * 0.03  // 3% de tolerância no valor
+            // Tenta a data exata e ±2 dias
+            const datesToTry = [dhEmi]
+            const baseDate = new Date(dhEmi + 'T12:00:00Z')
+            for (let d = 1; d <= 2; d++) {
+              const before = new Date(baseDate.getTime() - d * 86400000).toISOString().slice(0, 10)
+              const after  = new Date(baseDate.getTime() + d * 86400000).toISOString().slice(0, 10)
+              datesToTry.push(before, after)
+            }
+            for (const tryDate of datesToTry) {
+              const candidates = dateValueMap.get(tryDate) ?? []
+              const found = candidates.find(c => c.gross_price >= vNF - tol && c.gross_price <= vNF + tol)
+              if (found) { saleId = found.id; break }
+            }
           }
         }
 

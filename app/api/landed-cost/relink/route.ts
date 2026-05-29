@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [allCmps, allSales]: [any[], any[]] = await Promise.all([
+  const [allCmps, allSales, allTaxes]: [any[], any[], any[]] = await Promise.all([
     fetchAll<any>(() =>
       db.from('cmp_costs')
         .select('id, product_id, cmp_value, effective_date')
@@ -100,7 +100,16 @@ export async function POST(request: NextRequest) {
         .select('id, product_id, gross_price, shipping_received, marketplace_commission, marketplace_shipping_fee, ads_cost, cancellation, discounts, rebate, quantity, sale_date')
         .not('product_id', 'is', null)
     ),
+    fetchAll<any>(() =>
+      db.from('sale_taxes')
+        .select('sale_id, pis, cofins, icms, icms_difal, ipi')
+    ),
   ])
+
+  // Mapa de impostos por sale_id
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const taxBySale = new Map<string, any>()
+  for (const t of allTaxes ?? []) taxBySale.set(t.sale_id, t)
 
   // Mapa: product_id → CMPs ordenados por effective_date ASC
   const cmpsByProduct = new Map<string, Array<{ id: string; value: number; date: string }>>()
@@ -137,6 +146,14 @@ export async function POST(request: NextRequest) {
     if (!cmp) continue
     const qty         = Number(sale.quantity) || 1
     const totalCost   = cmp.value * qty
+    const taxes       = taxBySale.get(sale.id)
+    const totalTaxes  = taxes
+      ? Number(taxes.pis       ?? 0)
+      + Number(taxes.cofins    ?? 0)
+      + Number(taxes.icms      ?? 0)
+      + Number(taxes.icms_difal ?? 0)
+      + Number(taxes.ipi       ?? 0)
+      : 0
     const netRevenue  = Number(sale.gross_price)
                       + Number(sale.shipping_received        ?? 0)
                       - Number(sale.marketplace_commission   ?? 0)
@@ -145,6 +162,7 @@ export async function POST(request: NextRequest) {
                       - Number(sale.cancellation             ?? 0)
                       - Number(sale.discounts                ?? 0)
                       + Number(sale.rebate                   ?? 0)
+                      - totalTaxes  // impostos da NF-e saída
     const marginValue = netRevenue - totalCost
     const marginPct   = netRevenue > 0 ? marginValue / netRevenue : 0
     saleCostRows.push({
