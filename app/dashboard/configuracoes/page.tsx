@@ -10,6 +10,7 @@ import { DiagnosticoCustoButton } from '@/components/configuracoes/DiagnosticoCu
 import { RelinkButton } from '@/components/configuracoes/RelinkButton'
 import { FixCommissionButton } from '@/components/configuracoes/FixCommissionButton'
 import { FixProductLinksButton } from '@/components/configuracoes/FixProductLinksButton'
+import { ReprocessImportButton } from '@/components/configuracoes/ReprocessImportButton'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { Clock, CheckCircle2, AlertCircle } from 'lucide-react'
 
@@ -191,6 +192,9 @@ export default async function ConfiguracoesPage({
 
         {/* Vincula SKU do ML ao EAN do Bling para calcular CMV */}
         <FixProductLinksButton />
+
+        {/* Reprocessa NF-e de entrada com SKU errado via catálogo Bling */}
+        <ReprocessImportButton />
 
         {/* Diagnóstico de custo — botão temporário */}
         <DiagnosticoCustoButton />

@@ -1,5 +1,6 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { recalculateLandedCost } from '@/lib/landed-cost/calculator'
+import { buildBlingProductIndex, resolveSkuFromBling, type BlingProductIndex } from '@/lib/bling/product-index'
 import type { ParsedNFe } from './parser'
 
 // SKU_MAP: mapeia código do produto na NF-e (cProd) → SKU interno
@@ -64,12 +65,17 @@ const XPROD_KEYWORDS: Array<{ keywords: string[]; sku: string }> = [
   { keywords: ['MOVEDUO', 'MOVE'],                    sku: 'MOVEDUO' },
 ]
 
-function resolveProductSku(cProd: string, xProd: string): string {
-  // 1. Mapeamento direto pelo cProd
+function resolveProductSku(cProd: string, xProd: string, blingIndex?: BlingProductIndex): string {
+  // 1. Mapeamento direto pelo cProd (SKU_MAP tem precedência)
   if (SKU_MAP[cProd]) return SKU_MAP[cProd]
 
-  // 2. Fallback por palavras-chave na descrição (xProd)
-  // Usa regras mais específicas primeiro (mais keywords = mais específico)
+  // 2. Catálogo do Bling: codigoFabricante ou GTIN → SKU interno
+  if (blingIndex) {
+    const blingSku = resolveSkuFromBling(cProd, blingIndex)
+    if (blingSku) return blingSku
+  }
+
+  // 3. Fallback por palavras-chave na descrição (xProd)
   const upper = xProd.toUpperCase()
   const sorted = [...XPROD_KEYWORDS].sort((a, b) => b.keywords.length - a.keywords.length)
   for (const rule of sorted) {
@@ -78,13 +84,14 @@ function resolveProductSku(cProd: string, xProd: string): string {
     }
   }
 
-  // 3. Fallback final: usa o cProd literalmente
+  // 4. Fallback final: usa o cProd literalmente
   return cProd
 }
 
 export async function processImportNFe(
   nfe: ParsedNFe,
-  storagePath: string | null
+  storagePath: string | null,
+  blingIndex?: BlingProductIndex
 ): Promise<{ orderId: string; itemsProcessed: number }> {
   const db = createSupabaseServiceClient()
   const totalFobValue = nfe.items.reduce((s, i) => s + i.vProd, 0)
@@ -115,7 +122,7 @@ export async function processImportNFe(
   let itemsProcessed = 0
   const itemRows = []
   for (const item of nfe.items) {
-    const resolvedSku = resolveProductSku(item.cProd, item.xProd)
+    const resolvedSku = resolveProductSku(item.cProd, item.xProd, blingIndex)
 
     // Busca o produto — cria automaticamente se não existir
     // (evita product_id=null que impede o cálculo de CMP)

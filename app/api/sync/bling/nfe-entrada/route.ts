@@ -31,6 +31,7 @@ import { blingGet, blingGetDocumentoXml } from '@/lib/integrations/bling'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { brazilToday, brazilDaysAgo } from '@/lib/utils/brazil-time'
 import { recalculateLandedCost } from '@/lib/landed-cost/calculator'
+import { buildBlingProductIndex, resolveSkuFromBling } from '@/lib/bling/product-index'
 
 export const dynamic         = 'force-dynamic'
 export const maxDuration     = 60
@@ -140,6 +141,13 @@ export async function POST(request: NextRequest) {
     const { data: products } = await db.from('products').select('id, sku')
     const productMap = Object.fromEntries((products ?? []).map(p => [p.sku.toUpperCase(), p.id]))
 
+    // 4. Constrói índice do catálogo Bling (codigoFabricante + gtin → SKU interno)
+    //    Permite resolver cProd do fornecedor para o SKU correto mesmo sem match exato
+    let blingIndex = null
+    try {
+      blingIndex = await buildBlingProductIndex()
+    } catch { /* não bloqueia o sync se o catálogo falhar */ }
+
     // 4. Processa cada NF-e de entrada
     let synced = 0
     let skipped = 0
@@ -191,12 +199,33 @@ export async function POST(request: NextRequest) {
         // Extrai e insere itens
         const dets = extractDets(xml)
         if (dets.length > 0) {
-          const itemRows = dets.map(d => {
-            const skuUp = d.sku.toUpperCase()
+          const itemRows = await Promise.all(dets.map(async d => {
+            // Resolve SKU: 1) catálogo Bling (codigoFabricante/gtin) 2) cProd direto
+            const resolvedSku = (blingIndex ? resolveSkuFromBling(d.sku, blingIndex) : null) ?? d.sku
+            const skuUp = resolvedSku.toUpperCase()
+
+            // Busca product_id — cria o produto automaticamente se não existir
+            let productId = productMap[skuUp] ?? null
+            if (!productId) {
+              const { data: existing } = await db.from('products').select('id').eq('sku', resolvedSku).maybeSingle()
+              if (existing) {
+                productId = existing.id
+                productMap[skuUp] = productId  // atualiza cache local
+              } else {
+                // Cria produto novo a partir dos dados da NF-e
+                const blingName = blingIndex?.byCodigo[resolvedSku]?.nome ?? d.description
+                const { data: newProd } = await db.from('products')
+                  .insert({ sku: resolvedSku, name: blingName })
+                  .select('id').maybeSingle()
+                productId = newProd?.id ?? null
+                if (productId) productMap[skuUp] = productId
+              }
+            }
+
             return {
               import_order_id:  order.id,
-              product_id:       productMap[skuUp] ?? null,
-              sku:              d.sku,
+              product_id:       productId,
+              sku:              resolvedSku,
               description:      d.description,
               quantity:         d.qty,
               unit_fob_value:   d.qty > 0 ? d.unitValue : 0,
@@ -206,7 +235,7 @@ export async function POST(request: NextRequest) {
               unit_pis_imp:     d.qty > 0 ? d.pis / d.qty : 0,
               unit_cofins_imp:  d.qty > 0 ? d.cofins / d.qty : 0,
             }
-          })
+          }))
           await db.from('import_items').insert(itemRows)
         }
 
