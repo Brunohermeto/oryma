@@ -88,9 +88,9 @@ export function CmpManualForm({ withoutCmp, withCmp }: Props) {
         style={{ background: 'oklch(0.95 0.03 258)', border: '1px solid oklch(0.85 0.04 258)' }}>
         <AlertCircle size={16} className="mt-0.5 flex-shrink-0" style={{ color: B.brand }} />
         <div className="text-[13px]" style={{ color: B.text }}>
-          Informe o <strong>custo médio de importação (CMV)</strong> por unidade para cada produto.
-          Inclui frete, impostos e custo do produto. Use o valor da última NF-e de entrada ou a média histórica.
-          Após salvar, as margens serão recalculadas automaticamente.
+          Informe o <strong>custo médio de importação (CMV)</strong> por unidade para cada produto —
+          inclui produto + frete + impostos. <strong>Deixe em branco os que não souber</strong>:
+          apenas os campos preenchidos serão salvos. As margens são recalculadas ao salvar.
         </div>
       </div>
 
