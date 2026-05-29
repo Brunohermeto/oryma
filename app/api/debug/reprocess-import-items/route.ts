@@ -56,7 +56,21 @@ export async function POST(request: NextRequest) {
 
   log.push(`${nullItems?.length ?? 0} itens com product_id=null`)
 
-  // 4. import_items cujo produto não tem CMP (sku resolvível via Bling)
+  // 4. import_orders SEM items (importados pelo sync antigo — só cabeçalho, sem itens)
+  const { count: ordersWithoutItems } = await db
+    .from('import_orders')
+    .select('id', { count: 'exact', head: true })
+    .not('id', 'in',
+      (await db.from('import_items').select('import_order_id')).data
+        ?.map((r: { import_order_id: string }) => r.import_order_id)
+        .filter(Boolean) ?? []
+    )
+
+  if ((ordersWithoutItems ?? 0) > 0) {
+    log.push(`⚠ ${ordersWithoutItems} NF-e sem itens (importadas pelo sync antigo — clique em "Bling → NF-e e Produtos" para reimportar)`)
+  }
+
+  // 5. import_items cujo produto não tem CMP
   const { data: allItems } = await db
     .from('import_items')
     .select('id, import_order_id, sku, description, product_id')
@@ -118,8 +132,16 @@ export async function POST(request: NextRequest) {
       continue
     }
 
+    // product_id já está correto mas pode não ter CMP → marca para recalcular mesmo assim
     if (productId === item.product_id) {
-      skipped++
+      if (!prodWithCmp.has(productId)) {
+        // CMP ausente: agenda recálculo sem mudar o product_id
+        ordersToRecalculate.add(item.import_order_id)
+        log.push(`~ ${rawSku}: product_id correto mas sem CMP → recalcular NF-e`)
+        fixed++
+      } else {
+        skipped++
+      }
       continue
     }
 
