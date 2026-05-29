@@ -41,31 +41,47 @@ export default async function VelocidadePage() {
 
   // Estoque real = total importado (import_items) − total vendido (sales)
   // Mais confiável do que stock_quantity do Bling que pode estar desatualizado
-  const { data: importQtys } = await db
-    .from('import_items')
-    .select('product_id, quantity')
-    .not('product_id', 'is', null)
-
+  // Import quantities — paginado
   const importedByProduct: Record<string, number> = {}
-  for (const r of (importQtys ?? []) as { product_id: string; quantity: number }[]) {
-    importedByProduct[r.product_id] = (importedByProduct[r.product_id] ?? 0) + Number(r.quantity ?? 0)
+  for (let offset = 0; ; offset += 1000) {
+    const { data: page, error } = await db
+      .from('import_items').select('product_id, quantity')
+      .not('product_id', 'is', null).range(offset, offset + 999)
+    if (error || !page?.length) break
+    for (const r of page as { product_id: string; quantity: number }[]) {
+      importedByProduct[r.product_id] = (importedByProduct[r.product_id] ?? 0) + Number(r.quantity ?? 0)
+    }
+    if (page.length < 1000) break
   }
 
-  const { data: totalSalesQty } = await db
-    .from('sales')
-    .select('product_id, quantity')
-    .not('product_id', 'is', null)
-
+  // Total vendido por produto (all-time) — paginado
   const soldByProduct: Record<string, number> = {}
-  for (const r of (totalSalesQty ?? []) as { product_id: string; quantity: number }[]) {
-    soldByProduct[r.product_id] = (soldByProduct[r.product_id] ?? 0) + Number(r.quantity ?? 0)
+  for (let offset = 0; ; offset += 1000) {
+    const { data: page, error } = await db
+      .from('sales').select('product_id, quantity')
+      .not('product_id', 'is', null).range(offset, offset + 999)
+    if (error || !page?.length) break
+    for (const r of page as { product_id: string; quantity: number }[]) {
+      soldByProduct[r.product_id] = (soldByProduct[r.product_id] ?? 0) + Number(r.quantity ?? 0)
+    }
+    if (page.length < 1000) break
   }
 
-  const { data: allSales } = await db
-    .from('sales')
-    .select('product_id, marketplace, quantity, sale_date')
-    .gte('sale_date', d90)
-    .order('sale_date')
+  // Busca todas as vendas dos últimos 90 dias com produto vinculado
+  // Pagina para contornar o limite 1000 do PostgREST
+  const allSales: Array<{ product_id: string; marketplace: string; quantity: number; sale_date: string }> = []
+  for (let offset = 0; ; offset += 1000) {
+    const { data: page, error } = await db
+      .from('sales')
+      .select('product_id, marketplace, quantity, sale_date')
+      .gte('sale_date', d90)
+      .not('product_id', 'is', null)
+      .order('sale_date', { ascending: false })
+      .range(offset, offset + 999)
+    if (error || !page?.length) break
+    allSales.push(...page)
+    if (page.length < 1000) break
+  }
 
   const days30 = eachDayOfInterval({ start: subDays(today, 29), end: today })
 
