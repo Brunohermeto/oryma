@@ -11,6 +11,7 @@ import { RelinkButton } from '@/components/configuracoes/RelinkButton'
 import { FixCommissionButton } from '@/components/configuracoes/FixCommissionButton'
 import { FixProductLinksButton } from '@/components/configuracoes/FixProductLinksButton'
 import { ReprocessImportButton } from '@/components/configuracoes/ReprocessImportButton'
+import { SyncMLFeesButton } from '@/components/configuracoes/SyncMLFeesButton'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { Clock, CheckCircle2, AlertCircle } from 'lucide-react'
 
@@ -195,6 +196,9 @@ export default async function ConfiguracoesPage({
 
         {/* Reprocessa NF-e de entrada com SKU errado via catálogo Bling */}
         <ReprocessImportButton />
+
+        {/* Busca frete, rebate e comissão individualmente do ML */}
+        <SyncMLFeesButton />
 
         {/* CMV manual para produtos sem NF-e */}
         <div className="bg-white rounded-xl p-5" style={{ border: `1px solid ${B.border}` }}>
