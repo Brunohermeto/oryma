@@ -139,11 +139,19 @@ export async function GET(request: NextRequest) {
       }
 
       // Estratégia 2: strip sufixo de cor (ex: RAGA003-C → RAGA003)
+      let baseSkuDiag: string | null = null
+      let baseSkuStatus: 'not_in_db' | 'no_cmp' | 'ok' | null = null
       if (!match) {
         const baseSku = stripColorSuffix(mlSku)
         if (baseSku) {
+          baseSkuDiag = baseSku
           const baseProd = prodBySku[baseSku]
-          if (baseProd && prodWithCmp.has(baseProd.id)) {
+          if (!baseProd) {
+            baseSkuStatus = 'not_in_db'  // produto base não existe → NF-e nunca importada
+          } else if (!prodWithCmp.has(baseProd.id)) {
+            baseSkuStatus = 'no_cmp'     // produto base existe mas sem CMP → NF-e não processou custo
+          } else {
+            baseSkuStatus = 'ok'
             match = candidatesWithCmp.find(c => c.product_id === baseProd.id) ?? null
             matchSource = 'suffix_strip'
           }
@@ -167,6 +175,13 @@ export async function GET(request: NextRequest) {
         name: local?.name ?? '???',
         sales_count: info.count,
         marketplaces: Array.from(info.marketplaces).filter(Boolean),
+        // Diagnóstico do motivo quando não há match
+        no_match_reason: !match ? (
+          baseSkuStatus === 'not_in_db' ? `Produto base "${baseSkuDiag}" não existe na base — NF-e de entrada não importada` :
+          baseSkuStatus === 'no_cmp'    ? `Produto base "${baseSkuDiag}" existe mas sem CMP — verificar NF-e` :
+          MANUAL_MAP[mlSku]             ? `Mapeamento manual aponta para "${MANUAL_MAP[mlSku]}" mas esse produto não tem CMP` :
+          'Nenhum match encontrado'
+        ) : null,
         suggested_match: match ? {
           product_id: match.product_id,
           sku: match.sku,

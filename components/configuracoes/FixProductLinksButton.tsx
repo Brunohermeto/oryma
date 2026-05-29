@@ -12,6 +12,7 @@ interface ProductRow {
   product_id: string; sku: string; name: string
   sales_count: number; marketplaces: string[]
   suggested_match: SuggestedMatch | null
+  no_match_reason: string | null
 }
 interface DiagResult {
   summary: { total_products_with_sales: number; products_with_cmp: number; products_WITHOUT_cmp: number; resolved: number; no_match_found: number }
@@ -160,7 +161,9 @@ export function FixProductLinksButton() {
                             <div className="text-[10px] truncate" style={{ color: B.muted }}>{p.suggested_match.name.slice(0, 35)}</div>
                           </>
                         ) : (
-                          <span className="text-[11px] italic" style={{ color: B.muted }}>sem match — produto sem NF-e?</span>
+                          <span className="text-[11px] italic" style={{ color: '#d97706' }}>
+                            {p.no_match_reason ?? 'sem match'}
+                          </span>
                         )}
                       </div>
 
