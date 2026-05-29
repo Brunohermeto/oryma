@@ -38,20 +38,26 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Nenhum valor válido (CMV deve ser > 0)' }, { status: 400 })
   }
 
-  // Upsert em cmp_costs (product_id + effective_date como chave única)
-  const { error: upsertErr } = await db
+  // Remove entradas existentes para os mesmos produtos na mesma data, depois insere
+  const productIds = valid.map(e => e.product_id)
+  await db
     .from('cmp_costs')
-    .upsert(
+    .delete()
+    .in('product_id', productIds)
+    .eq('effective_date', valid[0].effective_date)
+
+  const { error: insertErr } = await db
+    .from('cmp_costs')
+    .insert(
       valid.map(e => ({
         product_id:     e.product_id,
         cmp_value:      e.cmp_value,
         effective_date: e.effective_date,
-      })),
-      { onConflict: 'product_id,effective_date' }
+      }))
     )
 
-  if (upsertErr) {
-    return NextResponse.json({ error: upsertErr.message }, { status: 500 })
+  if (insertErr) {
+    return NextResponse.json({ error: insertErr.message }, { status: 500 })
   }
 
   // Dispara relink para atualizar as margens
