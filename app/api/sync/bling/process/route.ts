@@ -1,18 +1,14 @@
 /**
  * POST /api/sync/bling/process
  *
- * Fase 2: busca UMA NF-e completa e vincula à venda correspondente.
+ * Fase 2: busca UMA NF-e do Bling e vincula à(s) venda(s) correspondente(s).
  *
- * MUDANÇA CHAVE: usa GET /nfe/{id} em vez de GET /nfe/{id}/xml
- * O endpoint /nfe/{id} retorna:
- *   - numeroPedidoLoja → campo direto (sem XML parsing, sem CDATA)
- *   - xml              → XML completo para extrair impostos
- *   - chaveAcesso, serie → campos diretos
- *
- * Estratégia de matching:
- *   1. numeroPedidoLoja (campo direto da API, testa ML / Shopee / Amazon)
- *   2. infCpl do XML (fallback se numeroPedidoLoja não disponível)
- *   3. data + valor (fallback final, ±1 dia para compat. com registros UTC)
+ * Estratégias de matching (em cascata):
+ *   1a. numeroPedidoLoja numérico → ml/shopee/amazon_{id}
+ *   1b. numeroPedidoLoja alfanumérico → sufixo no external_order_id
+ *   2.  infCpl do XML (Canal + Numero Pedido Loja)
+ *   3.  data ±3 dias + soma do pedido ±5% (multi-item safe)
+ *       Agrupa sales pelo ML order ID e compara o total do pedido com vNF
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { blingGet, blingGetDocumentoXml } from '@/lib/integrations/bling'
@@ -30,10 +26,8 @@ function extractTag(xml: string, tag: string): number {
 }
 
 function extractStr(xml: string, tag: string): string | null {
-  // Conteúdo direto
   const m = xml.match(new RegExp(`<${tag}>([^<]+)<\\/${tag}>`))
   if (m) return m[1]
-  // CDATA — infCpl frequentemente vem como <![CDATA[...]]>
   const cdata = xml.match(new RegExp(`<${tag}><!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>`))
   return cdata?.[1] ?? null
 }
@@ -41,21 +35,30 @@ function extractStr(xml: string, tag: string): string | null {
 interface BlingNFeCompleta {
   id?: number
   chaveAcesso?: string | null
-  numeroPedidoLoja?: string | null  // Código buyer-facing ML (alfanumérico)
-  xml?: string | null               // Pode ser URL S3 ou XML raw
+  numeroPedidoLoja?: string | null
+  xml?: string | null
   serie?: string | null
   numero?: string | null
-  dataEmissao?: string | null       // "YYYY-MM-DD HH:mm:ss" — campo direto, sem XML
-  valorTotal?: number | null        // Valor total direto — sem XML
-  contato?: {
-    nome?: string | null
-    email?: string | null
-    cpfCnpj?: string | null
+  dataEmissao?: string | null
+  valorTotal?: number | null      // campo antigo
+  valor?: number | null           // campo alternativo
+  totais?: {                      // campo correto na API atual
+    vNF?: number | null
+    vProd?: number | null
+    vICMS?: number | null
+    vPIS?: number | null
+    vCOFINS?: number | null
+    vIPI?: number | null
+    vFrete?: number | null
+    vICMSUFDest?: number | null
+    vICMSUFRemet?: number | null
   } | null
+  contato?: { nome?: string | null; cpfCnpj?: string | null } | null
   itens?: Array<{
     valor?: number | null
     quantidade?: number | null
     descricao?: string | null
+    codigo?: string | null
   }> | null
 }
 
@@ -73,178 +76,214 @@ export async function POST(request: NextRequest) {
   const db = createSupabaseServiceClient()
 
   try {
-    await sleep(200)  // respeita rate limit do Bling
+    await sleep(200)
 
-    // Busca NF-e completa — retorna numeroPedidoLoja + xml + chaveAcesso em 1 chamada
-    const nfeRes = await blingGet<{ data: BlingNFeCompleta }>(`/nfe/${nfe_id}`, undefined, 0)
+    const nfeRes  = await blingGet<{ data: BlingNFeCompleta }>(`/nfe/${nfe_id}`, undefined, 0)
     const nfeData = nfeRes.data
-
-    if (!nfeData) {
-      return NextResponse.json({ ok: true, matched: false, reason: 'no_data' })
-    }
+    if (!nfeData) return NextResponse.json({ ok: true, matched: false, reason: 'no_data' })
 
     const xml   = nfeData.xml ?? null
     const chave = nfe_chave_acesso ?? nfeData.chaveAcesso ?? null
     if (!chave) return NextResponse.json({ ok: true, matched: false, reason: 'no_chave' })
 
-    // Verifica se já foi processada
-    const { data: existingSale } = await db
-      .from('sales').select('id').eq('nfe_saida_key', chave).limit(1)
-    if (existingSale?.[0]) {
-      return NextResponse.json({ ok: true, matched: false, reason: 'already_linked' })
-    }
+    const { data: existingSale } = await db.from('sales').select('id').eq('nfe_saida_key', chave).limit(1)
+    if (existingSale?.[0]) return NextResponse.json({ ok: true, matched: false, reason: 'already_linked' })
 
-    // ── Matching ──────────────────────────────────────────────────────────
+    // Extrai valor total da NF-e de várias fontes possíveis
+    const vNFDirect =
+      Number(nfeData.totais?.vNF   ?? 0) ||
+      Number(nfeData.totais?.vProd ?? 0) ||
+      Number(nfeData.valorTotal    ?? 0) ||
+      Number(nfeData.valor         ?? 0) ||
+      (nfeData.itens ?? []).reduce((s, i) => s + Number(i.valor ?? 0), 0)
+
+    // Data de emissão direta da API (não depende de XML)
+    const dhEmiDirect = nfeData.dataEmissao?.slice(0, 10) ?? null
+
+    // ── Matching ─────────────────────────────────────────────────────────────
 
     let saleId: string | null = null
+    let matchedSaleIds: string[] = []  // pode ser >1 para pedidos multi-item
     const numeroPedidoLoja = nfeData.numeroPedidoLoja?.trim() ?? null
 
-    // Estratégia 1a: numeroPedidoLoja campo direto (ID numérico ML/Shopee/Amazon)
+    // Estratégia 1a: numeroPedidoLoja numérico direto
     if (numeroPedidoLoja) {
-      const prefixes = [
-        `ml_${numeroPedidoLoja}`,
-        `shopee_${numeroPedidoLoja}`,
-        `amazon_${numeroPedidoLoja}`,
-      ]
-      for (const prefix of prefixes) {
-        const { data } = await db.from('sales').select('id')
-          .like('external_order_id', `${prefix}%`).limit(1)
-        if (data?.[0]) { saleId = data[0].id; break }
+      for (const canal of ['ml', 'shopee', 'amazon']) {
+        const { data } = await db.from('sales').select('id, external_order_id')
+          .like('external_order_id', `${canal}_${numeroPedidoLoja}_%`).limit(1)
+        if (data?.[0]) {
+          saleId = data[0].id
+          // Busca todos os itens do mesmo pedido
+          const orderMatch = data[0].external_order_id?.match(new RegExp(`^${canal}_(\\d+)_`))
+          if (orderMatch) {
+            const { data: orderItems } = await db.from('sales').select('id')
+              .like('external_order_id', `${canal}_${orderMatch[1]}_%`)
+              .is('nfe_saida_key', null)
+            matchedSaleIds = (orderItems ?? []).map(s => s.id)
+          }
+          if (!matchedSaleIds.length) matchedSaleIds = [saleId]
+          break
+        }
       }
     }
 
-    // Estratégia 1b: numeroPedidoLoja pode ser código alfanumérico buyer-facing do ML
-    // ex: "260519RPR9AXGX" → extrai sufixo alfabético e tenta pack_id ou SKU match
+    // Estratégia 1b: sufixo alfanumérico do numeroPedidoLoja
     if (!saleId && numeroPedidoLoja) {
-      // Tenta o sufixo alfabético (ex: "RPR9AXGX" de "260519RPR9AXGX")
       const alphaMatch = numeroPedidoLoja.match(/[A-Z][A-Z0-9]{5,}$/i)
       if (alphaMatch) {
         const suffix = alphaMatch[0]
         const { data } = await db.from('sales').select('id')
-          .like('external_order_id', `%${suffix}%`).limit(1)
-        saleId = data?.[0]?.id ?? null
+          .like('external_order_id', `%${suffix}%`).is('nfe_saida_key', null).limit(1)
+        if (data?.[0]) { saleId = data[0].id; matchedSaleIds = [saleId] }
       }
     }
 
-    // Estratégia 2: infCpl do XML (cobre caso numeroPedidoLoja ausente)
-    if (!saleId && xml) {
+    // Estratégia 2: infCpl do XML
+    if (!saleId && xml && xml.includes('<')) {
       const infCpl = extractStr(xml, 'infCpl') ?? ''
-      const canalMatch = infCpl.match(/Canal:\s*(Mercado Livre|Shopee|Amazon)/i)
-      const canal = canalMatch?.[1]?.toLowerCase().replace('mercado livre', 'mercado_livre') ?? null
+      const canalMatch  = infCpl.match(/Canal:\s*(Mercado Livre|Shopee|Amazon)/i)
+      const canal       = canalMatch?.[1]?.toLowerCase().replace('mercado livre', 'mercado_livre') ?? null
       const pedidoMatch = infCpl.match(/Numero Pedido Loja:\s*([^\s]+)/i)
       const numeroPedido = pedidoMatch?.[1] ?? null
-
       if (canal && numeroPedido) {
-        const prefix = canal === 'mercado_livre' ? `ml_${numeroPedido}` : `${canal}_${numeroPedido}`
         const { data } = await db.from('sales').select('id')
-          .like('external_order_id', `${prefix}%`).limit(1)
-        saleId = data?.[0]?.id ?? null
+          .like('external_order_id', `${canal}_${numeroPedido}_%`).limit(1)
+        if (data?.[0]) { saleId = data[0].id; matchedSaleIds = [saleId] }
       }
     }
 
-    // Estratégia 3: data + valor
-    // Usa campos DIRETOS do Bling (dataEmissao, valorTotal, itens) antes de tentar XML
-    // O XML pode ser uma URL S3 (não parseable), mas campos diretos sempre funcionam
+    // Estratégia 3: data ±3 dias + soma do pedido ±5% (multi-item safe)
     if (!saleId) {
-      // Valor: campo direto valorTotal ou soma dos itens
-      const vDireto = nfeData.valorTotal
-        ?? (nfeData.itens ?? []).reduce((s, i) => s + Number(i.valor ?? 0), 0)
-        ?? 0
-
-      // Data: campo direto dataEmissao ou fallback para XML
-      const dataDireta = nfeData.dataEmissao?.slice(0, 10) ?? null
-      const dataXml    = xml?.match(/<dhEmi>([^<]+)<\/dhEmi>/)?.[1]?.slice(0, 10)
-                      ?? xml?.match(/<dEmi>([^<]+)<\/dEmi>/)?.[1]?.slice(0, 10)
-                      ?? null
-      const dhEmi = dataDireta ?? dataXml ?? null
-
-      // Valor: fallback para XML se direto não disponível
-      const vNF = vDireto > 0 ? vDireto
-        : (xml?.includes('<') ? extractTag(xml, 'vNF') : 0)
+      // Usa dados diretos da API (não depende de XML)
+      const vNF   = vNFDirect > 0 ? vNFDirect : (xml?.includes('<') ? extractTag(xml, 'vNF') : 0)
+      const dhEmi = dhEmiDirect ?? xml?.match(/<dhEmi>([^<]+)<\/dhEmi>/)?.[1]?.slice(0, 10)
 
       if (vNF > 0 && dhEmi) {
-        const tol       = vNF * 0.02
-        const d         = new Date(dhEmi)
-        const dayBefore = new Date(d.getTime() - 86400000).toISOString().slice(0, 10)
-        const dayAfter  = new Date(d.getTime() + 86400000).toISOString().slice(0, 10)
-        const { data }  = await db.from('sales').select('id')
-          .gte('sale_date', dayBefore).lte('sale_date', dayAfter)
+        const tol      = vNF * 0.05
+        const base     = new Date(dhEmi + 'T12:00:00Z')
+        const dayFrom  = new Date(base.getTime() - 3 * 86400000).toISOString().slice(0, 10)
+        const dayTo    = new Date(base.getTime() + 3 * 86400000).toISOString().slice(0, 10)
+
+        // Busca vendas sem NF-e na janela de ±3 dias
+        const { data: windowSales } = await db.from('sales')
+          .select('id, external_order_id, gross_price, marketplace')
+          .gte('sale_date', dayFrom).lte('sale_date', dayTo)
           .is('nfe_saida_key', null)
-          .gte('gross_price', vNF - tol).lte('gross_price', vNF + tol).limit(1)
-        saleId = data?.[0]?.id ?? null
+
+        // Agrupa por pedido (ml_ORDERID ou shopee_ORDERID, etc.)
+        const orderMap = new Map<string, { saleIds: string[]; total: number }>()
+        for (const s of (windowSales ?? [])) {
+          const eid   = s.external_order_id ?? ''
+          const parts = eid.split('_')
+          if (parts.length < 2) continue
+          const orderKey = `${parts[0]}_${parts[1]}`
+          if (!orderMap.has(orderKey)) orderMap.set(orderKey, { saleIds: [], total: 0 })
+          orderMap.get(orderKey)!.saleIds.push(s.id)
+          orderMap.get(orderKey)!.total += Number(s.gross_price ?? 0)
+        }
+
+        // Encontra pedido cujo total ≈ vNF
+        for (const [, order] of orderMap) {
+          if (order.total >= vNF - tol && order.total <= vNF + tol) {
+            saleId         = order.saleIds[0]
+            matchedSaleIds = order.saleIds
+            break
+          }
+        }
       }
     }
 
-    if (!saleId) {
-      const vDiag  = nfeData.valorTotal ?? 0
-      const dDiag  = nfeData.dataEmissao?.slice(0, 10) ?? ''
-      const xmlIsUrl = xml ? !xml.includes('<') : false
+    if (!saleId || !matchedSaleIds.length) {
       return NextResponse.json({
         ok: true, matched: false, reason: 'no_sale_match',
         debug: {
           numeroPedidoLoja,
-          canal_xml: xml ? (extractStr(xml, 'infCpl') ?? '(vazio)').slice(0, 100) : '(sem xml)',
-          xml_tipo: xml ? (xmlIsUrl ? 'url_s3' : 'xml_raw') : 'nulo',
-          valorDireto: vDiag,
-          dataDireta: dDiag,
-          vNF: xml?.includes('<') ? extractTag(xml, 'vNF') : 0,
-          dhEmi: xml?.match(/<dhEmi>([^<]+)<\/dhEmi>/)?.[1]?.slice(0, 10) ?? '',
+          canal_xml:   xml?.includes('<') ? (extractStr(xml, 'infCpl') ?? '(vazio)').slice(0, 100) : '(url_s3 ou nulo)',
+          vNF:         vNFDirect,
+          dhEmi:       dhEmiDirect,
+          xml_tipo:    xml ? (xml.includes('<') ? 'xml_raw' : 'url_s3') : 'nulo',
         },
       })
     }
 
-    // ── XML para impostos ─────────────────────────────────────────────────
-    // /nfe/{id} não retorna o XML completo — busca separado só quando há match
+    // ── Busca XML para impostos (só após match confirmado) ────────────────────
 
-    // Baixa XML completo para extração de impostos
-    // Tenta novo endpoint (março 2026) → fallback para endpoint antigo
     let xmlFull: string | null = null
 
-    // Verifica se o xml do /nfe/{id} já é XML válido (não URL)
-    if (xml && xml.includes('<')) {
-      xmlFull = xml
+    // 1. Tenta impostos direto dos totais da API (sem XML)
+    const pisDirect    = Number(nfeData.totais?.vPIS           ?? 0)
+    const cofinsDirect = Number(nfeData.totais?.vCOFINS        ?? 0)
+    const icmsDirect   = Number(nfeData.totais?.vICMS          ?? 0)
+    const difalDirect  = Number(nfeData.totais?.vICMSUFDest    ?? 0)
+                       + Number(nfeData.totais?.vICMSUFRemet   ?? 0)
+    const ipiDirect    = Number(nfeData.totais?.vIPI           ?? 0)
+    const freteDirect  = Number(nfeData.totais?.vFrete         ?? 0)
+
+    const hasTotaisData = pisDirect + cofinsDirect + icmsDirect + ipiDirect > 0
+
+    // 2. Se totais não tem impostos, tenta baixar XML
+    if (!hasTotaisData) {
+      if (xml && xml.includes('<')) xmlFull = xml
+      if (!xmlFull && chave) {
+        try { xmlFull = await blingGetDocumentoXml(chave) } catch { xmlFull = null }
+      }
+      if (!xmlFull) {
+        try {
+          const xmlRes = await blingGet<{ data: { xml: string } }>(`/nfe/${nfe_id}/xml`, undefined, 0)
+          const candidate = xmlRes.data?.xml ?? null
+          xmlFull = candidate && candidate.includes('<') ? candidate : null
+        } catch { xmlFull = null }
+      }
     }
 
-    if (!xmlFull && chave) {
-      // Novo endpoint (mar/2026): retorna JSON { data[0].conteudo = base64(gzip(xml)) }
-      try {
-        xmlFull = await blingGetDocumentoXml(chave)
-      } catch { xmlFull = null }
-    }
+    const pis    = hasTotaisData ? pisDirect    : (xmlFull ? extractTag(xmlFull, 'vPIS')         : 0)
+    const cofins = hasTotaisData ? cofinsDirect : (xmlFull ? extractTag(xmlFull, 'vCOFINS')      : 0)
+    const icms   = hasTotaisData ? icmsDirect   : (xmlFull ? extractTag(xmlFull, 'vICMS')        : 0)
+    const difal  = hasTotaisData ? difalDirect  : (xmlFull ? extractTag(xmlFull, 'vICMSUFDest') + extractTag(xmlFull, 'vICMSUFRemet') : 0)
+    const ipi    = hasTotaisData ? ipiDirect    : (xmlFull ? extractTag(xmlFull, 'vIPI')         : 0)
+    const frete  = hasTotaisData ? freteDirect  : (xmlFull ? extractTag(xmlFull, 'vFrete')       : 0)
 
-    if (!xmlFull) {
-      // Fallback: endpoint antigo GET /nfe/{id}/xml
-      try {
-        const xmlRes = await blingGet<{ data: { xml: string } }>(`/nfe/${nfe_id}/xml`, undefined, 0)
-        const candidate = xmlRes.data?.xml ?? null
-        xmlFull = candidate && candidate.includes('<') ? candidate : null
-      } catch { xmlFull = null }
-    }
+    // ── Salva para todos os sales do pedido (distribuição proporcional) ──────
 
-    const pis    = xmlFull ? extractTag(xmlFull, 'vPIS')    : 0
-    const cofins = xmlFull ? extractTag(xmlFull, 'vCOFINS') : 0
-    const icms   = xmlFull ? extractTag(xmlFull, 'vICMS')   : 0
-    const difal  = xmlFull ? extractTag(xmlFull, 'vICMSUFDest') + extractTag(xmlFull, 'vICMSUFRemet') : 0
-    const ipi    = xmlFull ? extractTag(xmlFull, 'vIPI')    : 0
-    const frete  = xmlFull ? extractTag(xmlFull, 'vFrete')  : 0
+    // Busca valores dos sales para calcular proporção
+    const { data: saleValues } = await db.from('sales').select('id, gross_price').in('id', matchedSaleIds)
+    const salePriceMap = Object.fromEntries((saleValues ?? []).map(s => [s.id, Number(s.gross_price ?? 0)]))
+    const totalOrder   = matchedSaleIds.reduce((sum, id) => sum + (salePriceMap[id] ?? 0), 0)
+    const n            = matchedSaleIds.length
 
-    // ── Salva ─────────────────────────────────────────────────────────────
+    const salesUpdates = matchedSaleIds.map(id => {
+      const share = totalOrder > 0 ? (salePriceMap[id] ?? 0) / totalOrder : 1 / n
+      return {
+        id,
+        nfe_saida_key: chave,
+        ...(frete > 0 ? { marketplace_shipping_fee: frete * share } : {}),
+      }
+    })
 
-    const updates: Record<string, unknown> = { nfe_saida_key: chave }
-    if (frete > 0) updates.marketplace_shipping_fee = frete
+    const taxRows = matchedSaleIds.map(id => {
+      const share = totalOrder > 0 ? (salePriceMap[id] ?? 0) / totalOrder : 1 / n
+      return {
+        sale_id:    id,
+        nfe_key:    chave,
+        pis:        pis    * share,
+        cofins:     cofins * share,
+        icms:       icms   * share,
+        icms_difal: difal  * share,
+        ipi:        ipi    * share,
+      }
+    })
 
-    // sale_taxes não tem UNIQUE constraint em sale_id — usa delete+insert
     await Promise.all([
-      db.from('sales').update(updates).eq('id', saleId),
-      db.from('sale_taxes').delete().eq('sale_id', saleId).then(() =>
-        db.from('sale_taxes').insert({
-          sale_id: saleId, nfe_key: chave,
-          pis, cofins, icms, icms_difal: difal, ipi,
-        })
+      db.from('sales').upsert(salesUpdates, { onConflict: 'id' }),
+      db.from('sale_taxes').delete().in('sale_id', matchedSaleIds).then(() =>
+        db.from('sale_taxes').insert(taxRows)
       ),
     ])
 
-    return NextResponse.json({ ok: true, matched: true, chave, numeroPedidoLoja })
+    return NextResponse.json({
+      ok: true, matched: true, chave, numeroPedidoLoja,
+      sales_updated: matchedSaleIds.length,
+    })
 
   } catch (err) {
     return NextResponse.json({ ok: true, matched: false, reason: String(err) })
