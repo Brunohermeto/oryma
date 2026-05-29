@@ -196,6 +196,23 @@ export default async function ConfiguracoesPage({
         {/* Reprocessa NF-e de entrada com SKU errado via catálogo Bling */}
         <ReprocessImportButton />
 
+        {/* CMV manual para produtos sem NF-e */}
+        <div className="bg-white rounded-xl p-5" style={{ border: `1px solid ${B.border}` }}>
+          <div className="font-semibold text-[15px] mb-0.5" style={{ color: B.text, fontFamily: 'var(--font-sora)' }}>
+            CMV Manual
+          </div>
+          <p className="text-[13px] mb-4" style={{ color: B.muted }}>
+            Informe o custo de importação para produtos que não têm NF-e de entrada cadastrada no sistema.
+          </p>
+          <a
+            href="/dashboard/configuracoes/cmp-manual"
+            className="inline-flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-lg"
+            style={{ background: B.brand, color: 'white' }}
+          >
+            Cadastrar CMV manualmente →
+          </a>
+        </div>
+
         {/* Diagnóstico de custo — botão temporário */}
         <DiagnosticoCustoButton />
 
