@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
               .is('nfe_saida_key', null)
             matchedSaleIds = (orderItems ?? []).map(s => s.id)
           }
-          if (!matchedSaleIds.length) matchedSaleIds = [saleId]
+          if (!matchedSaleIds.length) matchedSaleIds = [saleId as string]
           break
         }
       }
