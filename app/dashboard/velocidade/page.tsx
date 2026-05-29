@@ -32,6 +32,28 @@ export default async function VelocidadePage() {
 
   const { data: products } = await db.from('products').select('id, name, sku, stock_quantity')
 
+  // Estoque real = total importado (import_items) − total vendido (sales)
+  // Mais confiável do que stock_quantity do Bling que pode estar desatualizado
+  const { data: importQtys } = await db
+    .from('import_items')
+    .select('product_id, quantity')
+    .not('product_id', 'is', null)
+
+  const importedByProduct: Record<string, number> = {}
+  for (const r of (importQtys ?? []) as { product_id: string; quantity: number }[]) {
+    importedByProduct[r.product_id] = (importedByProduct[r.product_id] ?? 0) + Number(r.quantity ?? 0)
+  }
+
+  const { data: totalSalesQty } = await db
+    .from('sales')
+    .select('product_id, quantity')
+    .not('product_id', 'is', null)
+
+  const soldByProduct: Record<string, number> = {}
+  for (const r of (totalSalesQty ?? []) as { product_id: string; quantity: number }[]) {
+    soldByProduct[r.product_id] = (soldByProduct[r.product_id] ?? 0) + Number(r.quantity ?? 0)
+  }
+
   const { data: allSales } = await db
     .from('sales')
     .select('product_id, marketplace, quantity, sale_date')
@@ -65,7 +87,11 @@ export default async function VelocidadePage() {
     const unitsPerDay   = unitsPerDay30 > 0 ? unitsPerDay30 : unitsPerDay90
     const velocityLabel = unitsPerDay30 > 0 ? '30d' : unitsPerDay90 > 0 ? '90d (est.)' : null
 
-    const stock         = Number(product.stock_quantity ?? 0)
+    // Estoque real = importado - vendido; fallback para stock_quantity do Bling
+    const stockReal = importedByProduct[product.id] != null
+      ? Math.max(0, (importedByProduct[product.id] ?? 0) - (soldByProduct[product.id] ?? 0))
+      : Number(product.stock_quantity ?? 0)
+    const stock         = stockReal
     const daysOfStock   = unitsPerDay > 0 ? Math.floor(stock / unitsPerDay) : null
     const trend         = totalRecent > totalPrev * 1.1 ? 'up' : totalRecent < totalPrev * 0.9 ? 'down' : 'stable'
 
@@ -81,9 +107,18 @@ export default async function VelocidadePage() {
 
   function stockColor(days: number | null) {
     if (days === null) return B.muted
-    if (days < 30) return '#dc2626'
-    if (days < 60) return '#d97706'
-    return '#16a34a'
+    if (days < 30)  return '#dc2626'
+    if (days < 60)  return '#d97706'
+    if (days < 180) return '#16a34a'
+    return B.muted  // > 6 meses: cinza (estoque alto, não é urgente)
+  }
+
+  function formatDays(days: number | null): string {
+    if (days === null) return 'Sem dados'
+    if (days === 0)    return '0d'
+    if (days < 60)     return `${days}d`
+    if (days < 365)    return `${Math.round(days / 30)}m`
+    return `>1 ano`
   }
 
   return (
@@ -150,16 +185,14 @@ export default async function VelocidadePage() {
                     color: unitsPerDay > 0 ? B.brand : B.muted,
                   },
                   {
-                    label: 'Estoque atual',
-                    value: `${Number(product.stock_quantity ?? 0).toFixed(0)} un.`,
-                    color: B.text,
+                    label: 'Estoque (calc.)',
+                    value: `${stock.toFixed(0)} un.`,
+                    color: stock < 10 ? '#dc2626' : B.text,
                   },
                   {
-                    label: 'Dias restantes',
-                    value: daysOfStock === null
-                      ? (unitsPerDay === 0 ? 'Sem dados' : '∞')
-                      : `${daysOfStock}d`,
-                    color: daysOfStock === null ? B.muted : stockColor(daysOfStock),
+                    label: 'Estoque restante',
+                    value: unitsPerDay === 0 ? 'Sem dados' : formatDays(daysOfStock),
+                    color: stockColor(daysOfStock),
                   },
                 ].map(item => (
                   <div key={item.label}>
