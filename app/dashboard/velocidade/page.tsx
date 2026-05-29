@@ -30,7 +30,14 @@ export default async function VelocidadePage() {
   const d60 = format(subDays(today, 60), 'yyyy-MM-dd')
   const d90 = format(subDays(today, 89), 'yyyy-MM-dd')
 
-  const { data: products } = await db.from('products').select('id, name, sku, stock_quantity')
+  const { data: products } = await db.from('products').select('id, name, sku, stock_quantity, updated_at')
+
+  // Verifica se o estoque foi sincronizado recentemente (últimas 24h)
+  const lastUpdated = (products ?? []).reduce((latest, p) => {
+    const t = p.updated_at ? new Date(p.updated_at).getTime() : 0
+    return t > latest ? t : latest
+  }, 0)
+  const stockAgeHours = lastUpdated > 0 ? Math.floor((Date.now() - lastUpdated) / 3_600_000) : null
 
   // Estoque real = total importado (import_items) − total vendido (sales)
   // Mais confiável do que stock_quantity do Bling que pode estar desatualizado
@@ -87,12 +94,13 @@ export default async function VelocidadePage() {
     const unitsPerDay   = unitsPerDay30 > 0 ? unitsPerDay30 : unitsPerDay90
     const velocityLabel = unitsPerDay30 > 0 ? '30d' : unitsPerDay90 > 0 ? '90d (est.)' : null
 
-    // Estoque real = importado - vendido; fallback para stock_quantity do Bling
-    const stockReal = importedByProduct[product.id] != null
-      ? Math.max(0, (importedByProduct[product.id] ?? 0) - (soldByProduct[product.id] ?? 0))
-      : Number(product.stock_quantity ?? 0)
-    const stock         = stockReal
-    const daysOfStock   = unitsPerDay > 0 ? Math.floor(stock / unitsPerDay) : null
+    // Estoque: usa stock_quantity do Bling (fonte oficial).
+    // Se não sincronizado, usa importado-vendido como fallback.
+    const blingStock = Number(product.stock_quantity ?? -1)
+    const calcStock  = Math.max(0, (importedByProduct[product.id] ?? 0) - (soldByProduct[product.id] ?? 0))
+    const stock      = blingStock >= 0 ? blingStock : calcStock
+    const stockSource = blingStock >= 0 ? 'bling' : 'calc'
+    const daysOfStock = unitsPerDay > 0 ? Math.floor(stock / unitsPerDay) : null
     const trend         = totalRecent > totalPrev * 1.1 ? 'up' : totalRecent < totalPrev * 0.9 ? 'down' : 'stable'
 
     const curveData = days30.map(day => {
@@ -101,7 +109,7 @@ export default async function VelocidadePage() {
       return { date: format(day, 'dd/MM'), units }
     })
 
-    return { product, byMP, totalRecent, total90d, unitsPerDay, velocityLabel, daysOfStock, trend, curveData }
+    return { product, byMP, totalRecent, total90d, unitsPerDay, velocityLabel, daysOfStock, trend, curveData, stock, stockSource }
   }).filter(r => r.totalRecent > 0 || Number(r.product.stock_quantity) > 0)
     .sort((a, b) => b.totalRecent - a.totalRecent)
 
@@ -126,6 +134,24 @@ export default async function VelocidadePage() {
       <TopBar title="Velocidade de Venda" subtitle="Curva de vendas e dias de estoque por produto — últimos 30 dias" />
       <div className="px-8 py-6 space-y-4">
 
+        {/* Aviso de estoque desatualizado */}
+        {(stockAgeHours === null || stockAgeHours > 24) && (
+          <div className="rounded-xl px-5 py-4 flex items-start gap-3"
+            style={{ background: 'oklch(0.97 0.04 70)', border: '1px solid oklch(0.90 0.06 70)' }}>
+            <span className="text-base mt-0.5">⚠️</span>
+            <div>
+              <div className="text-[13px] font-semibold" style={{ color: '#92400e' }}>
+                Estoque pode estar desatualizado
+                {stockAgeHours && stockAgeHours > 24 ? ` (última sync há ${stockAgeHours}h)` : ''}
+              </div>
+              <div className="text-[12px] mt-0.5" style={{ color: '#92400e' }}>
+                Para calcular corretamente os dias restantes, sincronize os produtos do Bling em{' '}
+                <strong>Configurações → Bling — NF-e e Produtos → Sincronizar</strong>.
+              </div>
+            </div>
+          </div>
+        )}
+
         {productRows.length === 0 && (
           <div className="bg-white rounded-xl p-8 text-center text-sm" style={{ border: `1px solid ${B.border}`, color: B.muted }}>
             Sem dados de venda. Sincronize os marketplaces em Configurações.
@@ -147,7 +173,7 @@ export default async function VelocidadePage() {
           </div>
         )}
 
-        {productRows.map(({ product, byMP, totalRecent, total90d, unitsPerDay, velocityLabel, daysOfStock, trend, curveData }) => (
+        {productRows.map(({ product, byMP, totalRecent, total90d, unitsPerDay, velocityLabel, daysOfStock, trend, curveData, stock, stockSource }) => (
           <div key={product.id} className="bg-white rounded-xl overflow-hidden" style={{ border: `1px solid ${B.border}` }}>
 
             {/* Header */}
@@ -185,9 +211,9 @@ export default async function VelocidadePage() {
                     color: unitsPerDay > 0 ? B.brand : B.muted,
                   },
                   {
-                    label: 'Estoque (calc.)',
+                    label: stockSource === 'bling' ? 'Estoque Bling' : 'Estoque (calc.)',
                     value: `${stock.toFixed(0)} un.`,
-                    color: stock < 10 ? '#dc2626' : B.text,
+                    color: stock === 0 ? '#dc2626' : stock < 10 ? '#d97706' : B.text,
                   },
                   {
                     label: 'Estoque restante',
