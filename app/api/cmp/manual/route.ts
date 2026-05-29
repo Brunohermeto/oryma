@@ -46,7 +46,6 @@ export async function POST(request: NextRequest) {
         product_id:     e.product_id,
         cmp_value:      e.cmp_value,
         effective_date: e.effective_date,
-        source:         'manual',
       })),
       { onConflict: 'product_id,effective_date' }
     )
