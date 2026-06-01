@@ -107,6 +107,28 @@ function SaleDetailPanel({ sale }: { sale: SaleRow }) {
     ? faturamento + freteNeto - impostoLiquido - commission - adsC + rebate - cmv
     : null
 
+  // ── Avaliação de completude dos dados ───────────────────────────────────────
+  const commissionPct = faturamento > 0 ? commission / faturamento : 0
+  const issues: string[] = []
+
+  // Comissão suspeita: < 5% para ML é quase sempre errado (API não retorna para Full/catálogo)
+  const commissionSuspect = sale.marketplace === 'mercado_livre' && commissionPct < 0.05 && commission > 0
+  const commissionMissing = commission === 0
+
+  if (commissionMissing)   issues.push('Comissão não capturada (produto de catálogo ML)')
+  else if (commissionSuspect) issues.push(`Comissão pode estar subestimada (${(commissionPct*100).toFixed(1)}% — API ML não retorna valor real para Full/catálogo)`)
+
+  if (sale.marketplace === 'mercado_livre' && sale.marketplace_shipping_fee === 0 && sale.fulfillment_type === 'full_ml')
+    issues.push('Frete ao vendedor indisponível (API ML não expõe para Full ML)')
+
+  if (!taxes && sale.fulfillment_type === 'galpao')
+    issues.push('Impostos s/ venda pendentes (NF-e de saída ainda não sincronizada)')
+
+  const dataQuality: 'ok' | 'parcial' | 'incompleto' =
+    issues.length === 0 ? 'ok' :
+    issues.some(i => i.includes('Comissão') && commissionMissing) ? 'incompleto' :
+    'parcial'
+
   const productId = (product as any)?.id ?? null
   const vendasUrl = productId ? `/dashboard/vendas?product=${productId}` : null
 
@@ -396,6 +418,23 @@ function SaleDetailPanel({ sale }: { sale: SaleRow }) {
                     </span>
                   </div>
                 )}
+
+                {/* Avisos de completude dos dados */}
+                {issues.length > 0 && (
+                  <div className="mt-3 pt-2.5 space-y-1.5" style={{ borderTop: `1px solid ${B.border}` }}>
+                    <div className="text-[10px] font-bold uppercase tracking-wide flex items-center gap-1"
+                      style={{ color: dataQuality === 'incompleto' ? '#dc2626' : '#d97706' }}>
+                      {dataQuality === 'incompleto' ? '⚠ Dados incompletos' : '⚠ Dados parciais'}
+                      {' — margem pode estar incorreta'}
+                    </div>
+                    {issues.map((issue, i) => (
+                      <div key={i} className="text-[10px] flex items-start gap-1" style={{ color: B.muted }}>
+                        <span style={{ flexShrink: 0 }}>•</span>
+                        <span>{issue}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -454,6 +493,26 @@ export function SalesTable({ sales }: { sales: SaleRow[] }) {
           const lucro         = cost ? faturamento + freteNeto - totalTaxes - commission - adsC + rebate - cmv : null
           const marginPct     = cost?.margin_pct !== null && cost?.margin_pct !== undefined ? Number(cost.margin_pct) : null
           const badge         = MP_BADGE[sale.marketplace] ?? { bg: B.bgSubtle, color: B.brand }
+
+          // Indicador de completude dos dados
+          const commissionPct = faturamento > 0 ? commission / faturamento : 0
+          const rowIssues: string[] = []
+          if (sale.marketplace === 'mercado_livre') {
+            if (commission === 0) rowIssues.push('Comissão: não capturada')
+            else if (commissionPct < 0.05) rowIssues.push(`Comissão: pode estar subestimada (${(commissionPct*100).toFixed(1)}%)`)
+            if (sale.fulfillment_type === 'full_ml' && fretePago === 0) rowIssues.push('Frete ao vendedor: indisponível na API ML')
+          }
+          if (!taxes && sale.fulfillment_type === 'galpao') rowIssues.push('Impostos: NF-e não sincronizada')
+          if (!cost) rowIssues.push('CMV: produto sem custo cadastrado')
+
+          const rowQuality = rowIssues.length === 0 ? 'ok'
+            : rowIssues.some(i => i.startsWith('Comissão') && commission === 0) || !cost ? 'incompleto'
+            : 'parcial'
+          const qualityDot = rowQuality === 'ok'
+            ? { color: '#16a34a', title: 'Dados completos' }
+            : rowQuality === 'parcial'
+            ? { color: '#d97706', title: `Dados parciais:\n${rowIssues.join('\n')}` }
+            : { color: '#dc2626', title: `Dados incompletos:\n${rowIssues.join('\n')}` }
 
           return (
             <Fragment key={sale.id}>
@@ -515,7 +574,15 @@ export function SalesTable({ sales }: { sales: SaleRow[] }) {
                   {lucro !== null ? fmtR(lucro) : '—'}
                 </td>
                 <td className="px-5 py-2.5 text-right font-bold text-sm num" style={{ color: marginColor(marginPct), fontFamily: 'var(--font-geist-mono)' }}>
-                  {marginPct !== null ? fmtPct(marginPct) : '—'}
+                  <span className="flex items-center justify-end gap-1.5">
+                    {/* Indicador de completude — hover mostra o motivo */}
+                    <span
+                      title={qualityDot.title}
+                      className="inline-block rounded-full flex-shrink-0"
+                      style={{ width: 7, height: 7, background: qualityDot.color, cursor: 'help' }}
+                    />
+                    {marginPct !== null ? fmtPct(marginPct) : '—'}
+                  </span>
                 </td>
               </tr>
               {expanded && <SaleDetailPanel sale={sale} />}
