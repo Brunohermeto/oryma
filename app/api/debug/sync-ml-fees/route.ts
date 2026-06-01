@@ -73,9 +73,14 @@ function extractFromFeeDetails(feeDetails: MLFeeDetail[]) {
       // Impostos retidos pelo ML
       taxes += Math.abs(amount)
     } else if (
-      type.includes('shipping') ||
-      type.includes('carrier')  ||
-      type.includes('logistic') ||
+      // Tipos de frete conhecidos no ML Brasil
+      type === 'mercadoenvios'          ||   // ← tipo real do frete no ML BR
+      type === 'mercadoenvios_ml'        ||
+      type.includes('shipping')         ||
+      type.includes('carrier')          ||
+      type.includes('logistic')         ||
+      type.includes('envios')           ||
+      type.includes('frete')            ||
       type === 'fulfillment'
     ) {
       if (amount > 0) shipping += amount

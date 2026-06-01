@@ -72,11 +72,15 @@ async function getShippingCostForSeller(shipmentId: number): Promise<number> {
  */
 function extractSellerShippingCost(order: MLOrder): number {
   if (!order.fee_details?.length) return 0
-  const SHIPPING_TYPES = new Set(['shipping', 'shipping_fee', 'carrier_fee', 'logistic'])
+  const SHIPPING_TYPES = new Set([
+    'mercadoenvios', 'mercadoenvios_ml',  // ← tipos reais no ML Brasil
+    'shipping', 'shipping_fee', 'carrier_fee', 'logistic', 'fulfillment',
+  ])
   let total = 0
   for (const fee of order.fee_details) {
     const amount = Number(fee.amount ?? fee.fee_amount ?? 0)
-    if (amount > 0 && (SHIPPING_TYPES.has(fee.type) || fee.type?.includes('shipping'))) {
+    const type   = fee.type?.toLowerCase() ?? ''
+    if (amount > 0 && (SHIPPING_TYPES.has(type) || type.includes('shipping') || type.includes('envios') || type.includes('frete'))) {
       total += amount
     }
   }
@@ -130,7 +134,10 @@ function extractAllFeesFromDetails(feeDetails: MLFeeDetail[]) {
   let shipping   = 0
   let rebate     = 0
 
-  const SHIPPING_TYPES = new Set(['shipping', 'shipping_fee', 'carrier_fee', 'logistic', 'fulfillment'])
+  const SHIPPING_TYPES = new Set([
+    'mercadoenvios', 'mercadoenvios_ml',  // tipos reais no ML Brasil
+    'shipping', 'shipping_fee', 'carrier_fee', 'logistic', 'fulfillment',
+  ])
 
   for (const fee of feeDetails) {
     const amount = Number(fee.amount ?? fee.fee_amount ?? 0)
@@ -138,7 +145,7 @@ function extractAllFeesFromDetails(feeDetails: MLFeeDetail[]) {
 
     if (type === 'ml_fee') {
       commission = Math.abs(amount)
-    } else if (amount > 0 && (SHIPPING_TYPES.has(type) || type.includes('shipping'))) {
+    } else if (amount > 0 && (SHIPPING_TYPES.has(type) || type.includes('shipping') || type.includes('envios') || type.includes('frete'))) {
       shipping += amount
     } else if (amount < 0) {
       rebate += Math.abs(amount)
