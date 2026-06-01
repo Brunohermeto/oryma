@@ -1,5 +1,5 @@
 'use client'
-import { Fragment, useState } from 'react'
+import { Fragment, useState, useEffect } from 'react'
 import { ChevronDown, ChevronRight, ExternalLink, Receipt, Package, Truck } from 'lucide-react'
 
 const B = {
@@ -58,23 +58,53 @@ export interface SaleRow {
   sale_costs: { unit_cost_applied: number; total_cost: number; margin_value: number | null; margin_pct: number | null } | null
 }
 
+interface CostDetail {
+  fob_unit: number; ii_unit: number; ipi_unit: number
+  icms_gnre_unit: number; additional_unit: number; total_unit_cost: number
+  pis_credit_unit: number; cofins_credit_unit: number
+  pis_credit_total: number; cofins_credit_total: number
+  batch: { nfe_number?: string; issue_date?: string; supplier?: string } | null
+}
+
 function SaleDetailPanel({ sale }: { sale: SaleRow }) {
   const taxes    = sale.sale_taxes
   const cost     = sale.sale_costs
   const product  = sale.products
 
-  const faturamento   = Number(sale.gross_price) - Number(sale.cancellation) - Number(sale.discounts ?? 0)
-  const freteRecebido = Number(sale.shipping_received ?? 0)
-  const fretePago     = Number(sale.marketplace_shipping_fee ?? 0)
-  const freteNeto     = freteRecebido - fretePago
-  const totalTaxes    = Number(taxes?.total_taxes ?? 0)
-  const commission    = Number(sale.marketplace_commission)
-  const adsC          = Number(sale.ads_cost)
-  const rebate        = Number(sale.rebate ?? 0)
-  const cmv           = Number(cost?.total_cost ?? 0)
+  // Lazy-load do breakdown de custos e créditos fiscais
+  const [costDetail, setCostDetail] = useState<CostDetail | null>(null)
+  const [loadingDetail, setLoadingDetail] = useState(false)
+
+  useEffect(() => {
+    if (!cost || costDetail || loadingDetail) return
+    setLoadingDetail(true)
+    fetch(`/api/sales/${sale.id}/cost-detail`)
+      .then(r => r.json())
+      .then(d => { if (d.cost_detail) setCostDetail(d.cost_detail) })
+      .catch(() => {})
+      .finally(() => setLoadingDetail(false))
+  }, [sale.id, cost, costDetail, loadingDetail])
+
+  const faturamento    = Number(sale.gross_price) - Number(sale.cancellation) - Number(sale.discounts ?? 0)
+  const freteRecebido  = Number(sale.shipping_received ?? 0)
+  const fretePago      = Number(sale.marketplace_shipping_fee ?? 0)
+  const freteNeto      = freteRecebido - fretePago
+  const totalTaxes     = Number(taxes?.total_taxes ?? 0)
+  const commission     = Number(sale.marketplace_commission)
+  const adsC           = Number(sale.ads_cost)
+  const rebate         = Number(sale.rebate ?? 0)
+  const cmv            = Number(cost?.total_cost ?? 0)
+
+  // Créditos de importação (PIS/COFINS pagos na importação — recuperados como crédito)
+  const pisCredito     = costDetail?.pis_credit_total   ?? 0
+  const cofinsCredito  = costDetail?.cofins_credit_total ?? 0
+  const totalCreditos  = pisCredito + cofinsCredito
+
+  // Impostos líquidos = impostos s/ venda − créditos de importação
+  const impostoLiquido = Math.max(0, totalTaxes - totalCreditos)
 
   const lucro = cost
-    ? faturamento + freteNeto - totalTaxes - commission - adsC + rebate - cmv
+    ? faturamento + freteNeto - impostoLiquido - commission - adsC + rebate - cmv
     : null
 
   const productId = (product as any)?.id ?? null
@@ -96,11 +126,12 @@ function SaleDetailPanel({ sale }: { sale: SaleRow }) {
               </div>
               {taxes ? (
                 <div className="space-y-1.5">
+                  {/* Impostos de saída */}
                   {[
-                    { label: 'PIS (1,65%)',    value: taxes.pis },
-                    { label: 'COFINS (7,60%)', value: taxes.cofins },
                     { label: 'ICMS',           value: taxes.icms },
                     { label: 'DIFAL',          value: taxes.icms_difal },
+                    { label: 'PIS (1,65%)',    value: taxes.pis },
+                    { label: 'COFINS (7,60%)', value: taxes.cofins },
                     { label: 'IPI',            value: taxes.ipi },
                   ].map(({ label, value }) => (
                     <div key={label} className="flex justify-between text-xs">
@@ -110,9 +141,34 @@ function SaleDetailPanel({ sale }: { sale: SaleRow }) {
                       </span>
                     </div>
                   ))}
-                  <div className="flex justify-between text-xs pt-1.5" style={{ borderTop: `1px solid ${B.border}` }}>
-                    <span className="font-semibold" style={{ color: B.subtle }}>Total impostos</span>
-                    <span className="num font-bold" style={{ color: '#dc2626', fontFamily: 'var(--font-geist-mono)' }}>({fmtR(totalTaxes)})</span>
+                  <div className="flex justify-between text-xs pt-1" style={{ borderTop: `1px solid ${B.border}` }}>
+                    <span style={{ color: B.muted }}>Subtotal impostos s/ venda</span>
+                    <span className="num" style={{ color: '#dc2626', fontFamily: 'var(--font-geist-mono)' }}>({fmtR(totalTaxes)})</span>
+                  </div>
+                  {/* Créditos de importação */}
+                  {(pisCredito > 0 || cofinsCredito > 0) && <>
+                    <div className="text-[10px] font-semibold uppercase tracking-wide mt-1.5" style={{ color: '#16a34a' }}>
+                      Créditos de importação (Lucro Real)
+                    </div>
+                    {pisCredito > 0 && (
+                      <div className="flex justify-between text-xs">
+                        <span style={{ color: B.muted }}>PIS crédito import.</span>
+                        <span className="num" style={{ color: '#16a34a', fontFamily: 'var(--font-geist-mono)' }}>+{fmtR(pisCredito)}</span>
+                      </div>
+                    )}
+                    {cofinsCredito > 0 && (
+                      <div className="flex justify-between text-xs">
+                        <span style={{ color: B.muted }}>COFINS crédito import.</span>
+                        <span className="num" style={{ color: '#16a34a', fontFamily: 'var(--font-geist-mono)' }}>+{fmtR(cofinsCredito)}</span>
+                      </div>
+                    )}
+                  </>}
+                  {/* Imposto líquido */}
+                  <div className="flex justify-between text-xs pt-1.5 font-semibold" style={{ borderTop: `1px solid ${B.border}` }}>
+                    <span style={{ color: B.subtle }}>Imposto líquido</span>
+                    <span className="num font-bold" style={{ color: impostoLiquido > 0 ? '#dc2626' : '#16a34a', fontFamily: 'var(--font-geist-mono)' }}>
+                      {impostoLiquido > 0 ? `(${fmtR(impostoLiquido)})` : '—'}
+                    </span>
                   </div>
                   {taxes.nfe_key && (
                     <div className="text-[10px] mt-1 truncate" style={{ color: B.muted }}>
@@ -121,10 +177,21 @@ function SaleDetailPanel({ sale }: { sale: SaleRow }) {
                   )}
                 </div>
               ) : (
-                <div className="text-xs" style={{ color: B.muted }}>
-                  {sale.fulfillment_type === 'galpao'
-                    ? 'NF-e não sincronizada ainda'
-                    : 'Full ML / FBA — sem NF-e de consumidor'}
+                <div className="text-xs space-y-1" style={{ color: B.muted }}>
+                  <div>
+                    {sale.fulfillment_type === 'galpao'
+                      ? 'NF-e não sincronizada ainda'
+                      : 'Full ML / FBA — sem NF-e de consumidor'}
+                  </div>
+                  {(pisCredito > 0 || cofinsCredito > 0) && (
+                    <div className="mt-2 pt-2" style={{ borderTop: `1px solid ${B.border}` }}>
+                      <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: '#16a34a' }}>
+                        Créditos estimados (importação)
+                      </div>
+                      {pisCredito > 0 && <div className="flex justify-between mt-1"><span>PIS crédito</span><span className="num" style={{ color: '#16a34a', fontFamily: 'var(--font-geist-mono)' }}>+{fmtR(pisCredito)}</span></div>}
+                      {cofinsCredito > 0 && <div className="flex justify-between"><span>COFINS crédito</span><span className="num" style={{ color: '#16a34a', fontFamily: 'var(--font-geist-mono)' }}>+{fmtR(cofinsCredito)}</span></div>}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -197,19 +264,71 @@ function SaleDetailPanel({ sale }: { sale: SaleRow }) {
               </div>
               {cost ? (
                 <div className="space-y-1.5">
-                  <div className="flex justify-between text-xs">
-                    <span style={{ color: B.muted }}>CMP unitário (landed)</span>
-                    <span className="num font-medium" style={{ color: '#dc2626', fontFamily: 'var(--font-geist-mono)' }}>
-                      ({fmtR(Number(cost.unit_cost_applied))})
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span style={{ color: B.muted }}>CMV total ({Number(sale.quantity).toFixed(0)} un)</span>
+                  {/* Breakdown do CMV por componente (quando disponível) */}
+                  {costDetail ? (
+                    <>
+                      {costDetail.fob_unit > 0 && (
+                        <div className="flex justify-between text-xs">
+                          <span style={{ color: B.muted }}>Custo FOB</span>
+                          <span className="num" style={{ color: B.subtle, fontFamily: 'var(--font-geist-mono)' }}>
+                            ({fmtR(costDetail.fob_unit * Number(sale.quantity))})
+                          </span>
+                        </div>
+                      )}
+                      {costDetail.ii_unit > 0 && (
+                        <div className="flex justify-between text-xs">
+                          <span style={{ color: B.muted }}>II (imp. importação)</span>
+                          <span className="num" style={{ color: B.subtle, fontFamily: 'var(--font-geist-mono)' }}>
+                            ({fmtR(costDetail.ii_unit * Number(sale.quantity))})
+                          </span>
+                        </div>
+                      )}
+                      {costDetail.ipi_unit > 0 && (
+                        <div className="flex justify-between text-xs">
+                          <span style={{ color: B.muted }}>IPI</span>
+                          <span className="num" style={{ color: B.subtle, fontFamily: 'var(--font-geist-mono)' }}>
+                            ({fmtR(costDetail.ipi_unit * Number(sale.quantity))})
+                          </span>
+                        </div>
+                      )}
+                      {costDetail.icms_gnre_unit > 0 && (
+                        <div className="flex justify-between text-xs">
+                          <span style={{ color: B.muted }}>ICMS-GNRE</span>
+                          <span className="num" style={{ color: B.subtle, fontFamily: 'var(--font-geist-mono)' }}>
+                            ({fmtR(costDetail.icms_gnre_unit * Number(sale.quantity))})
+                          </span>
+                        </div>
+                      )}
+                      {costDetail.additional_unit > 0 && (
+                        <div className="flex justify-between text-xs">
+                          <span style={{ color: B.muted }}>Frete / outros rateados</span>
+                          <span className="num" style={{ color: B.subtle, fontFamily: 'var(--font-geist-mono)' }}>
+                            ({fmtR(costDetail.additional_unit * Number(sale.quantity))})
+                          </span>
+                        </div>
+                      )}
+                      {/* PIS/COFINS excluídos do CMV (já são créditos) */}
+                      {(costDetail.pis_credit_unit > 0 || costDetail.cofins_credit_unit > 0) && (
+                        <div className="text-[10px] pt-1" style={{ color: '#16a34a' }}>
+                          PIS/COFINS imp. excluídos do CMV (viraram crédito)
+                        </div>
+                      )}
+                    </>
+                  ) : loadingDetail ? (
+                    <div className="text-[10px]" style={{ color: B.muted }}>Carregando breakdown…</div>
+                  ) : null}
+                  <div className="flex justify-between text-xs pt-1.5 font-semibold" style={{ borderTop: `1px solid ${B.border}` }}>
+                    <span style={{ color: B.subtle }}>CMV total ({Number(sale.quantity).toFixed(0)} un)</span>
                     <span className="num font-bold" style={{ color: '#dc2626', fontFamily: 'var(--font-geist-mono)' }}>
                       ({fmtR(cmv)})
                     </span>
                   </div>
-                  <div className="flex items-center justify-between mt-2 pt-1.5" style={{ borderTop: `1px solid ${B.border}` }}>
+                  {costDetail?.batch?.nfe_number && (
+                    <div className="text-[10px]" style={{ color: B.muted }}>
+                      NF-e {costDetail.batch.nfe_number} · {costDetail.batch.issue_date} · {costDetail.batch.supplier?.slice(0, 25)}
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between mt-1 pt-1.5" style={{ borderTop: `1px solid ${B.border}` }}>
                     <a href="/dashboard/importacoes" className="text-[11px] flex items-center gap-1 underline" style={{ color: B.violeta }}>
                       <ExternalLink size={10} /> Ver lotes de importação
                     </a>
@@ -240,7 +359,7 @@ function SaleDetailPanel({ sale }: { sale: SaleRow }) {
                   { label: 'Faturamento bruto',          value: faturamento,   sign: 1 },
                   { label: '(+) Frete líquido',           value: freteNeto,     sign: freteNeto >= 0 ? 1 : -1 },
                   ...(rebate > 0 ? [{ label: '(+) Rebate',    value: rebate,    sign: 1 }] : []),
-                  { label: '(-) Impostos s/ vendas',      value: -totalTaxes,  sign: -1 },
+                  { label: totalCreditos > 0 ? '(-) Impostos líquidos s/ venda' : '(-) Impostos s/ vendas', value: -impostoLiquido, sign: -1 },
                   { label: '(-) Comissão marketplace',    value: -commission,  sign: -1 },
                   ...(adsC > 0 ? [{ label: '(-) ADS',         value: -adsC,     sign: -1 }] : []),
                   { label: '(-) CMV (landed cost)',       value: -cmv,         sign: -1 },
