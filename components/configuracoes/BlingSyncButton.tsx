@@ -39,66 +39,101 @@ export function BlingSyncButton() {
   async function handleSync() {
     setStatus('running')
     setResult('')
-    setProgress('Carregando lista de NF-e...')
+    setProgress('')
     setDebugSample(null)
     setFirstReason(null)
 
+    // Janelas de 30 dias cobrindo os últimos 180 dias
+    // Começa pelo mais recente (mais provável de ter match)
+    const WINDOWS = [
+      { label: '0-30 dias',   daysFrom: 0,   daysTo: 30  },
+      { label: '30-60 dias',  daysFrom: 30,  daysTo: 60  },
+      { label: '60-90 dias',  daysFrom: 60,  daysTo: 90  },
+      { label: '90-120 dias', daysFrom: 90,  daysTo: 120 },
+      { label: '120-150 dias',daysFrom: 120, daysTo: 150 },
+      { label: '150-180 dias',daysFrom: 150, daysTo: 180 },
+    ]
+
+    let totalSynced = 0
+    let lastSyncId: string | null = null
+
+    // Rastreia chaves já tentadas para não repetir na mesma sessão
+    const attemptedChaves = new Set<string>()
+
     try {
-      // ── Fase 1: pega a lista de NF-e pendentes ────────────────────────
-      const startRes = await fetch('/api/sync/bling/start?days=30&limit=100', { method: 'POST' })
-      if (!startRes.ok) {
-        const err = await startRes.json().catch(() => ({}))
-        throw new Error(err.error ?? `HTTP ${startRes.status}`)
-      }
-      const { sync_id, pending } = await startRes.json() as {
-        sync_id: string
-        pending: Array<{ id: number; chaveAcesso: string | null }>
+      for (let w = 0; w < WINDOWS.length; w++) {
+        const win = WINDOWS[w]
+        setProgress(`Janela ${w + 1}/${WINDOWS.length}: ${win.label}…`)
+
+        let batchSynced = 0
+        let hasMore     = true
+
+        // Dentro de cada janela, processa em lotes até não restar nada
+        while (hasMore) {
+          const skipParam = Array.from(attemptedChaves).join(',')
+          const url = `/api/sync/bling/start?daysFrom=${win.daysFrom}&daysTo=${win.daysTo}&limit=50${skipParam ? `&skip=${encodeURIComponent(skipParam)}` : ''}`
+
+          const startRes = await fetch(url, { method: 'POST' })
+          if (!startRes.ok) {
+            const err = await startRes.json().catch(() => ({}))
+            throw new Error(err.error ?? `HTTP ${startRes.status}`)
+          }
+
+          const { sync_id, pending } = await startRes.json() as {
+            sync_id: string
+            pending: Array<{ id: number; chaveAcesso: string | null }>
+          }
+          lastSyncId = sync_id
+
+          if (!pending?.length) {
+            hasMore = false
+            break
+          }
+
+          // Processa cada NF-e do lote
+          let matchedInBatch = 0
+          for (let i = 0; i < pending.length; i++) {
+            const nfe = pending[i]
+            setProgress(`Janela ${w + 1}/${WINDOWS.length} (${win.label}) — NF-e ${i + 1}/${pending.length} · ${totalSynced + batchSynced} vinculadas`)
+
+            if (nfe.chaveAcesso) attemptedChaves.add(nfe.chaveAcesso)
+
+            const res = await fetch('/api/sync/bling/process', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ nfe_id: nfe.id, nfe_chave_acesso: nfe.chaveAcesso }),
+            })
+
+            if (res.ok) {
+              const data = await res.json()
+              if (data.matched) { batchSynced++; matchedInBatch++ }
+              else {
+                if (!firstReason) setFirstReason(data.reason ?? 'unknown')
+                if (data.debug && !debugSample) setDebugSample(data.debug as NFeDebug)
+              }
+            }
+          }
+
+          // Para de tentar esta janela se não houve nenhum match (todos já falharam)
+          if (matchedInBatch === 0 && pending.length < 50) hasMore = false
+          else if (pending.length < 50) hasMore = false
+        }
+
+        totalSynced += batchSynced
       }
 
-      if (!pending || pending.length === 0) {
+      // Fecha o último sync_log
+      if (lastSyncId) {
         const db = createSupabaseBrowserClient()
         await db.from('sync_logs').update({
-          status: 'success', records_synced: 0,
-          error_message: JSON.stringify({ nfe_entrada: 0, nfe_saida: 0 }),
+          status: 'success',
+          records_synced: totalSynced,
+          error_message: JSON.stringify({ nfe_entrada: 0, nfe_saida: totalSynced }),
           finished_at: new Date().toISOString(),
-        }).eq('id', sync_id)
-        setResult('✓ 0 NF-e novas (tudo já sincronizado)')
-        setStatus('done')
-        return
+        }).eq('id', lastSyncId)
       }
 
-      // ── Fase 2: processa cada NF-e individualmente ───────────────────
-      let synced = 0
-      for (let i = 0; i < pending.length; i++) {
-        const nfe = pending[i]
-        setProgress(`Processando ${i + 1} de ${pending.length}...`)
-
-        const res = await fetch('/api/sync/bling/process', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nfe_id: nfe.id, nfe_chave_acesso: nfe.chaveAcesso }),
-        })
-
-        if (res.ok) {
-          const data = await res.json()
-          if (data.matched) synced++
-          if (!data.matched) {
-            if (!firstReason) setFirstReason(data.reason ?? 'unknown')
-            if (data.debug && !debugSample) setDebugSample(data.debug as NFeDebug)
-          }
-        }
-      }
-
-      // ── Fase 3: fecha o sync_log ──────────────────────────────────────
-      const db = createSupabaseBrowserClient()
-      await db.from('sync_logs').update({
-        status: 'success',
-        records_synced: synced,
-        error_message: JSON.stringify({ nfe_entrada: 0, nfe_saida: synced }),
-        finished_at: new Date().toISOString(),
-      }).eq('id', sync_id)
-
-      setResult(`✓ ${synced} NF-e saída vinculadas (de ${pending.length} processadas)`)
+      setResult(`✓ ${totalSynced} NF-e saída vinculadas (180 dias varridos)`)
       setStatus('done')
     } catch (err) {
       setResult(`Erro: ${String(err).replace('Error: ', '')}`)

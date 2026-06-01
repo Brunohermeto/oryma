@@ -38,12 +38,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const db  = createSupabaseServiceClient()
-  const days      = Number(request.nextUrl.searchParams.get('days') ?? '30')
-  const limit     = Number(request.nextUrl.searchParams.get('limit') ?? '50')
-  // Usa fuso Brasil (UTC-3) para que o período reflita dias corretos para o usuário
-  const startDate = brazilDaysAgo(days)
-  const endDate   = brazilToday()
+  const db = createSupabaseServiceClient()
+
+  // Suporte a janela explícita (daysFrom=30&daysTo=60) ou padrão (days=30)
+  const daysFrom = Number(request.nextUrl.searchParams.get('daysFrom') ?? '0')
+  const daysTo   = Number(request.nextUrl.searchParams.get('daysTo')   ?? request.nextUrl.searchParams.get('days') ?? '30')
+  const limit    = Number(request.nextUrl.searchParams.get('limit') ?? '50')
+
+  // skip: chaveAcesso já tentadas nesta sessão (separadas por vírgula)
+  // Evita reprocessar as mesmas NF-e que falharam no match
+  const skipParam  = request.nextUrl.searchParams.get('skip') ?? ''
+  const skipChaves = new Set(skipParam.split(',').filter(Boolean))
+
+  const startDate = brazilDaysAgo(daysTo)
+  const endDate   = daysFrom === 0 ? brazilToday() : brazilDaysAgo(daysFrom)
 
   // Cria sync_log
   const { data: log } = await db.from('sync_logs').insert({
@@ -70,16 +78,20 @@ export async function POST(request: NextRequest) {
       if (items.length < 100) break  // última página
     }
 
-    // Filtra: só séries válidas e não processadas ainda
+    // Filtra: só séries válidas, não processadas e não tentadas nesta sessão
     const pending = allNfe
-      .filter(nfe => nfe.tipo === 1)                           // só NF-e saída (não entrada/compras)
-      .filter(nfe => nfe.situacao === 5)                       // só Autorizadas (não canceladas/pendentes)
-      .filter(nfe => isSerieValida(nfe.chaveAcesso))           // série via chaveAcesso (< 100, exclui remessa Full)
-      .filter(nfe => !nfe.chaveAcesso || !linkedChaves.has(nfe.chaveAcesso)) // pula já processadas
-      .slice(0, limit)  // máximo `limit` por rodada
+      .filter(nfe => nfe.tipo === 1)
+      .filter(nfe => nfe.situacao === 5)
+      .filter(nfe => isSerieValida(nfe.chaveAcesso))
+      .filter(nfe => !nfe.chaveAcesso || !linkedChaves.has(nfe.chaveAcesso))
+      .filter(nfe => !nfe.chaveAcesso || !skipChaves.has(nfe.chaveAcesso))  // pula tentadas nesta sessão
+      .slice(0, limit)
       .map(nfe => ({ id: nfe.id, chaveAcesso: nfe.chaveAcesso }))
 
-    return NextResponse.json({ ok: true, sync_id: syncId, pending, startDate, endDate })
+    return NextResponse.json({
+      ok: true, sync_id: syncId, pending, startDate, endDate,
+      total_in_window: allNfe.filter(n => n.tipo === 1 && n.situacao === 5).length,
+    })
   } catch (err) {
     await db.from('sync_logs').update({
       status: 'error', error_message: String(err), finished_at: new Date().toISOString(),
