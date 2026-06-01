@@ -59,15 +59,23 @@ export async function POST(request: NextRequest) {
     if (data.length < 1000) break
   }
 
-  // 2. Separa vendas confiáveis (fonte de truth) das suspeitas
-  const trustedSales   = allSales.filter(s => {
+  // 2. Separa vendas:
+  //    - confiáveis (comissão >= 5%) → fonte de truth para calcular a taxa média
+  //    - suspeitas SEM NF-e → candidatas à estimativa
+  //      (vendas COM NF-e matchada já têm impostos confirmados — deixa como está)
+  const trustedSales = allSales.filter(s => {
     const pct = s.gross_price > 0 ? s.marketplace_commission / s.gross_price : 0
-    return pct >= SUSPECT_THRESHOLD  // comissão >= 5% → confiável
+    return pct >= SUSPECT_THRESHOLD
   })
-  const suspectSales   = allSales.filter(s => {
+
+  // Só estima onde NF-e ainda não foi sincronizada
+  const suspectSales = allSales.filter(s => {
     const pct = s.gross_price > 0 ? s.marketplace_commission / s.gross_price : 0
-    return pct < SUSPECT_THRESHOLD   // comissão < 5% → suspeita
+    return pct < SUSPECT_THRESHOLD && !s.nfe_saida_key  // ← filtro principal
   })
+
+  const withNfe    = allSales.filter(s => !!s.nfe_saida_key).length
+  const withoutNfe = allSales.filter(s => !s.nfe_saida_key).length
 
   // 3. Calcula taxa média por produto a partir das vendas confiáveis
   const rateByProduct: Record<string, { total: number; count: number; pcts: number[] }> = {}
@@ -112,9 +120,12 @@ export async function POST(request: NextRequest) {
   if (dryRun) {
     return NextResponse.json({
       dry_run: true,
-      trusted_sales:  trustedSales.length,
-      suspect_sales:  suspectSales.length,
-      to_update:      updates.length,
+      total_ml_sales:    allSales.length,
+      with_nfe:          withNfe,
+      without_nfe:       withoutNfe,
+      trusted_sales:     trustedSales.length,
+      suspect_without_nfe: suspectSales.length,
+      to_update:         updates.length,
       rate_by_product: Object.fromEntries(
         Object.entries(avgRateByProduct).map(([k, v]) => [k, `${(v*100).toFixed(1)}%`])
       ),
@@ -124,7 +135,7 @@ export async function POST(request: NextRequest) {
         comissao_estimada: `R$ ${u.new.toFixed(2)}`,
         fonte: u.source,
       })),
-      message: `Simulação: ${updates.length} vendas seriam atualizadas. Envie dry_run=false para aplicar.`,
+      message: `Simulação: ${updates.length} vendas sem NF-e seriam atualizadas (${withNfe} com NF-e já têm dados confirmados — não alteradas). Envie dry_run=false para aplicar.`,
     })
   }
 

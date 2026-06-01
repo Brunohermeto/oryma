@@ -61,9 +61,9 @@ export function EstimateCommissionsButton() {
         Estimar Comissões por Produto
       </div>
       <p className="text-[13px] mb-4" style={{ color: B.muted }}>
-        Para vendas onde a API ML retorna comissão incorreta (&lt;5%), estima o valor
-        correto usando a taxa média calculada a partir das vendas com dados confiáveis.
-        Deixa frete e impostos para confirmar via NF-e de saída.
+        Aplica estimativa de comissão <strong>apenas nas vendas sem NF-e de saída</strong> (onde
+        a API ML retorna &lt;5% incorretamente). Vendas com NF-e já sincronizada têm dados
+        confirmados e <strong>não são alteradas</strong>. Frete e impostos continuam a confirmar via NF-e.
       </p>
 
       <div className="flex items-center gap-3 flex-wrap">
