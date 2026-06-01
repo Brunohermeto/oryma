@@ -41,35 +41,58 @@ export async function GET(request: NextRequest) {
 
     await sleep(200)
     try {
-      const order = await mlGet<{ id: number; fee_details?: Array<{ type: string; amount?: number; fee_amount?: number }> }>(`/orders/${match[1]}`)
+      // Testa tanto /orders/{id} quanto /payments/{payment_id}
+      const order = await mlGet<{
+        id: number
+        fee_details?: Array<{ type: string; amount?: number; fee_amount?: number }>
+        payments?: Array<{ id: number; marketplace_fee?: number; shipping_cost?: number; coupon_amount?: number; status?: string }>
+      }>(`/orders/${match[1]}`)
+
+      const paymentId = order.payments?.[0]?.id
+      let paymentDetail: Record<string, unknown> | null = null
+      let releaseDetail: unknown[] = []
+
+      // Tenta buscar o detalhe do pagamento
+      if (paymentId) {
+        await sleep(200)
+        try {
+          paymentDetail = await mlGet<Record<string, unknown>>(`/payments/${paymentId}`)
+        } catch { paymentDetail = null }
+      }
+
+      // Tenta buscar movements/releases do pedido via conta do vendedor
+      await sleep(200)
+      try {
+        const { data: mlCred } = await (await import('@/lib/integrations/credentials')).getCredential('mercado_livre') as any
+        const sellerId = (mlCred?.extra as any)?.seller_id
+        if (sellerId) {
+          const movements = await mlGet<{ results?: unknown[] }>(
+            `/users/${sellerId}/movements/listing`,
+            { order_id: match[1], limit: '5' }
+          ).catch(() => ({ results: [] }))
+          releaseDetail = movements?.results ?? []
+        }
+      } catch { releaseDetail = [] }
+
       results.push({
         sale_id: sale.id.slice(-8),
         sku: sale.sku,
+        sale_date: sale.sale_date,
         gross_price: sale.gross_price,
         stored: {
           commission: sale.marketplace_commission,
           shipping: sale.marketplace_shipping_fee,
           rebate: sale.rebate,
         },
-        fee_details: order.fee_details ?? [],
+        order_fee_details: order.fee_details ?? [],
+        order_payments: order.payments ?? [],
+        payment_detail: paymentDetail,
+        movements_sample: releaseDetail?.slice?.(0, 3) ?? [],
       })
     } catch (e) {
       results.push({ sale_id: sale.id.slice(-8), error: String(e) })
     }
   }
 
-  // Agrega todos os tipos encontrados
-  const allTypes = new Set<string>()
-  for (const r of results) {
-    if ('fee_details' in r) {
-      for (const f of r.fee_details as Array<{ type: string; amount?: number }>) {
-        allTypes.add(`${f.type} (amount=${f.amount ?? 0 > 0 ? '+' : ''}${f.amount ?? 0})`)
-      }
-    }
-  }
-
-  return NextResponse.json({
-    all_fee_types_found: Array.from(allTypes).sort(),
-    samples: results,
-  })
+  return NextResponse.json({ samples: results }, { status: 200 })
 }
