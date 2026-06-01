@@ -21,11 +21,15 @@ export async function GET(request: NextRequest) {
 
   const db = createSupabaseServiceClient()
 
-  // Pega 5 vendas ML recentes
+  // Pega 5 vendas ML de ~30 dias atrás (liquidadas — fee_details disponível após entrega+8 dias)
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)
+  const fifteenDaysAgo = new Date(Date.now() - 15 * 86400000).toISOString().slice(0, 10)
   const { data: sales } = await db
     .from('sales')
-    .select('id, external_order_id, sku, gross_price, marketplace_commission, marketplace_shipping_fee, rebate')
+    .select('id, external_order_id, sku, gross_price, marketplace_commission, marketplace_shipping_fee, rebate, sale_date')
     .eq('marketplace', 'mercado_livre')
+    .gte('sale_date', thirtyDaysAgo)
+    .lte('sale_date', fifteenDaysAgo)  // entre 15 e 30 dias atrás (certamente liquidadas)
     .order('sale_date', { ascending: false })
     .limit(5)
 
