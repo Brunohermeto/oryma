@@ -106,12 +106,53 @@ function extractRebate(order: MLOrder): number {
   return rebateTotal
 }
 
+/**
+ * Busca fee_details de um pedido individual via /orders/{id}.
+ * O /orders/search NÃO retorna fee_details — só o endpoint individual.
+ * fee_details contém: comissão real (ml_fee), frete ao vendedor (shipping*),
+ * e rebates negativos (campanhas, estornos).
+ */
+async function fetchOrderFeeDetails(orderId: number): Promise<MLFeeDetail[]> {
+  try {
+    await sleep(180)
+    const detail = await mlGet<{ fee_details?: MLFeeDetail[] }>(`/orders/${orderId}`)
+    return detail.fee_details ?? []
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Extrai comissão, frete e rebate de fee_details de um pedido individual.
+ */
+function extractAllFeesFromDetails(feeDetails: MLFeeDetail[]) {
+  let commission = 0
+  let shipping   = 0
+  let rebate     = 0
+
+  const SHIPPING_TYPES = new Set(['shipping', 'shipping_fee', 'carrier_fee', 'logistic', 'fulfillment'])
+
+  for (const fee of feeDetails) {
+    const amount = Number(fee.amount ?? fee.fee_amount ?? 0)
+    const type   = (fee.type ?? '').toLowerCase()
+
+    if (type === 'ml_fee') {
+      commission = Math.abs(amount)
+    } else if (amount > 0 && (SHIPPING_TYPES.has(type) || type.includes('shipping'))) {
+      shipping += amount
+    } else if (amount < 0) {
+      rebate += Math.abs(amount)
+    }
+  }
+  return { commission, shipping, rebate }
+}
+
 export async function syncMercadoLivre(
   startDate: string,
   endDate: string,
-  options: { fetchShipmentCosts?: boolean } = {}
+  options: { fetchShipmentCosts?: boolean; fetchOrderDetails?: boolean } = {}
 ): Promise<number> {
-  const { fetchShipmentCosts = false } = options
+  const { fetchShipmentCosts = false, fetchOrderDetails = true } = options
   const db = createSupabaseServiceClient()
   let offset = 0
   let synced = 0
@@ -140,36 +181,50 @@ export async function syncMercadoLivre(
       const payment = order.payments?.[0]
       if (!payment) continue
 
-      const isFull         = isFulfillmentFull(order)
+      const isFull          = isFulfillmentFull(order)
       const fulfillmentType = isFull ? 'full_ml' : 'galpao'
 
-      // Frete cobrado ao vendedor: extraído de fee_details (sem chamada extra à API)
-      // Fallback: endpoint /shipments/{id}/costs se fee_details estiver vazio e habilitado
-      let shippingCost = extractSellerShippingCost(order)
+      // ── Busca fee_details individuais (frete real, comissão real, rebate) ──
+      // O /orders/search não retorna fee_details — buscamos via /orders/{id}.
+      // Limitado a pedidos com poucos itens (cron: 2-7 dias = ~20-100 pedidos/dia)
+      let orderFeeDetails: MLFeeDetail[] = order.fee_details ?? []
+      if (fetchOrderDetails && orderFeeDetails.length === 0) {
+        orderFeeDetails = await fetchOrderFeeDetails(order.id)
+      }
+
+      const { commission: orderCommission, shipping: orderShipping, rebate: orderRebate }
+        = extractAllFeesFromDetails(orderFeeDetails)
+
+      // Se não veio de fee_details, fallback para campos do search
+      let shippingCost = orderShipping > 0
+        ? orderShipping
+        : extractSellerShippingCost(order)
+
       if (shippingCost === 0 && !isFull && order.shipping?.id && fetchShipmentCosts) {
         await sleep(150)
         shippingCost = await getShippingCostForSeller(order.shipping.id)
       }
 
       const shippingReceived = Number(payment.shipping_cost ?? 0)
-
-      // Rebate do pedido: estornos + campanhas comerciais do ML
-      // distribuído proporcionalmente entre os itens do pedido
-      const orderRebate    = extractRebate(order)
-      const totalItemValue = order.order_items.reduce((s, i) => s + i.unit_price * i.quantity, 0)
+      const totalItemValue   = order.order_items.reduce((s, i) => s + i.unit_price * i.quantity, 0)
 
       for (const item of order.order_items) {
         const sku        = item.item.seller_sku ?? item.item.id
         const qty        = item.quantity
         const grossPrice = item.unit_price * qty
 
-        const commission = (item.sale_fee ?? 0) > 0
-          ? (item.sale_fee ?? 0)
-          : (payment.marketplace_fee ?? 0)
+        // Comissão: usa fee_details (mais preciso) ou sale_fee/marketplace_fee como fallback
+        const commission = orderCommission > 0
+          ? orderCommission   // fee_details tem comissão total do pedido
+          : (item.sale_fee ?? 0) > 0
+            ? (item.sale_fee ?? 0)
+            : (payment.marketplace_fee ?? 0)
 
-        // Rebate rateado pelo valor do item em relação ao pedido total
+        // Para pedidos multi-item, distribui comissão/frete/rebate proporcionalmente
         const itemShare  = totalItemValue > 0 ? (item.unit_price * qty) / totalItemValue : 1
-        const itemRebate = orderRebate * itemShare
+        const itemRebate = orderRebate  > 0 ? orderRebate  * itemShare : 0
+        // Frete: aplica ao item principal (ou distribui se multi-item)
+        const itemShipping = shippingCost > 0 ? shippingCost * itemShare : 0
 
         const productId = productMap[sku] ?? null
 
@@ -184,11 +239,11 @@ export async function syncMercadoLivre(
           quantity:                 qty,
           gross_price:              grossPrice,
           shipping_received:        shippingReceived,
-          marketplace_commission:   commission,
-          marketplace_shipping_fee: shippingCost,
+          marketplace_commission:   commission * itemShare,
+          marketplace_shipping_fee: itemShipping,
           ads_cost:                 0,
           cancellation:             0,
-          discounts:                payment.coupon_amount ?? 0,
+          discounts:                (payment.coupon_amount ?? 0) * itemShare,
           rebate:                   itemRebate,
           synced_at:                new Date().toISOString(),
         }, { onConflict: 'external_order_id' })
