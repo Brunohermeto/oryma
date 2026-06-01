@@ -1,5 +1,5 @@
 'use client'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { useState, useRef, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -157,13 +157,25 @@ function ProductCombobox({
 }
 
 export function SalesFilters({ products, currentFilters }: Props) {
-  const router = useRouter()
-  const pathname = usePathname()
-  const [dateFrom, setDateFrom] = useState(currentFilters.dateFrom)
-  const [dateTo, setDateTo]     = useState(currentFilters.dateTo)
-  const [marketplace, setMarketplace] = useState(currentFilters.marketplace || 'all')
-  const [productId, setProductId]     = useState(currentFilters.productId || 'all')
-  const [fulfillment, setFulfillment] = useState(currentFilters.fulfillment || 'all')
+  const router       = useRouter()
+  const pathname     = usePathname()
+  const searchParams = useSearchParams()
+
+  const [dateFrom,     setDateFrom]     = useState(currentFilters.dateFrom)
+  const [dateTo,       setDateTo]       = useState(currentFilters.dateTo)
+  const [marketplace,  setMarketplace]  = useState(currentFilters.marketplace || 'all')
+  const [productId,    setProductId]    = useState(currentFilters.productId || 'all')
+  const [fulfillment,  setFulfillment]  = useState(currentFilters.fulfillment || 'all')
+
+  // Sincroniza estado local com a URL — resolve dessincronização após router.push
+  useEffect(() => {
+    setDateFrom(currentFilters.dateFrom)
+    setDateTo(currentFilters.dateTo)
+    setMarketplace(currentFilters.marketplace || 'all')
+    setProductId(currentFilters.productId || 'all')
+    setFulfillment(currentFilters.fulfillment || 'all')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams.toString()])
 
   function applyFilters() {
     const params = new URLSearchParams()
@@ -235,11 +247,50 @@ export function SalesFilters({ products, currentFilters }: Props) {
           </Select>
         </div>
 
-        <div className="flex gap-2 ml-auto">
+        <div className="flex gap-2 ml-auto items-end">
           <Button variant="outline" size="sm" onClick={clearFilters}>Limpar</Button>
-          <Button size="sm" onClick={applyFilters}>Aplicar filtros</Button>
+          <Button size="sm" onClick={applyFilters} className="min-w-[120px]">
+            Aplicar filtros
+          </Button>
         </div>
       </div>
+
+      {/* Indicador de filtros ativos */}
+      {(marketplace !== 'all' || productId !== 'all' || fulfillment !== 'all') && (
+        <div className="mt-3 pt-3 flex flex-wrap gap-2 items-center" style={{ borderTop: '1px solid #f0f0f0' }}>
+          <span className="text-[11px] text-gray-400 font-medium">Filtros ativos:</span>
+          {marketplace !== 'all' && (
+            <span className="flex items-center gap-1 text-[11px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full border border-blue-200">
+              {marketplace === 'mercado_livre' ? 'Mercado Livre' : marketplace === 'shopee' ? 'Shopee' : 'Amazon'}
+              <button onClick={() => { setMarketplace('all') }} className="hover:text-blue-900 ml-0.5">×</button>
+            </span>
+          )}
+          {productId !== 'all' && (() => {
+            const p = products.find(x => x.id === productId)
+            return p ? (
+              <span className="flex items-center gap-1 text-[11px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full border border-blue-200">
+                {p.sku}
+                <button onClick={() => { setProductId('all') }} className="hover:text-blue-900 ml-0.5">×</button>
+              </span>
+            ) : null
+          })()}
+          {fulfillment !== 'all' && (
+            <span className="flex items-center gap-1 text-[11px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full border border-blue-200">
+              {fulfillment === 'galpao' ? 'Galpão' : fulfillment === 'full_ml' ? 'Full ML' : 'FBA'}
+              <button onClick={() => { setFulfillment('all') }} className="hover:text-blue-900 ml-0.5">×</button>
+            </span>
+          )}
+          <button
+            onClick={() => {
+              setMarketplace('all'); setProductId('all'); setFulfillment('all')
+              router.push(pathname + (dateFrom || dateTo ? `?from=${dateFrom}&to=${dateTo}` : ''))
+            }}
+            className="text-[11px] text-gray-400 hover:text-gray-600 underline ml-1"
+          >
+            Limpar todos
+          </button>
+        </div>
+      )}
     </div>
   )
 }
