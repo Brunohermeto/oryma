@@ -12,6 +12,7 @@ import { FixCommissionButton } from '@/components/configuracoes/FixCommissionBut
 import { FixProductLinksButton } from '@/components/configuracoes/FixProductLinksButton'
 import { ReprocessImportButton } from '@/components/configuracoes/ReprocessImportButton'
 import { SyncMLFeesButton } from '@/components/configuracoes/SyncMLFeesButton'
+import { EstimateCommissionsButton } from '@/components/configuracoes/EstimateCommissionsButton'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { getCredential, isTokenExpired } from '@/lib/integrations/credentials'
 import { Clock, CheckCircle2, AlertCircle, WifiOff } from 'lucide-react'
@@ -267,6 +268,9 @@ export default async function ConfiguracoesPage({
 
         {/* Busca frete, rebate e comissão individualmente do ML */}
         <SyncMLFeesButton />
+
+        {/* Estima comissões para vendas com dados incorretos da API ML */}
+        <EstimateCommissionsButton />
 
         {/* CMV manual para produtos sem NF-e */}
         <div className="bg-white rounded-xl p-5" style={{ border: `1px solid ${B.border}` }}>
