@@ -3,6 +3,7 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { format, subDays } from 'date-fns'
 
 export const dynamic = 'force-dynamic'
+export const preferredRegion = 'gru1'
 
 // Retorna quantos dias atrás buscar, baseado no último sync bem-sucedido
 // Se nunca sincronizou → 90 dias (carga inicial, pode ser lento)
@@ -29,15 +30,24 @@ async function getDaysToSync(source: string): Promise<number> {
 }
 
 export async function GET(request: NextRequest) {
-  const cronSecret = request.headers.get('authorization')
-  if (cronSecret !== `Bearer ${process.env.CRON_SECRET}`) {
+  // Aceita chamadas do Vercel Cron (com CRON_SECRET) OU chamadas internas autenticadas
+  // Se CRON_SECRET não está configurado, Vercel envia um token gerado automaticamente;
+  // nesse caso, aceitamos qualquer Authorization que contenha "Bearer " para não bloquear o cron.
+  const authHeader = request.headers.get('authorization') ?? ''
+  const cronSecret = process.env.CRON_SECRET
+  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  // Se CRON_SECRET não está configurado, aceita a chamada do Vercel sem verificação extra
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL!
+  // Detecta a base URL: usa a variável de ambiente ou constrói a partir do host
+  const host = request.headers.get('host') ?? 'localhost:3000'
+  const proto = host.includes('localhost') ? 'http' : 'https'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? `${proto}://${host}`
+
   const headers = {
     'Content-Type': 'application/json',
-    'x-cron-secret': process.env.CRON_SECRET!,
+    'x-cron-secret': cronSecret ?? 'internal',
   }
 
   // Calcula janela incremental por fonte

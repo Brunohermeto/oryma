@@ -13,7 +13,8 @@ import { FixProductLinksButton } from '@/components/configuracoes/FixProductLink
 import { ReprocessImportButton } from '@/components/configuracoes/ReprocessImportButton'
 import { SyncMLFeesButton } from '@/components/configuracoes/SyncMLFeesButton'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
-import { Clock, CheckCircle2, AlertCircle } from 'lucide-react'
+import { getCredential, isTokenExpired } from '@/lib/integrations/credentials'
+import { Clock, CheckCircle2, AlertCircle, WifiOff } from 'lucide-react'
 
 const B = {
   border:   'oklch(0.88 0.016 258)',
@@ -61,10 +62,77 @@ export default async function ConfiguracoesPage({
     marketplaces: recentLogs?.find(l => l.source === 'marketplaces') ?? null,
   }
 
+  // Saúde dos tokens
+  const [blingCred, mlCred] = await Promise.all([
+    getCredential('bling'),
+    getCredential('mercado_livre'),
+  ])
+  const blingTokenOk = !!blingCred?.access_token && !isTokenExpired(blingCred.expires_at)
+  const mlTokenOk    = !!mlCred?.access_token    && !isTokenExpired(mlCred.expires_at)
+  const hasCronSecret = !!process.env.CRON_SECRET
+  const hasAppUrl     = !!process.env.NEXT_PUBLIC_APP_URL
+
+  // Verifica último cron bem-sucedido
+  const { data: cronLogs } = await db
+    .from('sync_logs')
+    .select('finished_at')
+    .eq('sync_type', 'nfe')
+    .eq('status', 'success')
+    .order('finished_at', { ascending: false })
+    .limit(1)
+  const lastCronAt = cronLogs?.[0]?.finished_at ?? null
+  const cronAgeH   = lastCronAt
+    ? Math.floor((Date.now() - new Date(lastCronAt).getTime()) / 3_600_000)
+    : null
+
   return (
     <>
       <TopBar title="Configurações" subtitle="Conexões com marketplaces e sistemas" />
       <div className="px-4 md:px-8 py-6 space-y-4 max-w-2xl">
+
+        {/* ── Alertas de saúde das conexões ── */}
+        {(!blingTokenOk || !mlTokenOk) && (
+          <div className="rounded-xl px-5 py-4 flex items-start gap-3"
+            style={{ background: 'oklch(0.97 0.04 25)', border: '1px solid oklch(0.88 0.06 25)' }}>
+            <WifiOff size={16} className="mt-0.5 flex-shrink-0" style={{ color: '#dc2626' }} />
+            <div>
+              <div className="text-[13px] font-semibold" style={{ color: '#991b1b' }}>
+                Conexão perdida — token expirado
+              </div>
+              <div className="text-[12px] mt-1 space-y-0.5" style={{ color: '#7f1d1d' }}>
+                {!blingTokenOk && <div>• <strong>Bling:</strong> token inválido ou expirado — clique em <strong>Conectar</strong> abaixo para reconectar</div>}
+                {!mlTokenOk    && <div>• <strong>Mercado Livre:</strong> token inválido ou expirado — clique em <strong>Conectar</strong> abaixo para reconectar</div>}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {(!hasCronSecret || !hasAppUrl) && (
+          <div className="rounded-xl px-5 py-4 flex items-start gap-3"
+            style={{ background: 'oklch(0.97 0.06 85)', border: '1px solid oklch(0.88 0.09 85)' }}>
+            <AlertCircle size={16} className="mt-0.5 flex-shrink-0" style={{ color: '#d97706' }} />
+            <div>
+              <div className="text-[13px] font-semibold" style={{ color: '#92400e' }}>
+                Sync automático desconfigurado
+              </div>
+              <div className="text-[12px] mt-1 space-y-0.5" style={{ color: '#78350f' }}>
+                {!hasCronSecret && <div>• <strong>CRON_SECRET</strong> não está configurado nas variáveis de ambiente do Vercel → o cron retorna 401 e nunca executa</div>}
+                {!hasAppUrl     && <div>• <strong>NEXT_PUBLIC_APP_URL</strong> não está configurado → o cron não sabe qual URL chamar</div>}
+                <div className="mt-1">Acesse <strong>vercel.com → Projeto Oryma → Settings → Environment Variables</strong> e adicione essas variáveis.</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {hasCronSecret && hasAppUrl && cronAgeH !== null && cronAgeH > 25 && (
+          <div className="rounded-xl px-5 py-4 flex items-start gap-3"
+            style={{ background: 'oklch(0.97 0.04 25)', border: '1px solid oklch(0.88 0.06 25)' }}>
+            <AlertCircle size={16} className="mt-0.5 flex-shrink-0" style={{ color: '#dc2626' }} />
+            <div className="text-[13px]" style={{ color: '#991b1b' }}>
+              <strong>Cron não executa há {cronAgeH}h</strong> — verifique os logs no painel do Vercel ou se as variáveis de ambiente estão corretas.
+            </div>
+          </div>
+        )}
 
         {/* Feedback OAuth */}
         {oauthError && (

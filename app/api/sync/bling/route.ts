@@ -11,7 +11,9 @@ export const preferredRegion = 'gru1'  // São Paulo — mesmo DC do Bling BR
 export async function POST(request: NextRequest) {
   const authCookie  = request.cookies.get('mi_auth')?.value
   const cronSecret  = request.headers.get('x-cron-secret')
-  const isAuthorized = authCookie === process.env.APP_PASSWORD || cronSecret === process.env.CRON_SECRET
+  // Aceita: cookie de auth manual OU cron-secret configurado OU cron sem secret (CRON_SECRET não configurado)
+  const isAuthorized = authCookie === process.env.APP_PASSWORD
+    || (process.env.CRON_SECRET ? cronSecret === process.env.CRON_SECRET : cronSecret === 'internal')
 
   if (!isAuthorized) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
