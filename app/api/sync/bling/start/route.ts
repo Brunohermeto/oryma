@@ -40,15 +40,16 @@ export async function POST(request: NextRequest) {
 
   const db = createSupabaseServiceClient()
 
-  // Suporte a janela explícita (daysFrom=30&daysTo=60) ou padrão (days=30)
-  const daysFrom = Number(request.nextUrl.searchParams.get('daysFrom') ?? '0')
-  const daysTo   = Number(request.nextUrl.searchParams.get('daysTo')   ?? request.nextUrl.searchParams.get('days') ?? '30')
-  const limit    = Number(request.nextUrl.searchParams.get('limit') ?? '50')
+  // Aceita params via query string OU body JSON (evita HTTP 414 com skip longo)
+  const body = await request.json().catch(() => ({}))
 
-  // skip: chaveAcesso já tentadas nesta sessão (separadas por vírgula)
-  // Evita reprocessar as mesmas NF-e que falharam no match
-  const skipParam  = request.nextUrl.searchParams.get('skip') ?? ''
-  const skipChaves = new Set(skipParam.split(',').filter(Boolean))
+  const daysFrom = Number(request.nextUrl.searchParams.get('daysFrom') ?? body.daysFrom ?? '0')
+  const daysTo   = Number(request.nextUrl.searchParams.get('daysTo')   ?? body.daysTo   ?? request.nextUrl.searchParams.get('days') ?? '30')
+  const limit    = Number(request.nextUrl.searchParams.get('limit')    ?? body.limit    ?? '50')
+
+  // skip: chaveAcesso já tentadas nesta sessão — passado no body para evitar HTTP 414
+  const skipList   = body.skip ?? []
+  const skipChaves = new Set(Array.isArray(skipList) ? skipList : String(skipList).split(',').filter(Boolean))
 
   const startDate = brazilDaysAgo(daysTo)
   const endDate   = daysFrom === 0 ? brazilToday() : brazilDaysAgo(daysFrom)

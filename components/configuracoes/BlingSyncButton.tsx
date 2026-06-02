@@ -70,10 +70,15 @@ export function BlingSyncButton() {
 
         // Dentro de cada janela, processa em lotes até não restar nada
         while (hasMore) {
-          const skipParam = Array.from(attemptedChaves).join(',')
-          const url = `/api/sync/bling/start?daysFrom=${win.daysFrom}&daysTo=${win.daysTo}&limit=50${skipParam ? `&skip=${encodeURIComponent(skipParam)}` : ''}`
-
-          const startRes = await fetch(url, { method: 'POST' })
+          // Skip enviado no body (não na URL) para evitar HTTP 414
+          const startRes = await fetch(
+            `/api/sync/bling/start?daysFrom=${win.daysFrom}&daysTo=${win.daysTo}&limit=50`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ skip: Array.from(attemptedChaves) }),
+            }
+          )
           if (!startRes.ok) {
             const err = await startRes.json().catch(() => ({}))
             throw new Error(err.error ?? `HTTP ${startRes.status}`)
