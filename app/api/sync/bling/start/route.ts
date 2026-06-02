@@ -66,16 +66,43 @@ export async function POST(request: NextRequest) {
       .from('sales').select('nfe_saida_key').not('nfe_saida_key', 'is', null)
     const linkedChaves = new Set((linked ?? []).map(s => s.nfe_saida_key as string))
 
-    // Lista de NF-e do Bling com paginação (máx. 5 páginas = 500 NF-e)
+    // Bling retorna NF-e em ordem DECRESCENTE de data e ignora os filtros de data.
+    // Paginamos até encontrar NF-e dentro da janela [startDate, endDate],
+    // parando quando a data da NF-e for anterior ao startDate.
     const allNfe: BlingNFeSaidaItem[] = []
-    for (let page = 1; page <= 5; page++) {
+    const MAX_PAGES = 30  // máx 3000 NF-e (cobre ~200 dias a 15 NF/dia)
+
+    for (let page = 1; page <= MAX_PAGES; page++) {
       const list = await blingGet<{ data: BlingNFeSaidaItem[] }>('/nfe', {
         pagina: String(page), limite: '100',
-        dataEmissaoInicio: startDate, dataEmissaoFim: endDate,
       }, 1)
       const items = list.data ?? []
-      allNfe.push(...items)
-      if (items.length < 100) break  // última página
+      if (!items.length) break
+
+      let foundInWindow = false
+      let allBeforeWindow = true
+
+      for (const nfe of items) {
+        const nfeDate = (nfe.dataEmissao ?? '').slice(0, 10)
+        if (nfeDate >= startDate && nfeDate <= endDate) {
+          allNfe.push(nfe)
+          foundInWindow = true
+          allBeforeWindow = false
+        } else if (nfeDate > endDate) {
+          // NF-e mais recente que a janela — ainda não chegamos no período
+          allBeforeWindow = false
+        } else if (nfeDate < startDate) {
+          // NF-e mais antiga que a janela — passamos, podemos parar
+          break
+        }
+      }
+
+      // Se TODAS as NF-e desta página são anteriores ao startDate, paramos
+      if (allBeforeWindow || (items.length > 0 && (items[items.length-1].dataEmissao ?? '').slice(0, 10) < startDate)) {
+        break
+      }
+
+      if (items.length < 100) break  // última página da API
     }
 
     // Filtra: só séries válidas, não processadas e não tentadas nesta sessão
