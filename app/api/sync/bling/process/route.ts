@@ -245,10 +245,12 @@ export async function POST(request: NextRequest) {
     // Frete: valorFrete direto (mais confiável) ou totais.vFrete
     const freteDirect  = freteDireto > 0 ? freteDireto : Number(nfeData.totais?.vFrete ?? 0)
 
-    const hasTotaisData = pisDirect + cofinsDirect + icmsDirect + ipiDirect > 0
+    // PIS e COFINS NÃO estão no JSON do Bling — só no XML.
+    // ICMS pode vir dos itens, mas PIS/COFINS precisam do XML sempre.
+    // Baixa o XML para extrair PIS/COFINS (e os demais caso ICMS também esteja zerado).
+    const needsXml = pisDirect === 0 || cofinsDirect === 0
 
-    // 2. Se totais não tem impostos, tenta baixar XML
-    if (!hasTotaisData) {
+    if (needsXml) {
       if (xml && xml.includes('<')) xmlFull = xml
       if (!xmlFull && chave) {
         try { xmlFull = await blingGetDocumentoXml(chave) } catch { xmlFull = null }
@@ -262,12 +264,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const pis    = hasTotaisData ? pisDirect    : (xmlFull ? extractTag(xmlFull, 'vPIS')         : 0)
-    const cofins = hasTotaisData ? cofinsDirect : (xmlFull ? extractTag(xmlFull, 'vCOFINS')      : 0)
-    const icms   = hasTotaisData ? icmsDirect   : (xmlFull ? extractTag(xmlFull, 'vICMS')        : 0)
-    const difal  = hasTotaisData ? difalDirect  : (xmlFull ? extractTag(xmlFull, 'vICMSUFDest') + extractTag(xmlFull, 'vICMSUFRemet') : 0)
-    const ipi    = hasTotaisData ? ipiDirect    : (xmlFull ? extractTag(xmlFull, 'vIPI')         : 0)
-    const frete  = hasTotaisData ? freteDirect  : (xmlFull ? extractTag(xmlFull, 'vFrete')       : 0)
+    // Combina: JSON direto (quando disponível) + XML (para PIS/COFINS)
+    const pis    = (xmlFull ? extractTag(xmlFull, 'vPIS')    : 0) || pisDirect
+    const cofins = (xmlFull ? extractTag(xmlFull, 'vCOFINS') : 0) || cofinsDirect
+    const icms   = icmsDirect  || (xmlFull ? extractTag(xmlFull, 'vICMS')        : 0)
+    const difal  = difalDirect || (xmlFull ? extractTag(xmlFull, 'vICMSUFDest') + extractTag(xmlFull, 'vICMSUFRemet') : 0)
+    const ipi    = ipiDirect   || (xmlFull ? extractTag(xmlFull, 'vIPI')         : 0)
+    const frete  = freteDirect || (xmlFull ? extractTag(xmlFull, 'vFrete')       : 0)
 
     // ── Salva para todos os sales do pedido (distribuição proporcional) ──────
 
