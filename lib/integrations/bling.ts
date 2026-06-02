@@ -38,6 +38,18 @@ export async function getValidBlingToken(): Promise<string | null> {
   if (!cred?.access_token) return null
   if (!isTokenExpired(cred.expires_at)) return cred.access_token
 
+  // Proteção contra race condition — Bling também rotaciona o refresh_token.
+  // Se outro processo renovou nos últimos 30s, re-lê em vez de renovar com token antigo.
+  if ((cred as any).updated_at) {
+    const updatedAgoSec = (Date.now() - new Date((cred as any).updated_at).getTime()) / 1000
+    if (updatedAgoSec < 30) {
+      const fresh = await getCredential('bling')
+      if (fresh?.access_token && !isTokenExpired(fresh.expires_at)) {
+        return fresh.access_token
+      }
+    }
+  }
+
   const res = await fetch(BLING_TOKEN_URL, {
     method: 'POST',
     headers: { Authorization: blingAuthHeader(), 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -46,9 +58,9 @@ export async function getValidBlingToken(): Promise<string | null> {
   if (!res.ok) return null
   const data = await res.json()
   await saveCredential('bling', {
-    access_token: data.access_token,
+    access_token:  data.access_token,
     refresh_token: data.refresh_token,
-    expires_at: new Date(Date.now() + data.expires_in * 1000).toISOString(),
+    expires_at:    new Date(Date.now() + data.expires_in * 1000).toISOString(),
   })
   return data.access_token
 }

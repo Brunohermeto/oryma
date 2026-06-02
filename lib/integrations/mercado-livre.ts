@@ -40,7 +40,22 @@ export async function getValidMercadoLivreToken(): Promise<string> {
   if (!cred?.access_token) throw new Error('Mercado Livre não conectado — acesse Configurações e clique em Conectar')
   if (!isTokenExpired(cred.expires_at)) return cred.access_token
 
-  // Token expirado — tenta renovar
+  // Proteção contra race condition: se o token foi atualizado nos últimos 30s
+  // por outro processo, re-lê as credenciais em vez de renovar com o token antigo.
+  // O ML invalida imediatamente o refresh_token após uso — duas renovações simultâneas
+  // corrompem as credenciais.
+  if (cred.updated_at) {
+    const updatedAgoSec = (Date.now() - new Date(cred.updated_at).getTime()) / 1000
+    if (updatedAgoSec < 30) {
+      // Outro processo pode estar renovando — re-lê e usa o token mais recente
+      const fresh = await getCredential('mercado_livre')
+      if (fresh?.access_token && !isTokenExpired(fresh.expires_at)) {
+        return fresh.access_token
+      }
+    }
+  }
+
+  // Token expirado — renova
   const res = await fetch(`${ML_BASE}/oauth/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
@@ -52,13 +67,18 @@ export async function getValidMercadoLivreToken(): Promise<string> {
     }),
   })
   if (!res.ok) {
-    throw new Error(`Token do Mercado Livre expirado — acesse Configurações e clique em Reconectar (status: ${res.status})`)
+    const body = await res.text().catch(() => '')
+    throw new Error(`Token ML expirado — reconecte em Configurações (${res.status}: ${body.slice(0, 80)})`)
   }
   const data = await res.json()
+
+  // Preserva extra (seller_id) ao salvar — o saveCredential sem extra limparia o campo
+  const existingExtra = (cred as any).extra
   await saveCredential('mercado_livre', {
-    access_token: data.access_token,
+    access_token:  data.access_token,
     refresh_token: data.refresh_token,
-    expires_at: new Date(Date.now() + data.expires_in * 1000).toISOString(),
+    expires_at:    new Date(Date.now() + data.expires_in * 1000).toISOString(),
+    ...(existingExtra ? { extra: existingExtra } : {}),
   })
   return data.access_token
 }
