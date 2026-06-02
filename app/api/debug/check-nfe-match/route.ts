@@ -61,7 +61,18 @@ export async function GET(request: NextRequest) {
   }
 
   // 3. Filtra NF-e de saída autorizadas
-  const nfeSaida = blingNFe.filter(n => n.tipo === 1 && n.situacao?.id === 5)
+  // situacao pode vir como número (5) ou objeto ({id:5}) dependendo do endpoint Bling
+  const getSituacaoId = (s: unknown): number =>
+    typeof s === 'number' ? s : (s as any)?.id ?? 0
+
+  const nfeSaida = blingNFe.filter(n => n.tipo === 1 && getSituacaoId(n.situacao) === 5)
+
+  // Breakdown por tipo/situação para diagnóstico completo
+  const byTipo = blingNFe.reduce((acc, n) => {
+    const key = `tipo=${n.tipo} situacao=${getSituacaoId(n.situacao)}`
+    acc[key] = (acc[key] ?? 0) + 1
+    return acc
+  }, {} as Record<string, number>)
 
   // 4. Chaves já vinculadas no banco
   const { data: linked } = await db
@@ -91,6 +102,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     date_range: `${dateMinus3} a ${datePlus3}`,
+    nfe_breakdown_by_tipo_situacao: byTipo,
     sales_in_db: (sales ?? []).map(s => ({
       id: s.id.slice(-8),
       sku: s.sku,
