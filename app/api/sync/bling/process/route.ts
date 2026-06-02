@@ -40,25 +40,29 @@ interface BlingNFeCompleta {
   serie?: string | null
   numero?: string | null
   dataEmissao?: string | null
-  valorTotal?: number | null      // campo antigo
-  valor?: number | null           // campo alternativo
-  totais?: {                      // campo correto na API atual
-    vNF?: number | null
-    vProd?: number | null
-    vICMS?: number | null
-    vPIS?: number | null
-    vCOFINS?: number | null
-    vIPI?: number | null
-    vFrete?: number | null
-    vICMSUFDest?: number | null
-    vICMSUFRemet?: number | null
+  valorNota?: number | null       // ← CAMPO REAL: total da NF-e no Bling v3
+  valorFrete?: number | null      // ← frete cobrado do comprador
+  valorTotal?: number | null      // campo alternativo
+  valor?: number | null
+  totais?: {
+    vNF?: number | null; vProd?: number | null
+    vICMS?: number | null; vPIS?: number | null; vCOFINS?: number | null
+    vIPI?: number | null; vFrete?: number | null
+    vICMSUFDest?: number | null; vICMSUFRemet?: number | null
   } | null
+  intermediador?: { cnpj?: string; nomeUsuario?: string } | null
   contato?: { nome?: string | null; cpfCnpj?: string | null } | null
   itens?: Array<{
     valor?: number | null
+    valorTotal?: number | null
     quantidade?: number | null
     descricao?: string | null
     codigo?: string | null
+    impostos?: {
+      icms?: { valor?: number | null; aliquota?: number | null } | null
+      pis?: { valor?: number | null } | null
+      cofins?: { valor?: number | null } | null
+    } | null
   }> | null
 }
 
@@ -89,16 +93,27 @@ export async function POST(request: NextRequest) {
     const { data: existingSale } = await db.from('sales').select('id').eq('nfe_saida_key', chave).limit(1)
     if (existingSale?.[0]) return NextResponse.json({ ok: true, matched: false, reason: 'already_linked' })
 
-    // Extrai valor total da NF-e de várias fontes possíveis
+    // Extrai valor total da NF-e — campo REAL no Bling v3 é `valorNota`
     const vNFDirect =
+      Number(nfeData.valorNota     ?? 0) ||  // ← campo real Bling v3
       Number(nfeData.totais?.vNF   ?? 0) ||
       Number(nfeData.totais?.vProd ?? 0) ||
       Number(nfeData.valorTotal    ?? 0) ||
       Number(nfeData.valor         ?? 0) ||
-      (nfeData.itens ?? []).reduce((s, i) => s + Number(i.valor ?? 0), 0)
+      (nfeData.itens ?? []).reduce((s, i) => s + Number(i.valorTotal ?? i.valor ?? 0), 0)
+
+    // Frete do comprador (disponível diretamente, sem XML)
+    const freteDireto = Number(nfeData.valorFrete ?? 0)
 
     // Data de emissão direta da API (não depende de XML)
     const dhEmiDirect = nfeData.dataEmissao?.slice(0, 10) ?? null
+
+    // Canal da venda via intermediador (Shopee, ML, Amazon)
+    const intermediadorNome = (nfeData.intermediador?.nomeUsuario ?? '').toLowerCase()
+    const canalIntermediador =
+      intermediadorNome.includes('shopee') ? 'shopee' :
+      intermediadorNome.includes('mercado') ? 'ml' :
+      intermediadorNome.includes('amazon') ? 'amazon' : null
 
     // ── Matching ─────────────────────────────────────────────────────────────
 
@@ -107,8 +122,12 @@ export async function POST(request: NextRequest) {
     const numeroPedidoLoja = nfeData.numeroPedidoLoja?.trim() ?? null
 
     // Estratégia 1a: numeroPedidoLoja numérico direto
+    // Usa o canal do intermediador como primeira tentativa (mais preciso)
     if (numeroPedidoLoja) {
-      for (const canal of ['ml', 'shopee', 'amazon']) {
+      const canaisParaTentar = canalIntermediador
+        ? [canalIntermediador, ...['ml', 'shopee', 'amazon'].filter(c => c !== canalIntermediador)]
+        : ['ml', 'shopee', 'amazon']
+      for (const canal of canaisParaTentar) {
         const { data } = await db.from('sales').select('id, external_order_id')
           .like('external_order_id', `${canal}_${numeroPedidoLoja}_%`).limit(1)
         if (data?.[0]) {
@@ -198,8 +217,11 @@ export async function POST(request: NextRequest) {
         ok: true, matched: false, reason: 'no_sale_match',
         debug: {
           numeroPedidoLoja,
+          canal_intermediador: canalIntermediador,
           canal_xml:   xml?.includes('<') ? (extractStr(xml, 'infCpl') ?? '(vazio)').slice(0, 100) : '(url_s3 ou nulo)',
+          valorNota:   nfeData.valorNota,
           vNF:         vNFDirect,
+          valorFrete:  freteDireto,
           dhEmi:       dhEmiDirect,
           xml_tipo:    xml ? (xml.includes('<') ? 'xml_raw' : 'url_s3') : 'nulo',
         },
@@ -210,14 +232,18 @@ export async function POST(request: NextRequest) {
 
     let xmlFull: string | null = null
 
-    // 1. Tenta impostos direto dos totais da API (sem XML)
-    const pisDirect    = Number(nfeData.totais?.vPIS           ?? 0)
-    const cofinsDirect = Number(nfeData.totais?.vCOFINS        ?? 0)
-    const icmsDirect   = Number(nfeData.totais?.vICMS          ?? 0)
-    const difalDirect  = Number(nfeData.totais?.vICMSUFDest    ?? 0)
-                       + Number(nfeData.totais?.vICMSUFRemet   ?? 0)
-    const ipiDirect    = Number(nfeData.totais?.vIPI           ?? 0)
-    const freteDirect  = Number(nfeData.totais?.vFrete         ?? 0)
+    // 1. Tenta impostos direto da API (sem XML)
+    //    Bling v3: totais existe em alguns casos; itens.impostos tem ICMS por item
+    const pisDirect    = Number(nfeData.totais?.vPIS    ?? 0)
+    const cofinsDirect = Number(nfeData.totais?.vCOFINS ?? 0)
+    const ipiDirect    = Number(nfeData.totais?.vIPI    ?? 0)
+    const difalDirect  = Number(nfeData.totais?.vICMSUFDest  ?? 0)
+                       + Number(nfeData.totais?.vICMSUFRemet ?? 0)
+    // ICMS: totais ou soma de itens.impostos.icms.valor (disponível sem XML)
+    const icmsDirect   = Number(nfeData.totais?.vICMS ?? 0) ||
+      (nfeData.itens ?? []).reduce((s, i) => s + Number((i as any).impostos?.icms?.valor ?? 0), 0)
+    // Frete: valorFrete direto (mais confiável) ou totais.vFrete
+    const freteDirect  = freteDireto > 0 ? freteDireto : Number(nfeData.totais?.vFrete ?? 0)
 
     const hasTotaisData = pisDirect + cofinsDirect + icmsDirect + ipiDirect > 0
 
