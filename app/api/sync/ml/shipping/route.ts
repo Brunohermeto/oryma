@@ -85,21 +85,35 @@ export async function POST(request: NextRequest) {
         else if (amount < 0) rebate += Math.abs(amount)
       }
 
-      if (shipping === 0 && detail.shipping?.id) {
+      // logistic_type só existe no shipment (não vem em /orders) — é a única
+      // forma confiável de saber se a venda é Full (NF-e emitida pelo ML)
+      let fulfillment: string | null = null
+      if (detail.shipping?.id) {
         await sleep(150)
-        const costs = await mlGet<{ senders_real_cost?: number; sender_cost?: number }>(
-          `/shipments/${detail.shipping.id}/costs`
+        const shipment = await mlGet<{ logistic_type?: string }>(
+          `/shipments/${detail.shipping.id}`
         ).catch(() => null)
-        shipping = Number(costs?.senders_real_cost ?? 0) || Number(costs?.sender_cost ?? 0)
+        if (shipment?.logistic_type) {
+          fulfillment = shipment.logistic_type === 'fulfillment' ? 'full_ml' : 'galpao'
+        }
+
+        if (shipping === 0) {
+          await sleep(150)
+          const costs = await mlGet<{ senders_real_cost?: number; sender_cost?: number }>(
+            `/shipments/${detail.shipping.id}/costs`
+          ).catch(() => null)
+          shipping = Number(costs?.senders_real_cost ?? 0) || Number(costs?.sender_cost ?? 0)
+        }
       }
 
       const total = order.prices.reduce((s, p) => s + p, 0)
       const n     = order.saleIds.length
       for (let i = 0; i < n; i++) {
         const share  = total > 0 ? order.prices[i] / total : 1 / n
-        const fields: Record<string, number> = {}
+        const fields: Record<string, number | string> = {}
         if (shipping > 0) fields.marketplace_shipping_fee = shipping * share
         if (rebate   > 0) fields.rebate = rebate * share
+        if (fulfillment)  fields.fulfillment_type = fulfillment
         if (!Object.keys(fields).length) continue
         const { error } = await db.from('sales').update(fields).eq('id', order.saleIds[i])
         if (error) throw new Error(error.message)
