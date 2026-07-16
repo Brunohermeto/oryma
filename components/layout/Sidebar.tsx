@@ -180,6 +180,7 @@ export function Sidebar() {
                   <Link
                     key={item.href}
                     href={item.href}
+                    prefetch={false}
                     onClick={() => setOpen(false)}
                     className={cn('flex items-center gap-2.5 px-3 py-[7px] rounded-lg text-[13px] transition-all duration-150')}
                     style={active
