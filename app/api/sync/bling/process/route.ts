@@ -172,7 +172,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Estratégia 3: data ±3 dias + soma do pedido ±5% (multi-item safe)
-    if (!saleId) {
+    // Só roda com intermediador conhecido — sem ele, NF-e da Shopee/Amazon
+    // casaria com venda ML de valor parecido e corromperia os impostos
+    if (!saleId && canalIntermediador) {
+      const mpFilter =
+        canalIntermediador === 'ml' ? 'mercado_livre' : canalIntermediador
       // Usa dados diretos da API (não depende de XML)
       const vNF   = vNFDirect > 0 ? vNFDirect : (xml?.includes('<') ? extractTag(xml, 'vNF') : 0)
       const dhEmi = dhEmiDirect ?? xml?.match(/<dhEmi>([^<]+)<\/dhEmi>/)?.[1]?.slice(0, 10)
@@ -186,6 +190,7 @@ export async function POST(request: NextRequest) {
         // Busca vendas sem NF-e na janela de ±3 dias
         const { data: windowSales } = await db.from('sales')
           .select('id, external_order_id, gross_price, marketplace')
+          .eq('marketplace', mpFilter)
           .gte('sale_date', dayFrom).lte('sale_date', dayTo)
           .is('nfe_saida_key', null)
 
@@ -302,12 +307,19 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    await Promise.all([
-      db.from('sales').upsert(salesUpdates, { onConflict: 'id' }),
+    // UPDATE por linha — upsert parcial falha nas colunas NOT NULL da tabela sales
+    const results = await Promise.all([
+      ...salesUpdates.map(({ id, ...fields }) =>
+        db.from('sales').update(fields).eq('id', id)
+      ),
       db.from('sale_taxes').delete().in('sale_id', matchedSaleIds).then(() =>
         db.from('sale_taxes').insert(taxRows)
       ),
     ])
+    const dbError = results.find(r => r?.error)?.error
+    if (dbError) {
+      return NextResponse.json({ ok: false, matched: false, reason: `db: ${dbError.message}` }, { status: 500 })
+    }
 
     return NextResponse.json({
       ok: true, matched: true, chave, numeroPedidoLoja,
