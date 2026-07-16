@@ -188,7 +188,16 @@ export async function syncMercadoLivre(
       const payment = order.payments?.[0]
       if (!payment) continue
 
-      const isFull          = isFulfillmentFull(order)
+      // logistic_type não vem em /orders/search — só no shipment.
+      // Sem essa chamada, TODA venda Full era marcada como galpão.
+      let isFull = isFulfillmentFull(order)
+      if (!isFull && order.shipping?.id && fetchOrderDetails) {
+        try {
+          await sleep(150)
+          const sh = await mlGet<{ logistic_type?: string }>(`/shipments/${order.shipping.id}`)
+          isFull = sh.logistic_type === 'fulfillment'
+        } catch {}
+      }
       const fulfillmentType = isFull ? 'full_ml' : 'galpao'
 
       // ── Busca fee_details individuais (frete real, comissão real, rebate) ──
