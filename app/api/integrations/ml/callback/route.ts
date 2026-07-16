@@ -3,6 +3,12 @@ import { exchangeMercadoLivreCode } from '@/lib/integrations/mercado-livre'
 
 const BASE = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.oryma.com.br'
 
+// Notificações webhook do ML (POST) — responde 200 para parar os retries.
+// O sync de vendas roda via cron; as notificações não são processadas aqui.
+export async function POST() {
+  return NextResponse.json({ ok: true })
+}
+
 export async function GET(request: NextRequest) {
   const code  = request.nextUrl.searchParams.get('code')
   const error = request.nextUrl.searchParams.get('error')
