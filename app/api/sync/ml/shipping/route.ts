@@ -99,10 +99,11 @@ export async function POST(request: NextRequest) {
 
         if (shipping === 0) {
           await sleep(150)
-          const costs = await mlGet<{ senders_real_cost?: number; sender_cost?: number }>(
+          // Formato real do ML Brasil: custo do vendedor fica em senders[].cost
+          const costs = await mlGet<{ senders?: Array<{ cost?: number }> }>(
             `/shipments/${detail.shipping.id}/costs`
           ).catch(() => null)
-          shipping = Number(costs?.senders_real_cost ?? 0) || Number(costs?.sender_cost ?? 0)
+          shipping = (costs?.senders ?? []).reduce((s, x) => s + Number(x.cost ?? 0), 0)
         }
       }
 

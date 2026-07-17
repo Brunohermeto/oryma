@@ -39,12 +39,6 @@ interface MLOrdersResponse {
   paging: { total: number; offset: number; limit: number }
 }
 
-interface MLShipmentCosts {
-  sender_cost?: number
-  senders_real_cost?: number
-  gross_amount?: number
-}
-
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
 function isFulfillmentFull(order: MLOrder): boolean {
@@ -56,10 +50,10 @@ function isFulfillmentFull(order: MLOrder): boolean {
 
 async function getShippingCostForSeller(shipmentId: number): Promise<number> {
   try {
-    const res = await mlGet<MLShipmentCosts>(`/shipments/${shipmentId}/costs`)
-    if (typeof res.senders_real_cost === 'number' && res.senders_real_cost > 0) return res.senders_real_cost
-    if (typeof res.sender_cost === 'number' && res.sender_cost > 0) return res.sender_cost
-    return 0
+    // Formato real do ML Brasil: custo do vendedor fica em senders[].cost
+    // (senders_real_cost/sender_cost não existem no payload)
+    const res = await mlGet<{ senders?: Array<{ cost?: number }> }>(`/shipments/${shipmentId}/costs`)
+    return (res.senders ?? []).reduce((s, x) => s + Number(x.cost ?? 0), 0)
   } catch { return 0 }
 }
 
