@@ -42,16 +42,22 @@ export async function POST(request: NextRequest) {
   const cutoff = brazilDaysAgo(days)
   const db     = createSupabaseServiceClient()
 
-  // 1. Período aberto (primeiro da lista)
-  const periods = await mlGet<{ results?: Array<{ key?: string }> }>(
-    '/billing/integration/monthly/periods?group=ML&document_type=BILL&limit=1'
-  )
-  const key = periods.results?.[0]?.key
+  // 1. Período: ?period=YYYY-MM-01 (backfill) ou o período aberto (default)
+  let key = request.nextUrl.searchParams.get('period')
+  if (!key) {
+    const periods = await mlGet<{ results?: Array<{ key?: string }> }>(
+      '/billing/integration/monthly/periods?group=ML&document_type=BILL&limit=1'
+    )
+    key = periods.results?.[0]?.key ?? null
+  }
   if (!key) return NextResponse.json({ ok: false, error: 'Nenhum período de billing encontrado' }, { status: 500 })
 
   // 2. Detalhes do período (paginação por from_id)
   const rebateByOrder = new Map<string, number>()
   const padsByDay     = new Map<string, number>()
+  // Tarifas por pedido: CV* = comissão de venda; demais cobranças com order_id
+  // (CXDE frete, CFFE custo fixo, CFONPN tarifa Full etc.) = tarifas de envio/canal
+  const chargesByOrder = new Map<string, { commission: number; fees: number }>()
   const seen = new Set<number>()
   let fromId = 0
 
@@ -75,23 +81,43 @@ export async function POST(request: NextRequest) {
       } else if (ci.detail_sub_type === 'PADS') {
         const day = (ci.creation_date_time ?? '').slice(0, 10)
         if (day >= cutoff) padsByDay.set(day, (padsByDay.get(day) ?? 0) + amount)
+      } else if (ci.detail_type === 'CHARGE' && order) {
+        const k = String(order)
+        const cur = chargesByOrder.get(k) ?? { commission: 0, fees: 0 }
+        if ((ci.detail_sub_type ?? '').startsWith('CV')) cur.commission += amount
+        else cur.fees += amount
+        chargesByOrder.set(k, cur)
       }
     }
     if (!body.last_id || body.last_id === fromId || results.length < 1000) break
     fromId = body.last_id
   }
 
-  // 3. Rebates por pedido (rateado por item pelo gross)
+  // 3. Atualizações por pedido: comissão real + tarifas de envio/canal + rebate
+  //    (rateado por item pelo gross). SET, não soma — extrato é a fonte da verdade.
+  let tariffSales = 0
   let rebateSales = 0
-  for (const [order, total] of rebateByOrder) {
+  const allOrders = new Set([...chargesByOrder.keys(), ...rebateByOrder.keys()])
+  for (const order of allOrders) {
     const { data: rows } = await db.from('sales')
       .select('id, gross_price').like('external_order_id', `ml_${order}_%`)
     if (!rows?.length) continue
     const sum = rows.reduce((s, x) => s + Number(x.gross_price ?? 0), 0)
+    const charges = chargesByOrder.get(order)
+    const rebate  = rebateByOrder.get(order)
     for (const x of rows) {
       const share = sum > 0 ? Number(x.gross_price ?? 0) / sum : 1 / rows.length
-      await db.from('sales').update({ rebate: Math.round(total * share * 100) / 100 }).eq('id', x.id)
-      rebateSales++
+      const fields: Record<string, number> = {}
+      if (charges) {
+        fields.marketplace_commission   = Math.round(charges.commission * share * 100) / 100
+        fields.marketplace_shipping_fee = Math.round(charges.fees * share * 100) / 100
+        tariffSales++
+      }
+      if (rebate) {
+        fields.rebate = Math.round(rebate * share * 100) / 100
+        rebateSales++
+      }
+      await db.from('sales').update(fields).eq('id', x.id)
     }
   }
 
@@ -111,6 +137,7 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     ok: true, period: key,
+    tariff_orders: chargesByOrder.size, tariff_sales_updated: tariffSales,
     rebate_orders: rebateByOrder.size, rebate_sales_updated: rebateSales,
     ads_days: padsByDay.size, ads_sales_updated: adsSales,
   })
