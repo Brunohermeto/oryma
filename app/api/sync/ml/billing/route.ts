@@ -55,9 +55,8 @@ export async function POST(request: NextRequest) {
   // 2. Detalhes do período (paginação por from_id)
   const rebateByOrder = new Map<string, number>()
   const padsByDay     = new Map<string, number>()
-  // Tarifas por pedido: CV* = comissão de venda; demais cobranças com order_id
-  // (CXDE frete, CFFE custo fixo, CFONPN tarifa Full etc.) = tarifas de envio/canal
-  const chargesByOrder = new Map<string, { commission: number; fees: number }>()
+  // Tarifas por pedido: CV* = comissão | CXD* = frete | resto = tarifa fixa/Full
+  const chargesByOrder = new Map<string, { commission: number; shipping: number; fixed: number }>()
   const seen = new Set<number>()
   let offset = 0
 
@@ -88,9 +87,11 @@ export async function POST(request: NextRequest) {
         }
       } else if (ci.detail_type === 'CHARGE' && order) {
         const k = String(order)
-        const cur = chargesByOrder.get(k) ?? { commission: 0, fees: 0 }
-        if ((ci.detail_sub_type ?? '').startsWith('CV')) cur.commission += amount
-        else cur.fees += amount
+        const cur = chargesByOrder.get(k) ?? { commission: 0, shipping: 0, fixed: 0 }
+        const st = ci.detail_sub_type ?? ''
+        if (st.startsWith('CV')) cur.commission += amount
+        else if (st.startsWith('CXD')) cur.shipping += amount
+        else cur.fixed += amount
         chargesByOrder.set(k, cur)
       }
     }
@@ -115,7 +116,8 @@ export async function POST(request: NextRequest) {
       const fields: Record<string, number> = {}
       if (charges) {
         fields.marketplace_commission   = Math.round(charges.commission * share * 100) / 100
-        fields.marketplace_shipping_fee = Math.round(charges.fees * share * 100) / 100
+        fields.marketplace_shipping_fee = Math.round(charges.shipping * share * 100) / 100
+        fields.marketplace_fixed_fee    = Math.round(charges.fixed * share * 100) / 100
         tariffSales++
       }
       if (rebate) {

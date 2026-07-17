@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
     ),
     fetchAll<any>(() =>
       db.from('sales')
-        .select('id, product_id, gross_price, shipping_received, marketplace_commission, marketplace_shipping_fee, ads_cost, cancellation, discounts, rebate, quantity, sale_date')
+        .select('id, product_id, gross_price, shipping_received, marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, ads_cost, cancellation, discounts, rebate, quantity, sale_date')
         .not('product_id', 'is', null)
     ),
     fetchAll<any>(() =>
@@ -164,6 +164,7 @@ export async function POST(request: NextRequest) {
                       + Number(sale.shipping_received        ?? 0)
                       - Number(sale.marketplace_commission   ?? 0)
                       - Number(sale.marketplace_shipping_fee ?? 0)
+                      - Number(sale.marketplace_fixed_fee    ?? 0)
                       - Number(sale.ads_cost                 ?? 0)
                       - Number(sale.cancellation             ?? 0)
                       - Number(sale.discounts                ?? 0)

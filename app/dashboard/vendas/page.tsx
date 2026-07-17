@@ -46,7 +46,7 @@ export default async function VendasPage({
     .select(`
       id, external_order_id, marketplace, fulfillment_type, sku, sale_date,
       quantity, gross_price, shipping_received, marketplace_commission,
-      marketplace_shipping_fee, ads_cost, cancellation, discounts, rebate,
+      marketplace_shipping_fee, marketplace_fixed_fee, ads_cost, cancellation, discounts, rebate,
       products(name, sku),
       sale_taxes(pis, cofins, icms, icms_difal, ipi, total_taxes),
       sale_costs(unit_cost_applied, total_cost, margin_value, margin_pct)
@@ -75,6 +75,7 @@ export default async function VendasPage({
     const cost  = unwrap<{ total_cost: number; margin_pct: number }>(s.sale_costs)
     acc.revenue      += Number(s.gross_price) - Number(s.cancellation) - Number((s as any).discounts ?? 0)
     acc.freteNeto    += Number(s.shipping_received ?? 0) - Number(s.marketplace_shipping_fee ?? 0)
+    acc.fixedFees    += Number((s as any).marketplace_fixed_fee ?? 0)
     acc.commission   += Number(s.marketplace_commission)
     acc.ads          += Number(s.ads_cost)
     acc.rebates      += Number((s as any).rebate ?? 0)
@@ -86,9 +87,9 @@ export default async function VendasPage({
       acc.marginCount++
     }
     return acc
-  }, { revenue: 0, freteNeto: 0, commission: 0, ads: 0, rebates: 0, taxes: 0, cmv: 0, orders: 0, marginSum: 0, marginCount: 0 })
+  }, { revenue: 0, freteNeto: 0, fixedFees: 0, commission: 0, ads: 0, rebates: 0, taxes: 0, cmv: 0, orders: 0, marginSum: 0, marginCount: 0 })
 
-  const netRevenue  = summary.revenue + summary.freteNeto + summary.rebates - summary.commission - summary.ads - summary.taxes
+  const netRevenue  = summary.revenue + summary.freteNeto + summary.rebates - summary.fixedFees - summary.commission - summary.ads - summary.taxes
   const grossProfit = netRevenue - summary.cmv
   const avgMargin   = summary.marginCount > 0 ? summary.marginSum / summary.marginCount : 0
 
@@ -110,7 +111,7 @@ export default async function VendasPage({
         <div className="grid grid-cols-5 gap-3">
           {[
             { label: 'Faturamento Bruto', value: fmtR(summary.revenue), color: B.text, href: undefined },
-            { label: 'Impostos + Tarifas + ADS', value: fmtR(summary.taxes + summary.commission + summary.ads - summary.freteNeto - summary.rebates), color: '#dc2626', href: undefined },
+            { label: 'Impostos + Tarifas + ADS', value: fmtR(summary.taxes + summary.commission + summary.fixedFees + summary.ads - summary.freteNeto - summary.rebates), color: '#dc2626', href: undefined },
             { label: 'CMV (Custo Landed)', value: fmtR(summary.cmv), color: '#dc2626', href: undefined },
             { label: 'Lucro Bruto', value: fmtR(grossProfit), color: grossProfit >= 0 ? '#16a34a' : '#dc2626', href: undefined },
             { label: 'Margem Média', value: summary.marginCount > 0 ? fmtPct(avgMargin) : '—', color: avgMargin >= 0.35 ? '#16a34a' : avgMargin >= 0.20 ? '#d97706' : '#dc2626', href: undefined },

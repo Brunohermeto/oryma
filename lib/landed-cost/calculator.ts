@@ -206,7 +206,7 @@ export async function applyCmpToSale(saleId: string): Promise<void> {
 
   const { data: sale } = await db
     .from('sales')
-    .select('product_id, gross_price, shipping_received, marketplace_commission, marketplace_shipping_fee, ads_cost, cancellation, discounts, rebate, quantity, sale_date, sale_taxes(pis, cofins, icms, icms_difal, ipi)')
+    .select('product_id, gross_price, shipping_received, marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, ads_cost, cancellation, discounts, rebate, quantity, sale_date, sale_taxes(pis, cofins, icms, icms_difal, ipi)')
     .eq('id', saleId)
     .single()
 
@@ -238,6 +238,7 @@ export async function applyCmpToSale(saleId: string): Promise<void> {
                    + Number(sale.shipping_received  ?? 0)
                    - Number(sale.marketplace_commission ?? 0)
                    - Number(sale.marketplace_shipping_fee ?? 0)
+                   - Number((sale as any).marketplace_fixed_fee ?? 0)
                    - Number(sale.ads_cost            ?? 0)
                    - Number(sale.cancellation        ?? 0)
                    - Number(sale.discounts           ?? 0)

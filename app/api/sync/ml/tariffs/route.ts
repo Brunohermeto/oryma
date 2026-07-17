@@ -73,25 +73,29 @@ export async function POST(request: NextRequest) {
         const items = orders.get(orderId)
         if (!items) continue
 
-        let commission = 0, fees = 0, rebate = 0
+        // CV* = comissão | CXD* = frete Mercado Envios | resto = tarifa fixa/Full
+        let commission = 0, shipping = 0, fixed = 0, rebate = 0
         for (const d of r.details ?? []) {
           const ci = d.charge_info ?? {}
           const amt = Number(ci.detail_amount ?? 0)
+          const st  = ci.detail_sub_type ?? ''
           if (ci.detail_type === 'CHARGE') {
-            if ((ci.detail_sub_type ?? '').startsWith('CV')) commission += amt
-            else fees += amt
+            if (st.startsWith('CV')) commission += amt
+            else if (st.startsWith('CXD')) shipping += amt
+            else fixed += amt
           } else if (ci.detail_type === 'BONUS') {
             rebate += amt
           }
         }
-        if (commission === 0 && fees === 0 && rebate === 0) continue  // extrato ainda vazio
+        if (commission === 0 && shipping === 0 && fixed === 0 && rebate === 0) continue
 
         const sum = items.reduce((s, x) => s + x.gross, 0)
         for (const x of items) {
           const share = sum > 0 ? x.gross / sum : 1 / items.length
           const { error } = await db.from('sales').update({
             marketplace_commission:   Math.round(commission * share * 100) / 100,
-            marketplace_shipping_fee: Math.round(fees * share * 100) / 100,
+            marketplace_shipping_fee: Math.round(shipping * share * 100) / 100,
+            marketplace_fixed_fee:    Math.round(fixed * share * 100) / 100,
             ...(rebate > 0 ? { rebate: Math.round(rebate * share * 100) / 100 } : {}),
           }).eq('id', x.saleId)
           if (error) throw new Error(error.message)
