@@ -11,14 +11,17 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server'
 export async function recalculateLandedCost(importOrderId: string): Promise<void> {
   const db = createSupabaseServiceClient()
 
-  // 1. Load order (for issue_date — define effective_date of the new CMP)
+  // 1. Load order (issue_date define a vigência do CMP; CFOP diz se é importação)
   const { data: order } = await db
     .from('import_orders')
-    .select('issue_date')
+    .select('issue_date, cfop')
     .eq('id', importOrderId)
     .single()
 
   const effectiveDate = order?.issue_date ?? new Date().toISOString().slice(0, 10)
+  // CFOP da NF é a fonte oficial: 3xxx = importação direta; 1xxx/2xxx = compra nacional.
+  // Fallback (NF antiga sem CFOP gravado): presença de II indica importação.
+  const orderIsImport = order?.cfop ? String(order.cfop).startsWith('3') : null
 
   // 2. Load all items for this import order
   const { data: items } = await db
@@ -60,7 +63,7 @@ export async function recalculateLandedCost(importOrderId: string): Promise<void
     //   ICMS/PIS/COFINS → subtrai os créditos; IPI é cobrado por fora → soma.
     // IMPORTAÇÃO (unit_ii > 0): o FOB não inclui impostos; ICMS/PIS/COFINS
     //   pagos no desembaraço voltam como crédito → não entram; II e IPI somam.
-    const isImport = Number(item.unit_ii) > 0
+    const isImport = orderIsImport ?? Number(item.unit_ii) > 0
     const taxesUnitCost = isImport
       ? Number(item.unit_ii) + Number(item.unit_ipi)
       : Number(item.unit_ipi)
