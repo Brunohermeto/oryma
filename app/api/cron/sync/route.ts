@@ -56,15 +56,27 @@ export async function GET(request: NextRequest) {
     getDaysToSync('marketplaces'),
   ])
 
-  // Dispara os syncs com janela incremental
+  // Dispara os syncs com janela incremental.
+  // Sequencial de propósito: invoices/billing dependem das vendas recém-sincronizadas.
   const [blRes, mpRes] = await Promise.allSettled([
     fetch(`${baseUrl}/api/sync/bling?days=${blingDays}`, { method: 'POST', headers }),
     fetch(`${baseUrl}/api/sync/marketplaces?days=${mpDays}`, { method: 'POST', headers }),
   ])
 
+  // Enriquecimento ML: NF-e emitidas via ML (impostos das vendas Full)
+  // e extrato de tarifas (rebates + Product Ads por venda)
+  const [invRes, bilRes] = await Promise.allSettled([
+    fetch(`${baseUrl}/api/sync/ml/invoices`, {
+      method: 'POST', headers, body: JSON.stringify({ days: 7, limit: 25 }),
+    }),
+    fetch(`${baseUrl}/api/sync/ml/billing?days=7`, { method: 'POST', headers }),
+  ])
+
   return NextResponse.json({
     ok: true,
-    bling:       { status: blRes.status === 'fulfilled' ? 'triggered' : 'failed', days: blingDays },
+    bling:        { status: blRes.status === 'fulfilled' ? 'triggered' : 'failed', days: blingDays },
     marketplaces: { status: mpRes.status === 'fulfilled' ? 'triggered' : 'failed', days: mpDays },
+    ml_invoices:  { status: invRes.status === 'fulfilled' ? 'triggered' : 'failed' },
+    ml_billing:   { status: bilRes.status === 'fulfilled' ? 'triggered' : 'failed' },
   })
 }

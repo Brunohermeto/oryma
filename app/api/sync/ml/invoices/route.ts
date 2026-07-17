@@ -51,7 +51,10 @@ function taxesFromRules(rules: Array<{ name?: string; attributes?: Record<string
 
 export async function POST(request: NextRequest) {
   const authCookie = request.cookies.get('mi_auth')?.value
-  if (authCookie !== process.env.APP_PASSWORD) {
+  const cronSecret = request.headers.get('x-cron-secret')
+  const isAuthorized = authCookie === process.env.APP_PASSWORD
+    || (process.env.CRON_SECRET ? cronSecret === process.env.CRON_SECRET : cronSecret === 'internal')
+  if (!isAuthorized) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
