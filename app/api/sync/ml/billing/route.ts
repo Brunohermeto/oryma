@@ -59,11 +59,12 @@ export async function POST(request: NextRequest) {
   // (CXDE frete, CFFE custo fixo, CFONPN tarifa Full etc.) = tarifas de envio/canal
   const chargesByOrder = new Map<string, { commission: number; fees: number }>()
   const seen = new Set<number>()
-  let fromId = 0
+  let offset = 0
 
-  for (let page = 0; page < 5; page++) {
-    const body = await mlGet<{ results?: BillingDetail[]; last_id?: number }>(
-      `/billing/integration/periods/key/${key}/group/ML/details?document_type=BILL&limit=1000&sort_by=ID&order_by=ASC&from_id=${fromId}`
+  for (let page = 0; page < 8; page++) {
+    // Paginação por offset — o last_id do ML volta 0 e quebraria o cursor
+    const body = await mlGet<{ results?: BillingDetail[] }>(
+      `/billing/integration/periods/key/${key}/group/ML/details?document_type=BILL&limit=1000&sort_by=ID&order_by=ASC&offset=${offset}`
     )
     const results = body.results ?? []
     if (!results.length) break
@@ -93,8 +94,8 @@ export async function POST(request: NextRequest) {
         chargesByOrder.set(k, cur)
       }
     }
-    if (!body.last_id || body.last_id === fromId || results.length < 1000) break
-    fromId = body.last_id
+    if (results.length < 1000) break
+    offset += results.length
   }
 
   // 3. Atualizações por pedido: comissão real + tarifas de envio/canal + rebate
