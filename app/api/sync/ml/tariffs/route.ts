@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
   const body  = await request.json().catch(() => ({}))
   const days  = Number(body.days ?? 45)
   const limit = Number(body.limit ?? 30)
+  const force = body.force === true  // reprocessa mesmo quem já tem tarifa (ex: re-split)
   const skip  = new Set<string>(Array.isArray(body.skip) ? body.skip : [])
 
   const db = createSupabaseServiceClient()
@@ -53,7 +54,9 @@ export async function POST(request: NextRequest) {
   for (const r of rows ?? []) {
     const m = r.external_order_id?.match(/^ml_(\d+)_/)
     if (!m || skip.has(m[1])) continue
-    const needs = Number(r.marketplace_commission ?? 0) === 0 || Number(r.marketplace_shipping_fee ?? 0) === 0
+    const needs = force
+      || Number(r.marketplace_commission ?? 0) === 0
+      || Number(r.marketplace_shipping_fee ?? 0) === 0
     if (!needs) continue
     if (!orders.has(m[1])) orders.set(m[1], [])
     orders.get(m[1])!.push({ saleId: r.id, gross: Number(r.gross_price ?? 0) })
