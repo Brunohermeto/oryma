@@ -67,6 +67,13 @@ export async function getValidMercadoLivreToken(): Promise<string> {
     }),
   })
   if (!res.ok) {
+    // Corrida de renovação: o ML invalida o refresh_token no primeiro uso.
+    // Se outro processo renovou primeiro, espera e usa o token que ele salvou.
+    await new Promise(r => setTimeout(r, 3000))
+    const fresh = await getCredential('mercado_livre')
+    if (fresh?.access_token && !isTokenExpired(fresh.expires_at)) {
+      return fresh.access_token
+    }
     const body = await res.text().catch(() => '')
     throw new Error(`Token ML expirado — reconecte em Configurações (${res.status}: ${body.slice(0, 80)})`)
   }
