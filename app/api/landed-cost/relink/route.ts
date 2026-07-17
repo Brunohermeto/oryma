@@ -20,7 +20,10 @@ export const preferredRegion = 'gru1'
 
 export async function POST(request: NextRequest) {
   const authCookie = request.cookies.get('mi_auth')?.value
-  if (authCookie !== process.env.APP_PASSWORD) {
+  const cronSecret = request.headers.get('x-cron-secret')
+  const isAuthorized = authCookie === process.env.APP_PASSWORD
+    || (process.env.CRON_SECRET ? cronSecret === process.env.CRON_SECRET : cronSecret === 'internal')
+  if (!isAuthorized) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -164,7 +167,9 @@ export async function POST(request: NextRequest) {
                       + Number(sale.rebate                   ?? 0)
                       - totalTaxes  // impostos da NF-e saída
     const marginValue = netRevenue - totalCost
-    const marginPct   = netRevenue > 0 ? marginValue / netRevenue : 0
+    // Margem % sobre o faturamento bruto (definição do Bruno)
+    const gross       = Number(sale.gross_price)
+    const marginPct   = gross > 0 ? marginValue / gross : 0
     saleCostRows.push({
       sale_id: sale.id, cmp_cost_id: cmp.id,
       unit_cost_applied: cmp.value, total_cost: totalCost,

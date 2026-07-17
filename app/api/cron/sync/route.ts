@@ -72,11 +72,17 @@ export async function GET(request: NextRequest) {
     fetch(`${baseUrl}/api/sync/ml/billing?days=7`, { method: 'POST', headers }),
   ])
 
+  // Recalcula CMP + margem de todas as vendas com os dados recém-enriquecidos
+  const rlRes = await Promise.allSettled([
+    fetch(`${baseUrl}/api/landed-cost/relink`, { method: 'POST', headers }),
+  ]).then(r => r[0])
+
   return NextResponse.json({
     ok: true,
     bling:        { status: blRes.status === 'fulfilled' ? 'triggered' : 'failed', days: blingDays },
     marketplaces: { status: mpRes.status === 'fulfilled' ? 'triggered' : 'failed', days: mpDays },
     ml_invoices:  { status: invRes.status === 'fulfilled' ? 'triggered' : 'failed' },
     ml_billing:   { status: bilRes.status === 'fulfilled' ? 'triggered' : 'failed' },
+    relink:       { status: rlRes.status === 'fulfilled' ? 'triggered' : 'failed' },
   })
 }

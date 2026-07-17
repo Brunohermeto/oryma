@@ -52,14 +52,21 @@ export async function recalculateLandedCost(importOrderId: string): Promise<void
     const itemFobTotal = Number(item.total_fob_value)
     const qty          = Number(item.quantity) || 1
 
-    // Impostos incluídos no CMV (Opção B — Lucro Real não cumulativo):
-    // II e IPI: sem crédito → custo real
-    // ICMS-GNRE: desembolso imediato → custo real
-    // PIS-imp e COFINS-imp: EXCLUÍDOS (100% recuperados como crédito nas vendas)
-    const taxesUnitCost =
-      Number(item.unit_ii) +
-      Number(item.unit_ipi) +
-      Number(item.unit_icms_gnre)
+    // Regra crédito/débito (Lucro Real não cumulativo, definida pelo Bruno 2026-07-17):
+    // custo = desembolso líquido dos créditos recuperáveis (ICMS, PIS, COFINS).
+    // II e IPI: sem crédito → custo real.
+    //
+    // Compra NACIONAL (unit_ii = 0): o preço unitário (fob) já EMBUTE
+    //   ICMS/PIS/COFINS → subtrai os créditos; IPI é cobrado por fora → soma.
+    // IMPORTAÇÃO (unit_ii > 0): o FOB não inclui impostos; ICMS/PIS/COFINS
+    //   pagos no desembaraço voltam como crédito → não entram; II e IPI somam.
+    const isImport = Number(item.unit_ii) > 0
+    const taxesUnitCost = isImport
+      ? Number(item.unit_ii) + Number(item.unit_ipi)
+      : Number(item.unit_ipi)
+        - Number(item.unit_icms_gnre)
+        - Number(item.unit_pis_imp)
+        - Number(item.unit_cofins_imp)
 
     const fobShare           = totalFobOrder > 0 ? itemFobTotal / totalFobOrder : 0
     const additionalTotal    = totalAdditional * fobShare
@@ -195,7 +202,7 @@ export async function applyCmpToSale(saleId: string): Promise<void> {
 
   const { data: sale } = await db
     .from('sales')
-    .select('product_id, gross_price, shipping_received, marketplace_commission, marketplace_shipping_fee, ads_cost, cancellation, discounts, rebate, quantity, sale_date')
+    .select('product_id, gross_price, shipping_received, marketplace_commission, marketplace_shipping_fee, ads_cost, cancellation, discounts, rebate, quantity, sale_date, sale_taxes(pis, cofins, icms, icms_difal, ipi)')
     .eq('id', saleId)
     .single()
 
@@ -206,6 +213,13 @@ export async function applyCmpToSale(saleId: string): Promise<void> {
 
   const qty = Number(sale.quantity) || 1
   const totalCost = cmp.value * qty
+
+  // Débitos da NF-e de saída (regra crédito/débito: imposto da venda é custo da venda)
+  const t = Array.isArray(sale.sale_taxes) ? sale.sale_taxes[0] : sale.sale_taxes
+  const saleTaxes = t
+    ? Number(t.pis ?? 0) + Number(t.cofins ?? 0) + Number(t.icms ?? 0)
+    + Number(t.icms_difal ?? 0) + Number(t.ipi ?? 0)
+    : 0
 
   // Receita líquida completa:
   // + gross_price         (preço do produto)
@@ -224,8 +238,11 @@ export async function applyCmpToSale(saleId: string): Promise<void> {
                    - Number(sale.cancellation        ?? 0)
                    - Number(sale.discounts           ?? 0)
                    + Number(sale.rebate              ?? 0)
+                   - saleTaxes
   const marginValue = netRevenue - totalCost
-  const marginPct   = netRevenue > 0 ? marginValue / netRevenue : 0
+  // Margem % sobre o faturamento bruto (definição do Bruno)
+  const gross       = Number(sale.gross_price)
+  const marginPct   = gross > 0 ? marginValue / gross : 0
 
   await db.from('sale_costs').upsert({
     sale_id:           saleId,
