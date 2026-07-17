@@ -14,7 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { mlGet } from '@/lib/integrations/mercado-livre'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
-import { brazilDaysAgo } from '@/lib/utils/brazil-time'
+import { brazilDaysAgo, brazilToday } from '@/lib/utils/brazil-time'
 
 export const dynamic         = 'force-dynamic'
 export const maxDuration     = 60
@@ -80,7 +80,11 @@ export async function POST(request: NextRequest) {
         rebateByOrder.set(k, (rebateByOrder.get(k) ?? 0) + amount)
       } else if (ci.detail_sub_type === 'PADS') {
         const day = (ci.creation_date_time ?? '').slice(0, 10)
-        if (day >= cutoff) padsByDay.set(day, (padsByDay.get(day) ?? 0) + amount)
+        // Só rateia dias FECHADOS — o dia corrente concentraria o custo
+        // inteiro nas poucas vendas que já entraram
+        if (day >= cutoff && day < brazilToday()) {
+          padsByDay.set(day, (padsByDay.get(day) ?? 0) + amount)
+        }
       } else if (ci.detail_type === 'CHARGE' && order) {
         const k = String(order)
         const cur = chargesByOrder.get(k) ?? { commission: 0, fees: 0 }

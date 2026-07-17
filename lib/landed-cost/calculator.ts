@@ -243,10 +243,13 @@ export async function applyCmpToSale(saleId: string): Promise<void> {
                    - Number(sale.discounts           ?? 0)
                    + Number(sale.rebate              ?? 0)
                    - saleTaxes
-  const marginValue = netRevenue - totalCost
+  // Sem NF-e ainda (impostos ausentes) → margem NULL ("em cálculo"),
+  // não um número inflado com custos que ainda não chegaram
+  const hasTaxes    = !!t
+  const marginValue = hasTaxes ? netRevenue - totalCost : null
   // Margem % sobre o faturamento bruto (definição do Bruno)
   const gross       = Number(sale.gross_price)
-  const marginPct   = gross > 0 ? marginValue / gross : 0
+  const marginPct   = hasTaxes && gross > 0 ? (netRevenue - totalCost) / gross : null
 
   await db.from('sale_costs').upsert({
     sale_id:           saleId,

@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
   const saleCostRows: Array<{
     sale_id: string; cmp_cost_id: string | null
     unit_cost_applied: number; total_cost: number
-    margin_value: number; margin_pct: number
+    margin_value: number | null; margin_pct: number | null
   }> = []
 
   for (const sale of allSales ?? []) {
@@ -169,10 +169,13 @@ export async function POST(request: NextRequest) {
                       - Number(sale.discounts                ?? 0)
                       + Number(sale.rebate                   ?? 0)
                       - totalTaxes  // impostos da NF-e saída
-    const marginValue = netRevenue - totalCost
+    // Sem NF-e de saída ainda (impostos ausentes) = dados incompletos →
+    // margem fica NULL ("em cálculo") em vez de um número inflado e falso
+    const hasTaxes    = !!taxes
+    const marginValue = hasTaxes ? netRevenue - totalCost : null
     // Margem % sobre o faturamento bruto (definição do Bruno)
     const gross       = Number(sale.gross_price)
-    const marginPct   = gross > 0 ? marginValue / gross : 0
+    const marginPct   = hasTaxes && gross > 0 ? (netRevenue - totalCost) / gross : null
     saleCostRows.push({
       sale_id: sale.id, cmp_cost_id: cmp.id,
       unit_cost_applied: cmp.value, total_cost: totalCost,
