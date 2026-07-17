@@ -104,6 +104,9 @@ export async function POST(request: NextRequest) {
 
   const db   = createSupabaseServiceClient()
   const days = Number(request.nextUrl.searchParams.get('days') ?? '180')
+  // A listagem do Bling é mista (saída+entrada) e ordenada DESC — 5 páginas
+  // cobrem só ~38 dias de operação. Para histórico, aumente ?pages= (máx 30).
+  const maxPages = Math.min(Number(request.nextUrl.searchParams.get('pages') ?? '5'), 30)
   const startDate = brazilDaysAgo(days)
   const endDate   = brazilToday()
 
@@ -111,7 +114,7 @@ export async function POST(request: NextRequest) {
     // 1. Lista NF-e do Bling — o endpoint /nfe não filtra por tipo na query,
     //    então buscamos tudo e filtramos client-side
     const allNfe: BlingNFeItem[] = []
-    for (let page = 1; page <= 5; page++) {
+    for (let page = 1; page <= maxPages; page++) {
       await sleep(250)
       const res = await blingGet<{ data: BlingNFeItem[] }>('/nfe', {
         pagina: String(page), limite: '100',
