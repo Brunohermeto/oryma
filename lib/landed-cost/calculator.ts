@@ -158,7 +158,9 @@ export async function getCmpAtDate(
     .select('id, cmp_value')
     .eq('product_id', productId)
     .lte('effective_date', saleDate)
+    // desempate entre recálculos com a mesma vigência: o mais recente vence
     .order('effective_date', { ascending: false })
+    .order('calculated_at', { ascending: false })
     .limit(1)
     .maybeSingle()
 
@@ -170,6 +172,7 @@ export async function getCmpAtDate(
     .select('id, cmp_value')
     .eq('product_id', productId)
     .order('effective_date', { ascending: true })
+    .order('calculated_at', { ascending: false })
     .limit(1)
     .maybeSingle()
 
@@ -188,6 +191,7 @@ export async function getCurrentCmp(productId: string): Promise<number | null> {
     .select('cmp_value')
     .eq('product_id', productId)
     .order('effective_date', { ascending: false })
+    .order('calculated_at', { ascending: false })
     .limit(1)
     .maybeSingle()
   return data ? Number(data.cmp_value) : null

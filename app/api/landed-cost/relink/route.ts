@@ -96,7 +96,10 @@ export async function POST(request: NextRequest) {
     fetchAll<any>(() =>
       db.from('cmp_costs')
         .select('id, product_id, cmp_value, effective_date')
+        // desempate entre recálculos com a mesma vigência: o mais recente vence
+        // (a lista é ASC e o consumidor pega o último match)
         .order('effective_date', { ascending: true })
+        .order('calculated_at', { ascending: true })
     ),
     fetchAll<any>(() =>
       db.from('sales')
