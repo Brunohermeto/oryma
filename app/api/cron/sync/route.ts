@@ -72,6 +72,14 @@ export async function GET(request: NextRequest) {
     fetch(`${baseUrl}/api/sync/ml/billing?days=7`, { method: 'POST', headers }),
   ])
 
+  // Tarifas por pedido (fonte definitiva — pega cobranças "debited_from_operation"
+  // que não aparecem no extrato por período). Depois do billing para prevalecer.
+  const trRes = await Promise.allSettled([
+    fetch(`${baseUrl}/api/sync/ml/tariffs`, {
+      method: 'POST', headers, body: JSON.stringify({ days: 7, limit: 30 }),
+    }),
+  ]).then(r => r[0])
+
   // Recalcula CMP + margem de todas as vendas com os dados recém-enriquecidos
   const rlRes = await Promise.allSettled([
     fetch(`${baseUrl}/api/landed-cost/relink`, { method: 'POST', headers }),
@@ -83,6 +91,7 @@ export async function GET(request: NextRequest) {
     marketplaces: { status: mpRes.status === 'fulfilled' ? 'triggered' : 'failed', days: mpDays },
     ml_invoices:  { status: invRes.status === 'fulfilled' ? 'triggered' : 'failed' },
     ml_billing:   { status: bilRes.status === 'fulfilled' ? 'triggered' : 'failed' },
+    ml_tariffs:   { status: trRes.status === 'fulfilled' ? 'triggered' : 'failed' },
     relink:       { status: rlRes.status === 'fulfilled' ? 'triggered' : 'failed' },
   })
 }
