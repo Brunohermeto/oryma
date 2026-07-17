@@ -242,7 +242,9 @@ export async function syncMercadoLivre(
           external_order_id:        `ml_${order.id}_${item.item.id}`,
           marketplace:              'mercado_livre',
           fulfillment_type:         fulfillmentType,
-          product_id:               productId,
+          // Só grava product_id quando resolvido — senão o re-sync apagaria
+          // vínculos feitos por outros caminhos (ex: EAN da NF-e do ML)
+          ...(productId ? { product_id: productId } : {}),
           sku,
           pack_id:                  order.pack_id ? String(order.pack_id) : null,
           sale_date:                toBrazilDate(order.date_created),

@@ -69,19 +69,24 @@ export async function POST(request: NextRequest) {
 
   // Vendas ML sem NF-e vinculada, agrupadas por pedido
   const { data: rows } = await db.from('sales')
-    .select('id, external_order_id')
+    .select('id, external_order_id, product_id')
     .eq('marketplace', 'mercado_livre')
     .is('nfe_saida_key', null)
     .gte('sale_date', brazilDaysAgo(days))
     .order('sale_date', { ascending: false })
     .limit(500)
 
-  const orders = new Map<string, Array<{ saleId: string; mlb: string }>>()
+  // Cadastro por SKU (que nos produtos vindos do Bling é o EAN) — permite
+  // vincular venda→produto pelo EAN do item da NF-e quando o SKU do anúncio difere
+  const { data: allProducts } = await db.from('products').select('id, sku')
+  const productByEan = new Map((allProducts ?? []).map(p => [String(p.sku), p.id]))
+
+  const orders = new Map<string, Array<{ saleId: string; mlb: string; hasProduct: boolean }>>()
   for (const r of rows ?? []) {
     const m = r.external_order_id?.match(/^ml_(\d+)_(\S+)$/)
     if (!m || skip.has(m[1])) continue
     if (!orders.has(m[1])) orders.set(m[1], [])
-    orders.get(m[1])!.push({ saleId: r.id, mlb: m[2] })
+    orders.get(m[1])!.push({ saleId: r.id, mlb: m[2], hasProduct: !!r.product_id })
   }
 
   const batch = [...orders.entries()].slice(0, limit)
@@ -105,8 +110,15 @@ export async function POST(request: NextRequest) {
         const rules   = invItem?.fiscal_data?.rules ?? []
         const t       = taxesFromRules(rules)
 
+        // Auto-vínculo venda→produto pelo EAN fiscal da nota
+        const ean = String((invItem as any)?.attributes?.ean ?? (invItem as any)?.attributes?.sku ?? '')
+        const eanProductId = !sale.hasProduct ? productByEan.get(ean) : undefined
+
         const [{ error: e1 }] = await Promise.all([
-          db.from('sales').update({ nfe_saida_key: chave }).eq('id', sale.saleId),
+          db.from('sales').update({
+            nfe_saida_key: chave,
+            ...(eanProductId ? { product_id: eanProductId } : {}),
+          }).eq('id', sale.saleId),
           db.from('sale_taxes').delete().eq('sale_id', sale.saleId).then(() =>
             db.from('sale_taxes').insert({
               sale_id: sale.saleId, nfe_key: chave,
