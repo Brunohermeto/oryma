@@ -38,6 +38,15 @@ export async function exchangeMercadoLivreCode(code: string): Promise<void> {
     )
   }
 
+  // Sem refresh_token a conexão morre em 6h. O ML só o devolve em autorização
+  // "limpa" — se vier vazio, o usuário precisa revogar o app no ML e reconectar.
+  if (!data.refresh_token) {
+    throw new Error(
+      'O Mercado Livre não devolveu o token de renovação (a conexão duraria só 6h). ' +
+      'No ML, vá em Configurações → Privacidade → Conexões com aplicativos, REVOGUE este app e reconecte aqui.'
+    )
+  }
+
   await saveCredential('mercado_livre', {
     access_token: data.access_token,
     refresh_token: data.refresh_token,
