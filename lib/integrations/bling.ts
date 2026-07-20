@@ -59,7 +59,8 @@ export async function getValidBlingToken(): Promise<string | null> {
   const data = await res.json()
   await saveCredential('bling', {
     access_token:  data.access_token,
-    refresh_token: data.refresh_token,
+    // NUNCA sobrescrever com vazio — refresh_token nulo mata a conexão para sempre
+    refresh_token: data.refresh_token || cred.refresh_token,
     expires_at:    new Date(Date.now() + data.expires_in * 1000).toISOString(),
   })
   return data.access_token

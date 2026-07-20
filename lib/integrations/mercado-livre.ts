@@ -83,7 +83,9 @@ export async function getValidMercadoLivreToken(): Promise<string> {
   const existingExtra = (cred as any).extra
   await saveCredential('mercado_livre', {
     access_token:  data.access_token,
-    refresh_token: data.refresh_token,
+    // NUNCA sobrescrever com vazio — refresh_token nulo mata a conexão para sempre
+    // (aconteceu em 17/07: resposta sem refresh_token gravou null e derrubou o ML)
+    refresh_token: data.refresh_token || cred.refresh_token,
     expires_at:    new Date(Date.now() + data.expires_in * 1000).toISOString(),
     ...(existingExtra ? { extra: existingExtra } : {}),
   })
