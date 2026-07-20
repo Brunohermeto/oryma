@@ -7,16 +7,10 @@ import {
   LayoutDashboard,
   BarChart3,
   Package,
-  Zap,
-  Target,
   ShoppingBag,
-  Activity,
   FolderOpen,
-  ClipboardList,
   Settings,
   X,
-  BellRing,
-  GitMerge,
 } from 'lucide-react'
 
 // Manual de marca Oryma
@@ -35,35 +29,19 @@ const C = {
 
 const navGroups = [
   {
-    label: 'Principal',
+    label: 'Gestão',
     items: [
-      { href: '/dashboard',              label: 'Visão Geral',          icon: LayoutDashboard, exact: true },
-      { href: '/dashboard/tributario',   label: 'Alertas & Insights',   icon: BellRing },
-      { href: '/dashboard/dre',          label: 'Conciliação',          icon: GitMerge },
-    ],
-  },
-  {
-    label: 'Financeiro',
-    items: [
-      { href: '/dashboard/dre',          label: 'DRE Gerencial',        icon: BarChart3 },
-      { href: '/dashboard/despesas',     label: 'Despesas Operacionais',icon: ClipboardList },
-    ],
-  },
-  {
-    label: 'Produtos',
-    items: [
-      { href: '/dashboard/produtos',     label: 'Custo Real por Produto', icon: Package },
-      { href: '/dashboard/velocidade',   label: 'Giro e Velocidade',    icon: Zap },
-      { href: '/dashboard/precificacao', label: 'Simulador de Margem',  icon: Target },
+      { href: '/dashboard',          label: 'Visão Geral',        icon: LayoutDashboard, exact: true },
+      { href: '/dashboard/vendas',   label: 'Vendas & Margem',    icon: ShoppingBag },
+      { href: '/dashboard/produtos', label: 'Produtos & Estoque', icon: Package },
+      { href: '/dashboard/dre',      label: 'DRE & Despesas',     icon: BarChart3 },
     ],
   },
   {
     label: 'Operação',
     items: [
-      { href: '/dashboard/vendas',         label: 'Feed de Vendas',      icon: ShoppingBag },
-      { href: '/dashboard/vendas-ao-vivo', label: 'Vendas ao Vivo',      icon: Activity },
-      { href: '/dashboard/importacoes',    label: 'NF-e / Importações',  icon: FolderOpen },
-      { href: '/dashboard/configuracoes',  label: 'Configurações',       icon: Settings },
+      { href: '/dashboard/importacoes',   label: 'NF-e / Importações', icon: FolderOpen },
+      { href: '/dashboard/configuracoes', label: 'Configurações',      icon: Settings },
     ],
   },
 ]

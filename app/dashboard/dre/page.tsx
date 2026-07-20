@@ -19,10 +19,13 @@ export default async function DREPage({
   return (
     <>
       <TopBar
-        title="DRE Gerencial"
+        title="DRE & Despesas"
         subtitle={`Demonstração de Resultado — ${currentMonth}`}
         actions={
           <div className="flex items-center gap-2">
+            <a href="/dashboard/despesas">
+              <Button variant="outline" size="sm">Despesas Operacionais</Button>
+            </a>
             <a href={`/dashboard/dre?month=${formatMonth(prevMonth(period))}`}>
               <Button variant="outline" size="sm">← Mês anterior</Button>
             </a>

@@ -6,16 +6,9 @@ import { getAllCredentials } from '@/lib/integrations/credentials'
 import { ConfigCard } from '@/components/configuracoes/ConfigCard'
 import { BlingSyncButton } from '@/components/configuracoes/BlingSyncButton'
 import { MarketplaceSyncButton } from '@/components/configuracoes/MarketplaceSyncButton'
-import { DiagnosticoCustoButton } from '@/components/configuracoes/DiagnosticoCustoButton'
-import { RelinkButton } from '@/components/configuracoes/RelinkButton'
-import { FixCommissionButton } from '@/components/configuracoes/FixCommissionButton'
-import { FixProductLinksButton } from '@/components/configuracoes/FixProductLinksButton'
-import { ReprocessImportButton } from '@/components/configuracoes/ReprocessImportButton'
-import { SyncMLFeesButton } from '@/components/configuracoes/SyncMLFeesButton'
-import { EstimateCommissionsButton } from '@/components/configuracoes/EstimateCommissionsButton'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { getCredential, isTokenExpired } from '@/lib/integrations/credentials'
-import { Clock, CheckCircle2, AlertCircle, WifiOff } from 'lucide-react'
+import { Clock, CheckCircle2, AlertCircle, WifiOff, Hourglass } from 'lucide-react'
 
 const B = {
   border:   'oklch(0.88 0.016 258)',
@@ -49,7 +42,7 @@ export default async function ConfiguracoesPage({
   const credentials = await getAllCredentials()
   const credMap = Object.fromEntries(credentials.map(c => [c.id, c]))
 
-  // Último sync automático (cron) e manual por fonte
+  // Último sync bem-sucedido por fonte
   const db = createSupabaseServiceClient()
   const { data: recentLogs } = await db
     .from('sync_logs')
@@ -70,21 +63,6 @@ export default async function ConfiguracoesPage({
   ])
   const blingTokenOk = !!blingCred?.access_token && !isTokenExpired(blingCred.expires_at)
   const mlTokenOk    = !!mlCred?.access_token    && !isTokenExpired(mlCred.expires_at)
-  const hasCronSecret = !!process.env.CRON_SECRET
-  const hasAppUrl     = !!process.env.NEXT_PUBLIC_APP_URL
-
-  // Verifica último cron bem-sucedido
-  const { data: cronLogs } = await db
-    .from('sync_logs')
-    .select('finished_at')
-    .eq('sync_type', 'nfe')
-    .eq('status', 'success')
-    .order('finished_at', { ascending: false })
-    .limit(1)
-  const lastCronAt = cronLogs?.[0]?.finished_at ?? null
-  const cronAgeH   = lastCronAt
-    ? Math.floor((Date.now() - new Date(lastCronAt).getTime()) / 3_600_000)
-    : null
 
   return (
     <>
@@ -101,36 +79,9 @@ export default async function ConfiguracoesPage({
                 Conexão perdida — token expirado
               </div>
               <div className="text-[12px] mt-1 space-y-0.5" style={{ color: '#7f1d1d' }}>
-                {!blingTokenOk && <div>• <strong>Bling:</strong> token inválido ou expirado — clique em <strong>Conectar</strong> abaixo para reconectar</div>}
-                {!mlTokenOk    && <div>• <strong>Mercado Livre:</strong> token inválido ou expirado — clique em <strong>Conectar</strong> abaixo para reconectar</div>}
+                {!blingTokenOk && <div>• <strong>Bling:</strong> clique em <strong>Conectar</strong> abaixo para reconectar</div>}
+                {!mlTokenOk    && <div>• <strong>Mercado Livre:</strong> clique em <strong>Conectar</strong> abaixo para reconectar (use a conta BEBÊ LUXE)</div>}
               </div>
-            </div>
-          </div>
-        )}
-
-        {(!hasCronSecret || !hasAppUrl) && (
-          <div className="rounded-xl px-5 py-4 flex items-start gap-3"
-            style={{ background: 'oklch(0.97 0.06 85)', border: '1px solid oklch(0.88 0.09 85)' }}>
-            <AlertCircle size={16} className="mt-0.5 flex-shrink-0" style={{ color: '#d97706' }} />
-            <div>
-              <div className="text-[13px] font-semibold" style={{ color: '#92400e' }}>
-                Sync automático desconfigurado
-              </div>
-              <div className="text-[12px] mt-1 space-y-0.5" style={{ color: '#78350f' }}>
-                {!hasCronSecret && <div>• <strong>CRON_SECRET</strong> não está configurado nas variáveis de ambiente do Vercel → o cron retorna 401 e nunca executa</div>}
-                {!hasAppUrl     && <div>• <strong>NEXT_PUBLIC_APP_URL</strong> não está configurado → o cron não sabe qual URL chamar</div>}
-                <div className="mt-1">Acesse <strong>vercel.com → Projeto Oryma → Settings → Environment Variables</strong> e adicione essas variáveis.</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {hasCronSecret && hasAppUrl && cronAgeH !== null && cronAgeH > 25 && (
-          <div className="rounded-xl px-5 py-4 flex items-start gap-3"
-            style={{ background: 'oklch(0.97 0.04 25)', border: '1px solid oklch(0.88 0.06 25)' }}>
-            <AlertCircle size={16} className="mt-0.5 flex-shrink-0" style={{ color: '#dc2626' }} />
-            <div className="text-[13px]" style={{ color: '#991b1b' }}>
-              <strong>Cron não executa há {cronAgeH}h</strong> — verifique os logs no painel do Vercel ou se as variáveis de ambiente estão corretas.
             </div>
           </div>
         )}
@@ -154,8 +105,7 @@ export default async function ConfiguracoesPage({
           </div>
         )}
 
-        {/* Sincronização automática — status */}
-
+        {/* Status da sincronização automática */}
         <div
           className="rounded-xl px-5 py-4 flex items-start gap-3"
           style={{ background: 'oklch(0.95 0.03 258)', border: `1px solid oklch(0.85 0.04 258)` }}
@@ -163,23 +113,22 @@ export default async function ConfiguracoesPage({
           <Clock size={16} className="mt-0.5 flex-shrink-0" style={{ color: B.brand }} />
           <div>
             <div className="text-[13px] font-semibold" style={{ color: B.text }}>
-              Sincronização automática ativa
+              Sincronização automática
             </div>
             <div className="text-[12px] mt-0.5" style={{ color: B.muted }}>
-              O Oryma sincroniza NF-e e pedidos automaticamente às <strong>6h</strong> e <strong>20h</strong> todos os dias.
-              Use os botões abaixo apenas se precisar forçar uma atualização imediata.
+              O Oryma sincroniza pedidos, NF-e, tarifas e margens automaticamente todos os dias.
             </div>
             <div className="flex gap-4 mt-2">
               <span className="flex items-center gap-1 text-[11px]" style={{ color: B.muted }}>
                 {lastSync.bling
-                  ? <><CheckCircle2 size={11} style={{ color: '#16a34a' }} /> Bling: {formatRelativeTime(lastSync.bling.finished_at)} · {lastSync.bling.records_synced} NF-e</>
+                  ? <><CheckCircle2 size={11} style={{ color: '#16a34a' }} /> Bling: {formatRelativeTime(lastSync.bling.finished_at)}</>
                   : <><AlertCircle size={11} style={{ color: '#d97706' }} /> Bling: nunca sincronizado</>
                 }
               </span>
               <span className="flex items-center gap-1 text-[11px]" style={{ color: B.muted }}>
                 {lastSync.marketplaces
-                  ? <><CheckCircle2 size={11} style={{ color: '#16a34a' }} /> Marketplaces: {formatRelativeTime(lastSync.marketplaces.finished_at)} · {lastSync.marketplaces.records_synced} vendas</>
-                  : <><AlertCircle size={11} style={{ color: '#d97706' }} /> Marketplaces: nunca sincronizado</>
+                  ? <><CheckCircle2 size={11} style={{ color: '#16a34a' }} /> Vendas: {formatRelativeTime(lastSync.marketplaces.finished_at)}</>
+                  : <><AlertCircle size={11} style={{ color: '#d97706' }} /> Vendas: nunca sincronizado</>
                 }
               </span>
             </div>
@@ -192,19 +141,9 @@ export default async function ConfiguracoesPage({
         </div>
 
         <ConfigCard
-          id="bling"
-          name="Bling ERP"
-          description="NF-e de entrada (importação) e saída (vendas) — OAuth 2.0"
-          guide="https://developer.bling.com.br"
-          connectUrl="/api/integrations/bling/connect"
-          credential={credMap['bling']}
-          type="oauth"
-        />
-
-        <ConfigCard
           id="mercado_livre"
           name="Mercado Livre"
-          description="Pedidos, tarifas e ADS — OAuth 2.0"
+          description="Pedidos, NF-e, tarifas e ADS — conta BEBÊ LUXE"
           guide="https://developers.mercadolivre.com.br"
           connectUrl="/api/integrations/ml/connect"
           credential={credMap['mercado_livre']}
@@ -214,7 +153,7 @@ export default async function ConfiguracoesPage({
         <ConfigCard
           id="shopee"
           name="Shopee"
-          description="Pedidos, comissões e ADS — credenciais manuais"
+          description="Pedidos, comissões e ADS"
           guide="https://open.shopee.com"
           credential={credMap['shopee']}
           type="manual_shopee"
@@ -223,10 +162,36 @@ export default async function ConfiguracoesPage({
         <ConfigCard
           id="amazon"
           name="Amazon SP-API"
-          description="Pedidos, taxas FBA e ADS — LWA refresh token"
+          description="Pedidos, taxas FBA e ADS"
           guide="https://developer-docs.amazon.com/sp-api"
           credential={credMap['amazon']}
           type="manual_amazon"
+        />
+
+        {/* Magalu — integração ainda não construída */}
+        <div className="bg-white rounded-xl p-5 flex items-center justify-between" style={{ border: `1px solid ${B.border}`, opacity: 0.7 }}>
+          <div>
+            <div className="font-semibold text-[15px]" style={{ color: B.text, fontFamily: 'var(--font-sora)' }}>
+              Magalu
+            </div>
+            <p className="text-[13px]" style={{ color: B.muted }}>
+              Pedidos e comissões — integração em desenvolvimento
+            </p>
+          </div>
+          <span className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-full"
+            style={{ background: B.bgSubtle, color: B.muted }}>
+            <Hourglass size={12} /> Em breve
+          </span>
+        </div>
+
+        <ConfigCard
+          id="bling"
+          name="Bling ERP"
+          description="NF-e de entrada (compras/importação) e saída (vendas)"
+          guide="https://developer.bling.com.br"
+          connectUrl="/api/integrations/bling/connect"
+          credential={credMap['bling']}
+          type="oauth"
         />
 
         {/* Sincronização manual */}
@@ -234,43 +199,26 @@ export default async function ConfiguracoesPage({
           Forçar Sincronização
         </div>
 
-        <div className="bg-white rounded-xl p-5" style={{ border: `1px solid ${B.border}` }}>
-          <div className="font-semibold text-[15px] mb-0.5" style={{ color: B.text, fontFamily: 'var(--font-sora)' }}>
-            Bling — NF-e e Produtos
+        <div className="bg-white rounded-xl p-5 space-y-4" style={{ border: `1px solid ${B.border}` }}>
+          <div>
+            <div className="font-semibold text-[15px] mb-0.5" style={{ color: B.text, fontFamily: 'var(--font-sora)' }}>
+              Vendas dos marketplaces
+            </div>
+            <p className="text-[13px] mb-3" style={{ color: B.muted }}>
+              Puxa os pedidos pagos dos últimos dias imediatamente, sem esperar o ciclo automático.
+            </p>
+            <MarketplaceSyncButton />
           </div>
-          <p className="text-[13px] mb-4" style={{ color: B.muted }}>
-            Sincroniza NF-e saída (vincula impostos às vendas), re-extrai impostos, importa produtos (SKU/estoque) e NF-e de entrada (importações com custos por item).
-          </p>
-          <BlingSyncButton />
-        </div>
-
-        <div className="bg-white rounded-xl p-5" style={{ border: `1px solid ${B.border}` }}>
-          <div className="font-semibold text-[15px] mb-0.5" style={{ color: B.text, fontFamily: 'var(--font-sora)' }}>
-            Marketplaces — Pedidos e Vendas
+          <div className="pt-4" style={{ borderTop: `1px solid ${B.bgSubtle}` }}>
+            <div className="font-semibold text-[15px] mb-0.5" style={{ color: B.text, fontFamily: 'var(--font-sora)' }}>
+              NF-e do Bling
+            </div>
+            <p className="text-[13px] mb-3" style={{ color: B.muted }}>
+              Vincula as notas fiscais emitidas às vendas (impostos e margens).
+            </p>
+            <BlingSyncButton />
           </div>
-          <p className="text-[13px] mb-4" style={{ color: B.muted }}>
-            Sincroniza pedidos pagos dos últimos 7 dias. Use <strong>Backfill histórico (180 dias)</strong> para carregar todo o histórico de uma vez — faça isso uma única vez para preencher o banco completo.
-          </p>
-          <MarketplaceSyncButton />
         </div>
-
-        {/* Relink: recalcula CMV e margens de todas as vendas */}
-        <RelinkButton />
-
-        {/* Corrige comissão de produtos de catálogo ML (RAGA001-C etc.) */}
-        <FixCommissionButton />
-
-        {/* Vincula SKU do ML ao EAN do Bling para calcular CMV */}
-        <FixProductLinksButton />
-
-        {/* Reprocessa NF-e de entrada com SKU errado via catálogo Bling */}
-        <ReprocessImportButton />
-
-        {/* Busca frete, rebate e comissão individualmente do ML */}
-        <SyncMLFeesButton />
-
-        {/* Estima comissões para vendas com dados incorretos da API ML */}
-        <EstimateCommissionsButton />
 
         {/* CMV manual para produtos sem NF-e */}
         <div className="bg-white rounded-xl p-5" style={{ border: `1px solid ${B.border}` }}>
@@ -278,7 +226,7 @@ export default async function ConfiguracoesPage({
             CMV Manual
           </div>
           <p className="text-[13px] mb-4" style={{ color: B.muted }}>
-            Informe o custo de importação para produtos que não têm NF-e de entrada cadastrada no sistema.
+            Informe o custo para produtos que ainda não têm NF-e de entrada no sistema.
           </p>
           <a
             href="/dashboard/configuracoes/cmp-manual"
@@ -288,9 +236,6 @@ export default async function ConfiguracoesPage({
             Cadastrar CMV manualmente →
           </a>
         </div>
-
-        {/* Diagnóstico de custo — botão temporário */}
-        <DiagnosticoCustoButton />
 
       </div>
     </>

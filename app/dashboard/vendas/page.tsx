@@ -96,9 +96,12 @@ export default async function VendasPage({
   return (
     <>
       <TopBar
-        title="Feed de Vendas"
+        title="Vendas & Margem"
         subtitle={`${summary.orders} vendas — ${dateFrom} a ${dateTo}`}
       />
+      <div className="px-4 md:px-8 pt-4">
+        <a href="/dashboard/vendas-ao-vivo" className="text-[12px] font-semibold px-3 py-1.5 rounded-lg inline-block" style={{ background: 'oklch(0.96 0.010 258)', color: '#125BFF' }}>Vendas ao Vivo (tempo real) →</a>
+      </div>
       <div className="px-8 py-6 space-y-4">
 
         {/* Filters */}

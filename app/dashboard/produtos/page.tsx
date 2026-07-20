@@ -42,7 +42,11 @@ export default async function ProdutosPage() {
 
   return (
     <>
-      <TopBar title="Custo por Produto" subtitle="Landed cost real — FOB + impostos + despesas de importação" />
+      <TopBar title="Produtos & Estoque" subtitle="Custo real, margem, estoque e velocidade por produto" />
+      <div className="px-4 md:px-8 pt-4 flex gap-2">
+        <a href="/dashboard/velocidade" className="text-[12px] font-semibold px-3 py-1.5 rounded-lg" style={{ background: 'oklch(0.96 0.010 258)', color: '#125BFF' }}>Giro e Velocidade →</a>
+        <a href="/dashboard/precificacao" className="text-[12px] font-semibold px-3 py-1.5 rounded-lg" style={{ background: 'oklch(0.96 0.010 258)', color: '#125BFF' }}>Simulador de Margem →</a>
+      </div>
       <div className="px-4 md:px-8 py-6 space-y-4">
 
         {productData.length === 0 && (
