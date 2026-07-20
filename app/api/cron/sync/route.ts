@@ -80,6 +80,11 @@ export async function GET(request: NextRequest) {
     }),
   ]).then(r => r[0])
 
+  // Estoque Full do ML → products.stock_full (conciliação galpão + marketplaces)
+  const stRes = await Promise.allSettled([
+    fetch(`${baseUrl}/api/sync/ml/stock`, { method: 'POST', headers }),
+  ]).then(r => r[0])
+
   // Recalcula CMP + margem de todas as vendas com os dados recém-enriquecidos
   const rlRes = await Promise.allSettled([
     fetch(`${baseUrl}/api/landed-cost/relink`, { method: 'POST', headers }),
@@ -92,6 +97,7 @@ export async function GET(request: NextRequest) {
     ml_invoices:  { status: invRes.status === 'fulfilled' ? 'triggered' : 'failed' },
     ml_billing:   { status: bilRes.status === 'fulfilled' ? 'triggered' : 'failed' },
     ml_tariffs:   { status: trRes.status === 'fulfilled' ? 'triggered' : 'failed' },
+    ml_stock:     { status: stRes.status === 'fulfilled' ? 'triggered' : 'failed' },
     relink:       { status: rlRes.status === 'fulfilled' ? 'triggered' : 'failed' },
   })
 }

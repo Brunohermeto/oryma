@@ -14,7 +14,8 @@ export interface ProductRow {
   id: string
   name: string
   sku: string
-  stock: number
+  stock: number            // galpão próprio (Bling)
+  stockFull: number        // CDs dos marketplaces (Full ML etc.)
   velocity30d: number      // unidades vendidas nos últimos 30 dias
   cmp: number | null
 }
@@ -31,10 +32,11 @@ export function ProductsTable({ rows }: { rows: ProductRow[] }) {
   const [asc, setAsc] = useState(false)
 
   const enriched = useMemo(() => rows.map(r => {
+    const totalStock = r.stock + r.stockFull
     const perDay = r.velocity30d / 30
-    // cobertura: dias de estoque no ritmo atual (∞ se não vende)
-    const coverage = perDay > 0 ? r.stock / perDay : null
-    return { ...r, perDay, coverage }
+    // cobertura: dias de estoque TOTAL (galpão + Full) no ritmo atual
+    const coverage = perDay > 0 ? totalStock / perDay : null
+    return { ...r, totalStock, perDay, coverage }
   }), [rows])
 
   const view = useMemo(() => {
@@ -45,7 +47,7 @@ export function ProductsTable({ rows }: { rows: ProductRow[] }) {
     const dir = asc ? 1 : -1
     const val = (r: typeof list[number]) =>
       sortKey === 'name' ? r.name.toLowerCase()
-      : sortKey === 'stock' ? r.stock
+      : sortKey === 'stock' ? r.totalStock
       : sortKey === 'velocity' ? r.velocity30d
       : sortKey === 'coverage' ? (r.coverage ?? Infinity)
       : (r.cmp ?? -1)
@@ -118,8 +120,13 @@ export function ProductsTable({ rows }: { rows: ProductRow[] }) {
                   </a>
                   <div className="text-[11px]" style={{ color: B.muted }}>{r.sku}</div>
                 </td>
-                <td className="py-2.5 px-4 text-right num" style={{ fontFamily: 'var(--font-geist-mono)', color: r.stock === 0 ? '#dc2626' : B.text }}>
-                  {r.stock.toFixed(0)}
+                <td className="py-2.5 px-4 text-right num" style={{ fontFamily: 'var(--font-geist-mono)', color: r.totalStock === 0 ? '#dc2626' : B.text }}>
+                  <span className="font-bold">{r.totalStock.toFixed(0)}</span>
+                  {r.totalStock > 0 && (
+                    <div className="text-[10px]" style={{ color: B.muted }}>
+                      galpão {r.stock.toFixed(0)} · full {r.stockFull.toFixed(0)}
+                    </div>
+                  )}
                 </td>
                 <td className="py-2.5 px-4 text-right num" style={{ fontFamily: 'var(--font-geist-mono)', color: B.text }}>
                   {r.velocity30d.toFixed(0)}
