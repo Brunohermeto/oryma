@@ -9,18 +9,30 @@ export const preferredRegion = 'gru1'
 export default async function ProdutosPage() {
   const db = createSupabaseServiceClient()
 
-  // 3 consultas totais: produtos, CMP mais recente, vendas dos últimos 30 dias
-  const [{ data: products }, { data: allCmps }, { data: recentSales }] = await Promise.all([
+  // Vendas dos últimos 12 meses (paginado — PostgREST devolve no máx. 1000/página)
+  async function fetchAllSales() {
+    const out: Array<{ product_id: string; quantity: number; sale_date: string }> = []
+    for (let page = 0; page < 12; page++) {
+      const { data } = await db.from('sales')
+        .select('product_id, quantity, sale_date')
+        .gte('sale_date', brazilDaysAgo(365))
+        .not('product_id', 'is', null)
+        .order('sale_date', { ascending: true })
+        .range(page * 1000, page * 1000 + 999)
+      if (!data?.length) break
+      out.push(...data)
+      if (data.length < 1000) break
+    }
+    return out
+  }
+
+  const [{ data: products }, { data: allCmps }, yearSales] = await Promise.all([
     db.from('products').select('id, name, sku, stock_quantity, stock_full').order('name'),
     db.from('cmp_costs')
       .select('product_id, cmp_value, calculated_at')
       .order('calculated_at', { ascending: false })
       .limit(5000),
-    db.from('sales')
-      .select('product_id, quantity')
-      .gte('sale_date', brazilDaysAgo(30))
-      .not('product_id', 'is', null)
-      .limit(5000),
+    fetchAllSales(),
   ])
 
   const cmpByProduct = new Map<string, number>()
@@ -28,20 +40,45 @@ export default async function ProdutosPage() {
     if (!cmpByProduct.has(c.product_id)) cmpByProduct.set(c.product_id, Number(c.cmp_value))
   }
 
+  // Velocidade com desconto de ruptura: janela de 12m, mas intervalos sem
+  // NENHUMA venda acima de 14 dias contam como falta de estoque e saem do
+  // denominador (sem histórico diário de estoque, o gap é o melhor termômetro).
+  // ponytail: heurística de gap; trocar por snapshots de estoque se um dia existirem
+  const GAP_MAX = 14
+  const datesByProduct = new Map<string, string[]>()
   const soldByProduct = new Map<string, number>()
-  for (const s of recentSales ?? []) {
+  for (const s of yearSales) {
     soldByProduct.set(s.product_id, (soldByProduct.get(s.product_id) ?? 0) + Number(s.quantity ?? 1))
+    if (!datesByProduct.has(s.product_id)) datesByProduct.set(s.product_id, [])
+    datesByProduct.get(s.product_id)!.push(s.sale_date)
+  }
+  const today = new Date()
+  function activeDays(dates: string[]): number {
+    if (!dates.length) return 0
+    let days = 1
+    for (let i = 1; i < dates.length; i++) {
+      const gap = (new Date(dates[i]).getTime() - new Date(dates[i - 1]).getTime()) / 86400000
+      days += Math.min(gap, GAP_MAX)
+    }
+    const tail = (today.getTime() - new Date(dates[dates.length - 1]).getTime()) / 86400000
+    days += Math.min(Math.max(tail, 0), GAP_MAX)
+    return Math.max(days, 1)
   }
 
-  const rows: ProductRow[] = (products ?? []).map(p => ({
-    id: p.id,
-    name: p.name,
-    sku: p.sku,
-    stock: Number(p.stock_quantity ?? 0),
-    stockFull: Number((p as any).stock_full ?? 0),
-    velocity30d: soldByProduct.get(p.id) ?? 0,
-    cmp: cmpByProduct.get(p.id) ?? null,
-  }))
+  const rows: ProductRow[] = (products ?? []).map(p => {
+    const sold = soldByProduct.get(p.id) ?? 0
+    const dias = activeDays(datesByProduct.get(p.id) ?? [])
+    return {
+      id: p.id,
+      name: p.name,
+      sku: p.sku,
+      stock: Number(p.stock_quantity ?? 0),
+      stockFull: Number((p as any).stock_full ?? 0),
+      sold12m: sold,
+      velocityPerDay: sold > 0 ? sold / dias : 0,
+      cmp: cmpByProduct.get(p.id) ?? null,
+    }
+  })
 
   return (
     <>

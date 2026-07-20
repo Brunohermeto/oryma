@@ -16,7 +16,8 @@ export interface ProductRow {
   sku: string
   stock: number            // galpão próprio (Bling)
   stockFull: number        // CDs dos marketplaces (Full ML etc.)
-  velocity30d: number      // unidades vendidas nos últimos 30 dias
+  sold12m: number          // unidades vendidas nos últimos 12 meses
+  velocityPerDay: number   // un/dia descontando períodos de ruptura de estoque
   cmp: number | null
 }
 
@@ -33,10 +34,10 @@ export function ProductsTable({ rows }: { rows: ProductRow[] }) {
 
   const enriched = useMemo(() => rows.map(r => {
     const totalStock = r.stock + r.stockFull
-    const perDay = r.velocity30d / 30
-    // cobertura: dias de estoque TOTAL (galpão + Full) no ritmo atual
-    const coverage = perDay > 0 ? totalStock / perDay : null
-    return { ...r, totalStock, perDay, coverage }
+    // cobertura: dias de estoque TOTAL (galpão + Full) no ritmo de venda
+    // (velocidade já vem descontada dos períodos sem estoque)
+    const coverage = r.velocityPerDay > 0 ? totalStock / r.velocityPerDay : null
+    return { ...r, totalStock, coverage }
   }), [rows])
 
   const view = useMemo(() => {
@@ -48,7 +49,7 @@ export function ProductsTable({ rows }: { rows: ProductRow[] }) {
     const val = (r: typeof list[number]) =>
       sortKey === 'name' ? r.name.toLowerCase()
       : sortKey === 'stock' ? r.totalStock
-      : sortKey === 'velocity' ? r.velocity30d
+      : sortKey === 'velocity' ? r.velocityPerDay
       : sortKey === 'coverage' ? (r.coverage ?? Infinity)
       : (r.cmp ?? -1)
     return [...list].sort((a, b) => {
@@ -71,8 +72,8 @@ export function ProductsTable({ rows }: { rows: ProductRow[] }) {
     )
   }
 
-  function coverageBadge(coverage: number | null, velocity30d: number) {
-    if (velocity30d === 0) return <span className="text-[11px]" style={{ color: B.muted }}>sem giro</span>
+  function coverageBadge(coverage: number | null, sold12m: number) {
+    if (sold12m === 0) return <span className="text-[11px]" style={{ color: B.muted }}>sem giro</span>
     if (coverage === null) return <span style={{ color: B.muted }}>—</span>
     const days = Math.round(coverage)
     const color = days < 30 ? '#dc2626' : days < 60 ? '#d97706' : '#16a34a'
@@ -106,7 +107,7 @@ export function ProductsTable({ rows }: { rows: ProductRow[] }) {
             <tr style={{ background: B.bgSubtle }}>
               {header('Produto', 'name', 'left')}
               {header('Estoque', 'stock')}
-              {header('Vendas 30d', 'velocity')}
+              {header('Velocidade', 'velocity')}
               {header('Cobertura', 'coverage')}
               {header('CMP', 'cmp')}
             </tr>
@@ -129,12 +130,16 @@ export function ProductsTable({ rows }: { rows: ProductRow[] }) {
                   )}
                 </td>
                 <td className="py-2.5 px-4 text-right num" style={{ fontFamily: 'var(--font-geist-mono)', color: B.text }}>
-                  {r.velocity30d.toFixed(0)}
-                  {r.velocity30d > 0 && (
-                    <span className="text-[10px] ml-1" style={{ color: B.muted }}>({r.perDay.toFixed(1)}/dia)</span>
+                  {r.velocityPerDay > 0 ? (
+                    <>
+                      <span className="font-bold">{r.velocityPerDay.toFixed(1)}/dia</span>
+                      <div className="text-[10px]" style={{ color: B.muted }}>{r.sold12m.toFixed(0)} un em 12m</div>
+                    </>
+                  ) : (
+                    <span style={{ color: B.muted }}>—</span>
                   )}
                 </td>
-                <td className="py-2.5 px-4 text-right">{coverageBadge(r.coverage, r.velocity30d)}</td>
+                <td className="py-2.5 px-4 text-right">{coverageBadge(r.coverage, r.sold12m)}</td>
                 <td className="py-2.5 px-4 text-right num" style={{ fontFamily: 'var(--font-geist-mono)', color: r.cmp ? B.text : B.muted }}>
                   {r.cmp !== null ? fmtR(r.cmp) : '—'}
                 </td>
