@@ -20,25 +20,30 @@ function fmtR(v: number) {
 export default async function ProdutosPage() {
   const db = createSupabaseServiceClient()
 
-  const { data: products } = await db.from('products').select('*').order('name')
+  // 3 consultas totais (era 2 POR produto = ~900 round-trips e 7s de página)
+  const [{ data: products }, { data: allCmps }, { data: allBatches }] = await Promise.all([
+    db.from('products').select('*').order('name'),
+    db.from('cmp_costs')
+      .select('product_id, cmp_value, calculated_at')
+      .order('calculated_at', { ascending: false })
+      .limit(5000),
+    db.from('unit_costs')
+      .select('*')
+      .order('calculated_at', { ascending: false })
+      .limit(2000),
+  ])
 
-  const productData = await Promise.all(
-    (products ?? []).map(async product => {
-      const { data: cmp } = await db
-        .from('cmp_costs').select('*')
-        .eq('product_id', product.id)
-        .order('calculated_at', { ascending: false })
-        .limit(1).single()
+  // mais recente por produto (listas já vêm em DESC)
+  const cmpByProduct = new Map<string, any>()
+  for (const c of allCmps ?? []) if (!cmpByProduct.has(c.product_id)) cmpByProduct.set(c.product_id, c)
+  const batchByProduct = new Map<string, any>()
+  for (const b of allBatches ?? []) if (!batchByProduct.has(b.product_id)) batchByProduct.set(b.product_id, b)
 
-      const { data: latestBatch } = await db
-        .from('unit_costs').select('*')
-        .eq('product_id', product.id)
-        .order('calculated_at', { ascending: false })
-        .limit(1).single()
-
-      return { product, cmp, latestBatch }
-    })
-  )
+  const productData = (products ?? []).map(product => ({
+    product,
+    cmp: cmpByProduct.get(product.id) ?? null,
+    latestBatch: batchByProduct.get(product.id) ?? null,
+  }))
 
   return (
     <>
