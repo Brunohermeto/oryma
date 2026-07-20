@@ -27,6 +27,17 @@ export async function exchangeMercadoLivreCode(code: string): Promise<void> {
   })
   if (!res.ok) throw new Error(`ML token exchange failed: ${res.status}`)
   const data = await res.json()
+
+  // Trava de conta: só aceita a conta BEBÊ LUXE (MCL/RAGALUMA).
+  // Já conectaram a conta de outra empresa 2x por engano — corrompe as vendas.
+  const EXPECTED_SELLER_ID = '708242032'
+  if (String(data.user_id) !== EXPECTED_SELLER_ID) {
+    throw new Error(
+      `Conta ML errada! Você autorizou o usuário ${data.user_id}, mas a conta da RAGALUMA/BEBÊ LUXE é ${EXPECTED_SELLER_ID}. ` +
+      `Saia do Mercado Livre, entre com a conta correta e reconecte.`
+    )
+  }
+
   await saveCredential('mercado_livre', {
     access_token: data.access_token,
     refresh_token: data.refresh_token,
