@@ -104,30 +104,29 @@ function SaleDetailPanel({ sale }: { sale: SaleRow }) {
   // Impostos líquidos = impostos s/ venda − créditos de importação
   const impostoLiquido = Math.max(0, totalTaxes - totalCreditos)
 
-  const lucro = cost
-    ? faturamento + freteNeto - impostoLiquido - commission - adsC + rebate - cmv
+  const fixedFee = Number((sale as any).marketplace_fixed_fee ?? 0)
+
+  // Lucro só com dados completos: sem NF-e (impostos) ou sem custo = "em cálculo",
+  // nunca um número inflado
+  const lucro = cost && taxes
+    ? faturamento + freteNeto - impostoLiquido - commission - fixedFee - adsC + rebate - cmv
     : null
 
   // ── Avaliação de completude dos dados ───────────────────────────────────────
-  const commissionPct = faturamento > 0 ? commission / faturamento : 0
   const issues: string[] = []
 
-  // Comissão suspeita: < 5% para ML é quase sempre errado (API não retorna para Full/catálogo)
-  const commissionSuspect = sale.marketplace === 'mercado_livre' && commissionPct < 0.05 && commission > 0
-  const commissionMissing = commission === 0
+  if (commission === 0 && rebate === 0)
+    issues.push('Tarifas ainda não lançadas no extrato do ML (chegam em 1-2 dias)')
 
-  if (commissionMissing)   issues.push('Comissão não capturada (produto de catálogo ML)')
-  else if (commissionSuspect) issues.push(`Comissão pode estar subestimada (${(commissionPct*100).toFixed(1)}% — API ML não retorna valor real para Full/catálogo)`)
-
-  if (sale.marketplace === 'mercado_livre' && sale.marketplace_shipping_fee === 0 && sale.fulfillment_type === 'full_ml')
-    issues.push('Frete ao vendedor indisponível (API ML não expõe para Full ML)')
+  if (sale.marketplace === 'mercado_livre' && sale.marketplace_shipping_fee === 0)
+    issues.push('Frete do vendedor ainda não capturado')
 
   if (!taxes && sale.fulfillment_type === 'galpao')
     issues.push('Impostos s/ venda pendentes (NF-e de saída ainda não sincronizada)')
 
   const dataQuality: 'ok' | 'parcial' | 'incompleto' =
     issues.length === 0 ? 'ok' :
-    issues.some(i => i.includes('Comissão') && commissionMissing) ? 'incompleto' :
+    issues.length >= 2 ? 'incompleto' :
     'parcial'
 
   const productId = (product as any)?.id ?? null
@@ -202,9 +201,8 @@ function SaleDetailPanel({ sale }: { sale: SaleRow }) {
               ) : (
                 <div className="text-xs space-y-1" style={{ color: B.muted }}>
                   <div>
-                    {sale.fulfillment_type === 'galpao'
-                      ? 'NF-e não sincronizada ainda'
-                      : 'Full ML / FBA — sem NF-e de consumidor'}
+                    {/* Full também tem NF-e (emitida via ML) — só demora algumas horas */}
+                    NF-e ainda não emitida/vinculada — impostos em processamento
                   </div>
                   {(pisCredito > 0 || cofinsCredito > 0) && (
                     <div className="mt-2 pt-2" style={{ borderTop: `1px solid ${B.border}` }}>
@@ -381,9 +379,10 @@ function SaleDetailPanel({ sale }: { sale: SaleRow }) {
                 {[
                   { label: 'Faturamento bruto',          value: faturamento,   sign: 1 },
                   { label: '(+) Frete líquido',           value: freteNeto,     sign: freteNeto >= 0 ? 1 : -1 },
-                  ...(rebate > 0 ? [{ label: '(+) Rebate',    value: rebate,    sign: 1 }] : []),
+                  ...(rebate > 0 ? [{ label: '(+) Estorno / rebate', value: rebate, sign: 1 }] : []),
                   { label: totalCreditos > 0 ? '(-) Impostos líquidos s/ venda' : '(-) Impostos s/ vendas', value: -impostoLiquido, sign: -1 },
                   { label: '(-) Comissão marketplace',    value: -commission,  sign: -1 },
+                  ...(fixedFee > 0 ? [{ label: '(-) Tarifa fixa / armazenagem', value: -fixedFee, sign: -1 }] : []),
                   ...(adsC > 0 ? [{ label: '(-) ADS',         value: -adsC,     sign: -1 }] : []),
                   { label: '(-) CMV (landed cost)',       value: -cmv,         sign: -1 },
                 ].map(({ label, value, sign }) => (
@@ -405,7 +404,7 @@ function SaleDetailPanel({ sale }: { sale: SaleRow }) {
                     color: lucro === null ? B.muted : lucro >= 0 ? '#16a34a' : '#dc2626',
                     fontFamily: 'var(--font-geist-mono)',
                   }}>
-                    {lucro !== null ? fmtR(lucro) : 'Sem custo'}
+                    {lucro !== null ? fmtR(lucro) : cost ? 'Em cálculo (aguarda NF-e)' : 'Sem custo'}
                   </span>
                 </div>
                 {cost?.margin_pct !== null && cost?.margin_pct !== undefined && (

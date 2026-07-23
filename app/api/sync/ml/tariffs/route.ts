@@ -22,6 +22,7 @@ export const preferredRegion = 'gru1'
 
 interface OrderDetailResult {
   order_id?: number | string
+  sale_fee?: { gross?: number; net?: number; rebate?: number }
   details?: Array<{
     charge_info?: { detail_amount?: number; detail_type?: string; detail_sub_type?: string }
   }>
@@ -97,6 +98,13 @@ export async function POST(request: NextRequest) {
             rebate += amt
           }
         }
+        // Estorno promocional da tarifa de venda (sale_fee.rebate): guarda a comissão
+        // BRUTA e o estorno separado — a margem não muda (bruta − estorno = líquida),
+        // mas o estorno fica visível por venda, como no painel do ML
+        const promo = Number(r.sale_fee?.rebate ?? 0)
+        commission += promo
+        rebate += promo
+
         if (commission === 0 && shipping === 0 && fixed === 0 && rebate === 0) continue
 
         const sum = items.reduce((s, x) => s + x.gross, 0)
