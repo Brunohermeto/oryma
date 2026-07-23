@@ -76,17 +76,24 @@ export async function POST(request: NextRequest) {
         const items = orders.get(orderId)
         if (!items) continue
 
-        // CV* = comissão | CXD* = frete Mercado Envios | resto = tarifa fixa/Full
+        // Classificação validada contra o painel de vendas do ML (23/07):
+        //   CV*   = tarifas de venda (comissão, cobrança MP, parcelamento absorvido)
+        //   CXD*/CFF* = frete (CFFE "envio extra/intermunicipal" é o frete do Full!)
+        //   CFONPN = repasse do acréscimo pago pelo comprador → NÃO é custo
+        //   CDIFAL = DIFAL cobrado pelo ML → já contado via NF-e (sale_taxes)
+        //   PADS   = ads (tratado por dia na rota de billing)
         let commission = 0, shipping = 0, fixed = 0, rebate = 0
         for (const d of r.details ?? []) {
           const ci = d.charge_info ?? {}
           const amt = Number(ci.detail_amount ?? 0)
           const st  = ci.detail_sub_type ?? ''
           if (ci.detail_type === 'CHARGE') {
+            if (st === 'CFONPN' || st === 'CDIFAL' || st === 'PADS') continue
             if (st.startsWith('CV')) commission += amt
-            else if (st.startsWith('CXD')) shipping += amt
+            else if (st.startsWith('CXD') || st.startsWith('CFF')) shipping += amt
             else fixed += amt
           } else if (ci.detail_type === 'BONUS') {
+            if (st === 'BFONPN') continue  // estorno do repasse — também fora
             rebate += amt
           }
         }

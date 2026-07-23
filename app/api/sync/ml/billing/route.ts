@@ -75,10 +75,12 @@ export async function POST(request: NextRequest) {
       const amount = Number(ci.detail_amount ?? 0)
       const order  = r.sales_info?.[0]?.order_id
 
+      const st = ci.detail_sub_type ?? ''
       if (ci.detail_type === 'BONUS' && order) {
+        if (st === 'BFONPN') continue  // estorno do repasse de parcelamento — fora
         const k = String(order)
         rebateByOrder.set(k, (rebateByOrder.get(k) ?? 0) + amount)
-      } else if (ci.detail_sub_type === 'PADS') {
+      } else if (st === 'PADS') {
         const day = (ci.creation_date_time ?? '').slice(0, 10)
         // Só rateia dias FECHADOS — o dia corrente concentraria o custo
         // inteiro nas poucas vendas que já entraram
@@ -86,11 +88,12 @@ export async function POST(request: NextRequest) {
           padsByDay.set(day, (padsByDay.get(day) ?? 0) + amount)
         }
       } else if (ci.detail_type === 'CHARGE' && order) {
+        // CFONPN = repasse do acréscimo do comprador; CDIFAL = já vem da NF-e
+        if (st === 'CFONPN' || st === 'CDIFAL') continue
         const k = String(order)
         const cur = chargesByOrder.get(k) ?? { commission: 0, shipping: 0, fixed: 0 }
-        const st = ci.detail_sub_type ?? ''
         if (st.startsWith('CV')) cur.commission += amount
-        else if (st.startsWith('CXD')) cur.shipping += amount
+        else if (st.startsWith('CXD') || st.startsWith('CFF')) cur.shipping += amount
         else cur.fixed += amount
         chargesByOrder.set(k, cur)
       }
