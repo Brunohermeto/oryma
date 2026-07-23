@@ -27,8 +27,20 @@ function fmtR(v: number) {
   return `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
+type Situacao = 'todos' | 'com_estoque' | 'sem_estoque' | 'critico' | 'sem_giro' | 'sem_custo'
+
+const SITUACOES: Array<{ key: Situacao; label: string }> = [
+  { key: 'todos',       label: 'Todos' },
+  { key: 'com_estoque', label: 'Com estoque' },
+  { key: 'sem_estoque', label: 'Sem estoque' },
+  { key: 'critico',     label: 'Repor (cobertura < 30d)' },
+  { key: 'sem_giro',    label: 'Sem giro (capital parado)' },
+  { key: 'sem_custo',   label: 'Sem custo' },
+]
+
 export function ProductsTable({ rows }: { rows: ProductRow[] }) {
   const [search, setSearch] = useState('')
+  const [situacao, setSituacao] = useState<Situacao>('todos')
   const [sortKey, setSortKey] = useState<SortKey>('velocity')
   const [asc, setAsc] = useState(false)
 
@@ -45,6 +57,15 @@ export function ProductsTable({ rows }: { rows: ProductRow[] }) {
     let list = q
       ? enriched.filter(r => r.name.toLowerCase().includes(q) || r.sku.toLowerCase().includes(q))
       : enriched
+    if (situacao !== 'todos') {
+      list = list.filter(r =>
+        situacao === 'com_estoque' ? r.totalStock > 0
+        : situacao === 'sem_estoque' ? r.totalStock === 0
+        : situacao === 'critico' ? (r.coverage !== null && r.coverage < 30)
+        : situacao === 'sem_giro' ? (r.sold12m === 0 && r.totalStock > 0)
+        : r.cmp === null  // sem_custo
+      )
+    }
     const dir = asc ? 1 : -1
     const val = (r: typeof list[number]) =>
       sortKey === 'name' ? r.name.toLowerCase()
@@ -56,7 +77,7 @@ export function ProductsTable({ rows }: { rows: ProductRow[] }) {
       const va = val(a), vb = val(b)
       return va < vb ? -dir : va > vb ? dir : 0
     })
-  }, [enriched, search, sortKey, asc])
+  }, [enriched, search, situacao, sortKey, asc])
 
   function header(label: string, key: SortKey, align: 'left' | 'right' = 'right') {
     const active = sortKey === key
@@ -87,18 +108,35 @@ export function ProductsTable({ rows }: { rows: ProductRow[] }) {
 
   return (
     <div className="bg-white rounded-xl overflow-hidden" style={{ border: `1px solid ${B.border}` }}>
-      <div className="px-4 py-3 flex items-center gap-3" style={{ borderBottom: `1px solid ${B.border}` }}>
-        <div className="relative flex-1 max-w-sm">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: B.muted }} />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar por nome ou SKU…"
-            className="w-full pl-8 pr-3 py-2 rounded-lg text-sm outline-none"
-            style={{ border: `1px solid ${B.border}`, color: B.text }}
-          />
+      <div className="px-4 py-3 space-y-2.5" style={{ borderBottom: `1px solid ${B.border}` }}>
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 max-w-sm">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: B.muted }} />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Buscar por nome ou SKU…"
+              className="w-full pl-8 pr-3 py-2 rounded-lg text-sm outline-none"
+              style={{ border: `1px solid ${B.border}`, color: B.text }}
+            />
+          </div>
+          <span className="text-[12px]" style={{ color: B.muted }}>{view.length} produtos</span>
         </div>
-        <span className="text-[12px]" style={{ color: B.muted }}>{view.length} produtos</span>
+        {/* Filtros rápidos por situação */}
+        <div className="flex flex-wrap gap-1.5">
+          {SITUACOES.map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setSituacao(key)}
+              className="text-[12px] font-semibold px-3 py-1 rounded-full transition-colors"
+              style={situacao === key
+                ? { background: B.brand, color: 'white' }
+                : { background: B.bgSubtle, color: B.muted }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="overflow-x-auto">
