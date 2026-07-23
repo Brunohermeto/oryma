@@ -54,6 +54,7 @@ export interface SaleRow {
   discounts: number
   rebate?: number
   uf_destino?: string | null
+  pack_id?: string | null
   nfe_saida_key?: string | null
   products: { name: string; sku: string; id?: string } | null
   sale_taxes: { pis: number; cofins: number; icms: number; icms_difal: number; ipi: number; total_taxes: number; nfe_key?: string } | null
@@ -137,6 +138,17 @@ function SaleDetailPanel({ sale }: { sale: SaleRow }) {
     <tr>
       <td colSpan={15} style={{ padding: 0, background: 'oklch(0.97 0.007 258)' }}>
         <div className="px-8 py-5" style={{ borderBottom: `1px solid ${B.border}` }}>
+          {/* Identificadores da venda — para conferir direto no painel do ML */}
+          <div className="mb-4 flex flex-wrap gap-4 text-[12px]" style={{ color: B.muted }}>
+            <span>
+              Pedido ML: <span className="font-bold num" style={{ color: B.text, fontFamily: 'var(--font-geist-mono)' }}>#{sale.external_order_id?.split('_')[1] ?? '—'}</span>
+            </span>
+            {sale.pack_id && (
+              <span>
+                Venda (nº que aparece no painel do ML): <span className="font-bold num" style={{ color: B.brand, fontFamily: 'var(--font-geist-mono)' }}>#{sale.pack_id}</span>
+              </span>
+            )}
+          </div>
           <div className="grid grid-cols-4 gap-6">
 
             {/* NF-e Saída / Impostos */}
