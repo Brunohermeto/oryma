@@ -134,7 +134,7 @@ function SaleDetailPanel({ sale }: { sale: SaleRow }) {
 
   return (
     <tr>
-      <td colSpan={13} style={{ padding: 0, background: 'oklch(0.97 0.007 258)' }}>
+      <td colSpan={15} style={{ padding: 0, background: 'oklch(0.97 0.007 258)' }}>
         <div className="px-8 py-5" style={{ borderBottom: `1px solid ${B.border}` }}>
           <div className="grid grid-cols-4 gap-6">
 
@@ -457,10 +457,10 @@ export function SalesTable({ sales }: { sales: SaleRow[] }) {
       <thead>
         <tr style={{ background: 'oklch(0.96 0.010 258)', borderBottom: `1px solid ${B.border}` }}>
           <th className="w-6 px-2 py-3" />
-          {['Data','Produto','Canal','Qtd.','Preço unit.','Faturamento','Impostos','Comissão MP','Frete líq.','ADS','Custo (CMV)','Lucro','Margem'].map((h, i) => (
+          {['Data','Produto','Canal','Qtd.','Preço unit.','Faturamento','Impostos','Comissão MP','Estorno','Frete líq.','ADS','Custo (CMV)','Lucro','Margem'].map((h, i) => (
             <th
               key={h}
-              className={`py-3 text-[11px] font-semibold uppercase tracking-wide ${i < 3 ? 'text-left px-4' : 'text-right px-4'} ${i === 12 ? 'px-5' : ''}`}
+              className={`py-3 text-[11px] font-semibold uppercase tracking-wide ${i < 3 ? 'text-left px-4' : 'text-right px-4'} ${i === 13 ? 'px-5' : ''}`}
               style={{ color: B.muted }}
             >
               {h}
@@ -471,7 +471,7 @@ export function SalesTable({ sales }: { sales: SaleRow[] }) {
       <tbody>
         {sales.length === 0 && (
           <tr>
-            <td colSpan={14} className="px-5 py-10 text-center text-sm" style={{ color: B.muted }}>
+            <td colSpan={15} className="px-5 py-10 text-center text-sm" style={{ color: B.muted }}>
               Nenhuma venda encontrada para os filtros selecionados.
             </td>
           </tr>
@@ -490,7 +490,11 @@ export function SalesTable({ sales }: { sales: SaleRow[] }) {
           const rebate        = Number(sale.rebate ?? 0)
           const faturamento   = Number(sale.gross_price) - Number(sale.cancellation) - Number(sale.discounts ?? 0)
           const cmv           = Number(cost?.total_cost ?? 0)
-          const lucro         = cost ? faturamento + freteNeto - totalTaxes - commission - adsC + rebate - cmv : null
+          const fixedFee      = Number((sale as any).marketplace_fixed_fee ?? 0)
+          // lucro só com dados completos (custo E impostos) — igual ao painel
+          const lucro         = cost && taxes
+            ? faturamento + freteNeto - totalTaxes - commission - fixedFee - adsC + rebate - cmv
+            : null
           const marginPct     = cost?.margin_pct !== null && cost?.margin_pct !== undefined ? Number(cost.margin_pct) : null
           const badge         = MP_BADGE[sale.marketplace] ?? { bg: B.bgSubtle, color: B.brand }
 
@@ -498,11 +502,10 @@ export function SalesTable({ sales }: { sales: SaleRow[] }) {
           const commissionPct = faturamento > 0 ? commission / faturamento : 0
           const rowIssues: string[] = []
           if (sale.marketplace === 'mercado_livre') {
-            if (commission === 0) rowIssues.push('Comissão: não capturada')
-            else if (commissionPct < 0.05) rowIssues.push(`Comissão: pode estar subestimada (${(commissionPct*100).toFixed(1)}%)`)
-            if (sale.fulfillment_type === 'full_ml' && fretePago === 0) rowIssues.push('Frete ao vendedor: indisponível na API ML')
+            if (commission === 0 && rebate === 0) rowIssues.push('Tarifas: extrato do ML ainda não lançou (1-2 dias)')
+            if (fretePago === 0) rowIssues.push('Frete do vendedor: ainda não capturado')
           }
-          if (!taxes && sale.fulfillment_type === 'galpao') rowIssues.push('Impostos: NF-e não sincronizada')
+          if (!taxes) rowIssues.push('Impostos: NF-e ainda não emitida/vinculada')
           if (!cost) rowIssues.push('CMV: produto sem custo cadastrado')
 
           const rowQuality = rowIssues.length === 0 ? 'ok'
@@ -557,9 +560,13 @@ export function SalesTable({ sales }: { sales: SaleRow[] }) {
                 <td className="px-4 py-2.5 text-right text-xs num" style={{ color: '#dc2626', fontFamily: 'var(--font-geist-mono)' }}>
                   {totalTaxes > 0 ? `(${fmtR(totalTaxes)})` : '—'}
                 </td>
-                {/* Comissão MP (separada do frete) */}
+                {/* Comissão MP bruta (separada do frete) */}
                 <td className="px-4 py-2.5 text-right text-xs num" style={{ color: '#dc2626', fontFamily: 'var(--font-geist-mono)' }}>
                   {commission > 0 ? `(${fmtR(commission)})` : '—'}
+                </td>
+                {/* Estorno / rebate (campanhas do canal — devolve parte da tarifa) */}
+                <td className="px-4 py-2.5 text-right text-xs num" style={{ color: rebate > 0 ? '#16a34a' : B.muted, fontFamily: 'var(--font-geist-mono)' }}>
+                  {rebate > 0 ? `+${fmtR(rebate)}` : '—'}
                 </td>
                 {/* Frete líquido (recebido - pago) — verde se positivo, vermelho se negativo */}
                 <td className="px-4 py-2.5 text-right text-xs num" style={{
