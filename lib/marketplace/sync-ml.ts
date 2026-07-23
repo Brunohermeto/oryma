@@ -25,6 +25,7 @@ interface MLOrder {
     shipping_cost: number     // valor cobrado ao COMPRADOR pelo frete
     coupon_amount: number
   }>
+  coupon?: { amount?: number | null } | null  // cupom BANCADO PELA LOJA (ML-funded fica só em payments)
   shipping: {
     id?: number
     logistic_type?: string
@@ -256,7 +257,9 @@ export async function syncMercadoLivre(
           marketplace_shipping_fee: itemShipping,
           ads_cost:                 0,
           cancellation:             0,
-          discounts:                (payment.coupon_amount ?? 0) * itemShare,
+          // Só cupom BANCADO PELA LOJA reduz a receita — cupom do ML (payments.coupon_amount
+          // sem order.coupon) é desconto ao comprador pago pelo ML, o repasse é integral
+          discounts:                (Number(order.coupon?.amount ?? 0)) * itemShare,
           rebate:                   itemRebate,
           synced_at:                new Date().toISOString(),
         }, { onConflict: 'external_order_id' })

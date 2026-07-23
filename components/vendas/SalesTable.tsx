@@ -139,7 +139,7 @@ function SaleDetailPanel({ sale }: { sale: SaleRow }) {
       <td colSpan={15} style={{ padding: 0, background: 'oklch(0.97 0.007 258)' }}>
         <div className="px-8 py-5" style={{ borderBottom: `1px solid ${B.border}` }}>
           {/* Identificadores da venda — para conferir direto no painel do ML */}
-          <div className="mb-4 flex flex-wrap gap-4 text-[12px]" style={{ color: B.muted }}>
+          <div className="mb-4 flex flex-wrap items-center gap-4 text-[12px]" style={{ color: B.muted }}>
             <span>
               Pedido ML: <span className="font-bold num" style={{ color: B.text, fontFamily: 'var(--font-geist-mono)' }}>#{sale.external_order_id?.split('_')[1] ?? '—'}</span>
             </span>
@@ -147,6 +147,29 @@ function SaleDetailPanel({ sale }: { sale: SaleRow }) {
               <span>
                 Venda (nº que aparece no painel do ML): <span className="font-bold num" style={{ color: B.brand, fontFamily: 'var(--font-geist-mono)' }}>#{sale.pack_id}</span>
               </span>
+            )}
+            {sale.marketplace === 'mercado_livre' && (
+              <button
+                onClick={async e => {
+                  const btn = e.currentTarget
+                  btn.disabled = true
+                  btn.textContent = 'Reverificando…'
+                  try {
+                    const r = await fetch(`/api/sales/${sale.id}/reverify`, { method: 'POST' })
+                    btn.textContent = r.ok ? 'Atualizado — recarregando…' : 'Falhou — tente de novo'
+                    if (r.ok) setTimeout(() => window.location.reload(), 600)
+                    else btn.disabled = false
+                  } catch {
+                    btn.textContent = 'Falhou — tente de novo'
+                    btn.disabled = false
+                  }
+                }}
+                className="text-[11px] font-semibold px-2.5 py-1 rounded-lg"
+                style={{ background: 'oklch(0.94 0.06 258)', color: B.brand }}
+                title="Rebusca pedido, NF-e, extrato e frete direto nas fontes e recalcula esta venda"
+              >
+                ↻ Reverificar venda
+              </button>
             )}
           </div>
           <div className="grid grid-cols-4 gap-6">
