@@ -25,7 +25,25 @@ interface OrderDetailResult {
   sale_fee?: { gross?: number; net?: number; rebate?: number }
   details?: Array<{
     charge_info?: { detail_amount?: number; detail_type?: string; detail_sub_type?: string }
+    sales_info?: Array<{ state_name?: string }>
   }>
+}
+
+// Nome do estado (como vem no extrato) → sigla UF
+const UF_MAP: Record<string, string> = {
+  'acre': 'AC', 'alagoas': 'AL', 'amapá': 'AP', 'amazonas': 'AM', 'bahia': 'BA',
+  'ceará': 'CE', 'distrito federal': 'DF', 'espírito santo': 'ES', 'goiás': 'GO',
+  'maranhão': 'MA', 'mato grosso': 'MT', 'mato grosso do sul': 'MS', 'minas gerais': 'MG',
+  'pará': 'PA', 'paraíba': 'PB', 'paraná': 'PR', 'pernambuco': 'PE', 'piauí': 'PI',
+  'rio de janeiro': 'RJ', 'rio grande do norte': 'RN', 'rio grande do sul': 'RS',
+  'rondônia': 'RO', 'roraima': 'RR', 'santa catarina': 'SC', 'são paulo': 'SP',
+  'sergipe': 'SE', 'tocantins': 'TO',
+}
+function toUF(stateName?: string): string | null {
+  if (!stateName) return null
+  const s = stateName.trim()
+  if (/^[A-Z]{2}$/.test(s)) return s
+  return UF_MAP[s.toLowerCase()] ?? null
 }
 
 export async function POST(request: NextRequest) {
@@ -84,7 +102,9 @@ export async function POST(request: NextRequest) {
         //   CDIFAL = DIFAL cobrado pelo ML → já contado via NF-e (sale_taxes)
         //   PADS   = ads (tratado por dia na rota de billing)
         let commission = 0, shipping = 0, fixed = 0, rebate = 0
+        let uf: string | null = null
         for (const d of r.details ?? []) {
+          if (!uf) uf = toUF(d.sales_info?.[0]?.state_name)
           const ci = d.charge_info ?? {}
           const amt = Number(ci.detail_amount ?? 0)
           const st  = ci.detail_sub_type ?? ''
@@ -113,6 +133,7 @@ export async function POST(request: NextRequest) {
           const { error } = await db.from('sales').update({
             marketplace_commission:   Math.round(commission * share * 100) / 100,
             marketplace_fixed_fee:    Math.round(fixed * share * 100) / 100,
+            ...(uf ? { uf_destino: uf } : {}),
             // Frete: só grava se o extrato TEM linha CXD* — em vendas Full o frete
             // não passa pelo extrato (vem de /shipments/costs) e zerar apagaria ele
             ...(shipping > 0 ? { marketplace_shipping_fee: Math.round(shipping * share * 100) / 100 } : {}),

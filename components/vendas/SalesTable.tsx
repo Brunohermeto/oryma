@@ -53,6 +53,7 @@ export interface SaleRow {
   cancellation: number
   discounts: number
   rebate?: number
+  uf_destino?: string | null
   nfe_saida_key?: string | null
   products: { name: string; sku: string; id?: string } | null
   sale_taxes: { pis: number; cofins: number; icms: number; icms_difal: number; ipi: number; total_taxes: number; nfe_key?: string } | null
@@ -539,6 +540,9 @@ export function SalesTable({ sales }: { sales: SaleRow[] }) {
                   <div className="font-medium text-xs leading-tight" style={{ color: B.text }}>{product?.name ?? '—'}</div>
                   <div className="text-xs" style={{ color: B.muted }}>
                     {sale.sku} · {FULFILLMENT_LABELS[sale.fulfillment_type] ?? sale.fulfillment_type}
+                    {sale.uf_destino && (
+                      <span className="font-semibold" style={{ color: B.brand }}> · {sale.uf_destino}</span>
+                    )}
                     {/* nNF e série vêm embutidos na chave de acesso (posições 25-34 e 22-25) */}
                     {sale.nfe_saida_key && sale.nfe_saida_key.length === 44 && (
                       <span> · NF {String(Number(sale.nfe_saida_key.slice(25, 34)))}/{String(Number(sale.nfe_saida_key.slice(22, 25)))}</span>
