@@ -97,6 +97,11 @@ export async function GET(request: NextRequest) {
     fetch(`${baseUrl}/api/landed-cost/relink`, { method: 'POST', headers }),
   ]).then(r => r[0])
 
+  // Auditoria automática por venda (regras + auto-cura dos achados resolvidos)
+  const adRes = await Promise.allSettled([
+    fetch(`${baseUrl}/api/audit/sales?days=45`, { method: 'POST', headers }),
+  ]).then(r => r[0])
+
   return NextResponse.json({
     ok: true,
     bling:        { status: blRes.status === 'fulfilled' ? 'triggered' : 'failed', days: blingDays },
@@ -107,5 +112,6 @@ export async function GET(request: NextRequest) {
     ml_shipping:  { status: shRes.status === 'fulfilled' ? 'triggered' : 'failed' },
     ml_stock:     { status: stRes.status === 'fulfilled' ? 'triggered' : 'failed' },
     relink:       { status: rlRes.status === 'fulfilled' ? 'triggered' : 'failed' },
+    audit:        { status: adRes.status === 'fulfilled' ? 'triggered' : 'failed' },
   })
 }

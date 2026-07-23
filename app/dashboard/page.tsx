@@ -5,6 +5,7 @@ import { RevenueLineChart } from '@/components/charts/RevenueLineChart'
 import { MarketplaceBarChart } from '@/components/charts/MarketplaceBarChart'
 import { TrendingUp, TrendingDown, ShoppingCart, Percent, DollarSign, ExternalLink } from 'lucide-react'
 import { InsightsPanel } from '@/components/dashboard/InsightsPanel'
+import { AuditAlertsPanel } from '@/components/dashboard/AuditAlertsPanel'
 import { LiveSalesFeed } from '@/components/dashboard/LiveSalesFeed'
 
 export const dynamic = 'force-dynamic'
@@ -152,6 +153,9 @@ export default async function DashboardPage() {
     <>
       <TopBar title="Visão Geral" subtitle="Inteligência financeira consolidada · Ragaluma" />
       <div className="px-4 md:px-8 py-6 space-y-5">
+
+        {/* Auditoria automática — apontamentos por venda */}
+        <AuditAlertsPanel />
 
         {/* ── KPI Cards ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
