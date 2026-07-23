@@ -67,7 +67,16 @@ export async function POST(request: NextRequest) {
 
   let salesLinked = 0
   for (const sale of unlinkedSales ?? []) {
-    const productId = productMap[sale.sku?.toUpperCase()]
+    // SKUs dos anúncios ≠ SKU do cadastro (EAN) — apelidos conhecidos,
+    // confirmados pelo EAN das NF-e (venda galpão não passa pelo casamento por EAN)
+    const SKU_ALIASES: Record<string, string> = {
+      'MOVETRIO': '7908488106449', 'MOVEDUO': '7908488105732',
+      '0209': '7908488108085', '020984': '7908488108221',
+      '0109P': '7908488100980', '010984P': '7908488108290',
+      '0210MG': '7908488108351', '021084MG': '7908488108313',
+    }
+    const skuUp = sale.sku?.toUpperCase()
+    const productId = productMap[skuUp] ?? productMap[SKU_ALIASES[skuUp] ?? '']
     if (!productId) continue
     await db.from('sales').update({ product_id: productId }).eq('id', sale.id)
     salesLinked++
