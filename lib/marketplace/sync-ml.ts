@@ -210,7 +210,8 @@ export async function syncMercadoLivre(
         ? orderShipping
         : extractSellerShippingCost(order)
 
-      if (shippingCost === 0 && !isFull && order.shipping?.id && fetchShipmentCosts) {
+      // Full TAMBÉM paga frete por envio (senders[].cost) — não pular
+      if (shippingCost === 0 && order.shipping?.id && fetchShipmentCosts) {
         await sleep(150)
         shippingCost = await getShippingCostForSeller(order.shipping.id)
       }

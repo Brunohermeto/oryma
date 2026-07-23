@@ -80,6 +80,13 @@ export async function GET(request: NextRequest) {
     }),
   ]).then(r => r[0])
 
+  // Frete real do vendedor via /shipments/costs (galpão E Full)
+  const shRes = await Promise.allSettled([
+    fetch(`${baseUrl}/api/sync/ml/shipping`, {
+      method: 'POST', headers, body: JSON.stringify({ days: 7, limit: 12 }),
+    }),
+  ]).then(r => r[0])
+
   // Estoque Full do ML → products.stock_full (conciliação galpão + marketplaces)
   const stRes = await Promise.allSettled([
     fetch(`${baseUrl}/api/sync/ml/stock`, { method: 'POST', headers }),
@@ -97,6 +104,7 @@ export async function GET(request: NextRequest) {
     ml_invoices:  { status: invRes.status === 'fulfilled' ? 'triggered' : 'failed' },
     ml_billing:   { status: bilRes.status === 'fulfilled' ? 'triggered' : 'failed' },
     ml_tariffs:   { status: trRes.status === 'fulfilled' ? 'triggered' : 'failed' },
+    ml_shipping:  { status: shRes.status === 'fulfilled' ? 'triggered' : 'failed' },
     ml_stock:     { status: stRes.status === 'fulfilled' ? 'triggered' : 'failed' },
     relink:       { status: rlRes.status === 'fulfilled' ? 'triggered' : 'failed' },
   })

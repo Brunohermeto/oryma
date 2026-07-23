@@ -116,8 +116,11 @@ export async function POST(request: NextRequest) {
       const fields: Record<string, number> = {}
       if (charges) {
         fields.marketplace_commission   = Math.round(charges.commission * share * 100) / 100
-        fields.marketplace_shipping_fee = Math.round(charges.shipping * share * 100) / 100
         fields.marketplace_fixed_fee    = Math.round(charges.fixed * share * 100) / 100
+        // Frete só quando o extrato tem CXD* — Full vem de /shipments/costs
+        if (charges.shipping > 0) {
+          fields.marketplace_shipping_fee = Math.round(charges.shipping * share * 100) / 100
+        }
         tariffSales++
       }
       if (rebate) {

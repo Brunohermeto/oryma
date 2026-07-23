@@ -97,8 +97,10 @@ export async function POST(request: NextRequest) {
           const share = sum > 0 ? x.gross / sum : 1 / items.length
           const { error } = await db.from('sales').update({
             marketplace_commission:   Math.round(commission * share * 100) / 100,
-            marketplace_shipping_fee: Math.round(shipping * share * 100) / 100,
             marketplace_fixed_fee:    Math.round(fixed * share * 100) / 100,
+            // Frete: só grava se o extrato TEM linha CXD* — em vendas Full o frete
+            // não passa pelo extrato (vem de /shipments/costs) e zerar apagaria ele
+            ...(shipping > 0 ? { marketplace_shipping_fee: Math.round(shipping * share * 100) / 100 } : {}),
             ...(rebate > 0 ? { rebate: Math.round(rebate * share * 100) / 100 } : {}),
           }).eq('id', x.saleId)
           if (error) throw new Error(error.message)
