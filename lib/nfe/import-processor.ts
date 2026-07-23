@@ -65,9 +65,19 @@ const XPROD_KEYWORDS: Array<{ keywords: string[]; sku: string }> = [
   { keywords: ['MOVEDUO', 'MOVE'],                    sku: 'MOVEDUO' },
 ]
 
-function resolveProductSku(cProd: string, xProd: string, blingIndex?: BlingProductIndex): string {
+function resolveProductSku(cProd: string, xProd: string, blingIndex?: BlingProductIndex, cEAN?: string): string {
   // 1. Mapeamento direto pelo cProd (SKU_MAP tem precedência)
   if (SKU_MAP[cProd]) return SKU_MAP[cProd]
+
+  // 1b. EAN do item — o cadastro (vindo do Bling) usa EAN como SKU na maioria
+  //     dos produtos; é o identificador fiscal mais confiável da NF.
+  if (cEAN && /^\d{12,14}$/.test(cEAN)) {
+    if (SKU_MAP[cEAN]) return SKU_MAP[cEAN]
+    if (blingIndex) {
+      const eanSku = resolveSkuFromBling(cEAN, blingIndex)
+      if (eanSku) return eanSku
+    }
+  }
 
   // 2. Catálogo do Bling: codigoFabricante ou GTIN → SKU interno
   if (blingIndex) {
@@ -122,12 +132,16 @@ export async function processImportNFe(
   let itemsProcessed = 0
   const itemRows = []
   for (const item of nfe.items) {
-    const resolvedSku = resolveProductSku(item.cProd, item.xProd, blingIndex)
+    const resolvedSku = resolveProductSku(item.cProd, item.xProd, blingIndex, (item as any).cEAN)
 
     // Busca o produto — cria automaticamente se não existir
     // (evita product_id=null que impede o cálculo de CMP)
     let { data: product } = await db.from('products').select('id').eq('sku', resolvedSku).maybeSingle()
-    if (!product) {
+    // NUNCA criar produto com SKU-lixo (cProd tipo "CFOP5152" ou embalagens):
+    // já poluiu o cadastro e escondeu custo de produto real. Fica sem vínculo
+    // para resolução manual/via EAN.
+    const skuLixo = /^CFOP\d+/i.test(resolvedSku)
+    if (!product && !skuLixo) {
       const { data: newProd } = await db
         .from('products')
         .insert({ sku: resolvedSku, name: item.xProd })

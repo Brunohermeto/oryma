@@ -9,6 +9,7 @@ const xmlParser = new XMLParser({
 
 export interface ParsedNFeItem {
   cProd: string
+  cEAN: string
   xProd: string
   qCom: number
   vUnCom: number
@@ -84,6 +85,8 @@ export function parseNFeXml(xmlContent: string): ParsedNFe {
 
     return {
       cProd: str(prod.cProd),
+      // EAN do item — melhor identificador para casar com o cadastro (que usa EAN como SKU)
+      cEAN: str(prod.cEAN ?? prod.cEANTrib ?? ''),
       xProd: str(prod.xProd),
       qCom,
       vUnCom: num(prod.vUnCom),

@@ -106,42 +106,66 @@ export async function recalculateLandedCost(importOrderId: string): Promise<void
 }
 
 /**
- * Calculates Custo Médio Ponderado (CMP) for a product
- * across all import batches, weighted by batch quantity.
- *
- * CMP = Σ(total_unit_cost × quantity_in_batch) / Σ(quantity_in_batch)
- *
- * effectiveDate: data da NF-e de entrada que originou este recálculo.
- * Determina a partir de quando este CMP se aplica às vendas.
+ * Custo por vigência de NF de entrada (regra do Bruno, 2026-07-24):
+ * NÃO usamos média ponderada entre notas — cada NF de entrada define o custo
+ * do produto A PARTIR da sua emissão. A linha do tempo fica:
+ *   NF de fev → custo X vale de fev até a próxima nota
+ *   NF de jun → custo Y vale de jun em diante
+ * (Média só ENTRE itens da mesma nota — variantes de cor com mesmo preço.)
+ * Lançamentos manuais em outras datas são preservados.
  */
-export async function recalculateCmp(productId: string, effectiveDate?: string): Promise<number | null> {
+export async function recalculateCmp(productId: string, _effectiveDate?: string): Promise<number | null> {
   const db = createSupabaseServiceClient()
 
   const { data: batches } = await db
     .from('unit_costs')
-    .select('total_unit_cost, quantity_in_batch')
+    .select('total_unit_cost, quantity_in_batch, import_order_id')
     .eq('product_id', productId)
 
   if (!batches?.length) return null
 
-  const totalQty   = batches.reduce((s, b) => s + Number(b.quantity_in_batch), 0)
-  const totalValue = batches.reduce((s, b) => s + Number(b.total_unit_cost) * Number(b.quantity_in_batch), 0)
+  const orderIds = [...new Set(batches.map(b => b.import_order_id))]
+  const { data: orders } = await db
+    .from('import_orders').select('id, issue_date').in('id', orderIds)
+  const dateByOrder = new Map((orders ?? []).map(o => [o.id, o.issue_date as string]))
 
-  if (totalQty === 0) return null
+  // custo por data de emissão (média apenas dentro da mesma nota)
+  const byDate = new Map<string, { v: number; q: number }>()
+  for (const b of batches) {
+    const d = dateByOrder.get(b.import_order_id) ?? '1900-01-01'
+    const cur = byDate.get(d) ?? { v: 0, q: 0 }
+    cur.v += Number(b.total_unit_cost) * Number(b.quantity_in_batch)
+    cur.q += Number(b.quantity_in_batch)
+    byDate.set(d, cur)
+  }
 
-  const cmpValue = totalValue / totalQty
-  const now      = new Date().toISOString()
+  // Regrava a linha do tempo dessas datas (solta referências antes de deletar)
+  const dates = [...byDate.keys()]
+  const { data: olds } = await db
+    .from('cmp_costs').select('id')
+    .eq('product_id', productId).in('effective_date', dates)
+  if (olds?.length) {
+    const oldIds = olds.map(o => o.id)
+    await db.from('sale_costs').update({ cmp_cost_id: null }).in('cmp_cost_id', oldIds)
+    await db.from('cmp_costs').delete().in('id', oldIds)
+  }
 
-  await db.from('cmp_costs').insert({
-    product_id:        productId,
-    cmp_value:         cmpValue,
-    total_stock_qty:   totalQty,
-    total_stock_value: totalValue,
-    calculated_at:     now,
-    effective_date:    effectiveDate ?? now.slice(0, 10),
-  })
-
-  return cmpValue
+  const now = new Date().toISOString()
+  let lastValue: number | null = null
+  for (const [date, { v, q }] of [...byDate.entries()].sort((a, b) => a[0] < b[0] ? -1 : 1)) {
+    if (q === 0) continue
+    const value = v / q
+    await db.from('cmp_costs').insert({
+      product_id:        productId,
+      cmp_value:         value,
+      total_stock_qty:   q,
+      total_stock_value: v,
+      calculated_at:     now,
+      effective_date:    date,
+    })
+    lastValue = value
+  }
+  return lastValue
 }
 
 /**
