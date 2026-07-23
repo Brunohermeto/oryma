@@ -53,6 +53,7 @@ export interface SaleRow {
   cancellation: number
   discounts: number
   rebate?: number
+  nfe_saida_key?: string | null
   products: { name: string; sku: string; id?: string } | null
   sale_taxes: { pis: number; cofins: number; icms: number; icms_difal: number; ipi: number; total_taxes: number; nfe_key?: string } | null
   sale_costs: { unit_cost_applied: number; total_cost: number; margin_value: number | null; margin_pct: number | null } | null
@@ -534,7 +535,13 @@ export function SalesTable({ sales }: { sales: SaleRow[] }) {
                 <td className="px-4 py-2.5 text-xs whitespace-nowrap" style={{ color: B.muted }}>{sale.sale_date}</td>
                 <td className="px-4 py-2.5">
                   <div className="font-medium text-xs leading-tight" style={{ color: B.text }}>{product?.name ?? '—'}</div>
-                  <div className="text-xs" style={{ color: B.muted }}>{sale.sku} · {FULFILLMENT_LABELS[sale.fulfillment_type] ?? sale.fulfillment_type}</div>
+                  <div className="text-xs" style={{ color: B.muted }}>
+                    {sale.sku} · {FULFILLMENT_LABELS[sale.fulfillment_type] ?? sale.fulfillment_type}
+                    {/* nNF e série vêm embutidos na chave de acesso (posições 25-34 e 22-25) */}
+                    {sale.nfe_saida_key && sale.nfe_saida_key.length === 44 && (
+                      <span> · NF {String(Number(sale.nfe_saida_key.slice(25, 34)))}/{String(Number(sale.nfe_saida_key.slice(22, 25)))}</span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-2.5">
                   <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: badge.bg, color: badge.color }}>

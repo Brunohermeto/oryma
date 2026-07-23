@@ -46,7 +46,7 @@ export default async function VendasPage({
     .select(`
       id, external_order_id, marketplace, fulfillment_type, sku, sale_date,
       quantity, gross_price, shipping_received, marketplace_commission,
-      marketplace_shipping_fee, marketplace_fixed_fee, ads_cost, cancellation, discounts, rebate,
+      marketplace_shipping_fee, marketplace_fixed_fee, ads_cost, cancellation, discounts, rebate, nfe_saida_key,
       products(name, sku),
       sale_taxes(pis, cofins, icms, icms_difal, ipi, total_taxes),
       sale_costs(unit_cost_applied, total_cost, margin_value, margin_pct)
