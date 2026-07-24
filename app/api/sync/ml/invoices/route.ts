@@ -27,6 +27,7 @@ interface MLInvoiceItem {
 interface MLInvoice {
   status?: string
   attributes?: { invoice_key?: string | null }
+  recipient?: { address?: { state?: string | null } | null } | null
   items?: MLInvoiceItem[]
 }
 
@@ -114,9 +115,13 @@ export async function POST(request: NextRequest) {
         const ean = String((invItem as any)?.attributes?.ean ?? (invItem as any)?.attributes?.sku ?? '')
         const eanProductId = !sale.hasProduct ? productByEan.get(ean) : undefined
 
+        // UF de destino: o estado do destinatário da NF-e é a verdade fiscal
+        // (o state_name do extrato é o estado de cobrança — já nos enganou)
+        const ufNota = (inv.recipient?.address?.state ?? '').toUpperCase()
         const [{ error: e1 }] = await Promise.all([
           db.from('sales').update({
             nfe_saida_key: chave,
+            ...(/^[A-Z]{2}$/.test(ufNota) ? { uf_destino: ufNota } : {}),
             ...(eanProductId ? { product_id: eanProductId } : {}),
           }).eq('id', sale.saleId),
           db.from('sale_taxes').delete().eq('sale_id', sale.saleId).then(() =>

@@ -91,14 +91,19 @@ export async function POST(request: NextRequest) {
       // logistic_type só existe no shipment (não vem em /orders) — é a única
       // forma confiável de saber se a venda é Full (NF-e emitida pelo ML)
       let fulfillment: string | null = null
+      let ufEntrega: string | null = null
       if (detail.shipping?.id) {
         await sleep(150)
-        const shipment = await mlGet<{ logistic_type?: string }>(
+        const shipment = await mlGet<{ logistic_type?: string; receiver_address?: { state?: { id?: string; name?: string } | string } }>(
           `/shipments/${detail.shipping.id}`
         ).catch(() => null)
         if (shipment?.logistic_type) {
           fulfillment = shipment.logistic_type === 'fulfillment' ? 'full_ml' : 'galpao'
         }
+        // UF do ENDEREÇO DE ENTREGA (ex: {id:"BR-BA"}) — destino real da venda
+        const st = shipment?.receiver_address?.state
+        const stId = typeof st === 'object' ? st?.id : undefined
+        if (stId && /^BR-[A-Z]{2}$/.test(stId)) ufEntrega = stId.slice(3)
 
         if (shipping === 0) {
           await sleep(150)
@@ -118,6 +123,7 @@ export async function POST(request: NextRequest) {
         if (shipping > 0) fields.marketplace_shipping_fee = shipping * share
         if (rebate   > 0) fields.rebate = rebate * share
         if (fulfillment)  fields.fulfillment_type = fulfillment
+        if (ufEntrega)    (fields as Record<string, unknown>).uf_destino = ufEntrega
         if (!Object.keys(fields).length) continue
         const { error } = await db.from('sales').update(fields).eq('id', order.saleIds[i])
         if (error) throw new Error(error.message)

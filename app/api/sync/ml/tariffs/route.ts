@@ -99,6 +99,9 @@ export async function POST(request: NextRequest) {
         const items = orders.get(orderId)
         if (!items) continue
 
+        // ATENÇÃO: NÃO usar sales_info.state_name como UF de destino — é o estado
+        // de COBRANÇA, não da entrega (pedido 2000017542837068: extrato SP, NF BA).
+        // A UF vem da NF-e (rota invoices) ou do endereço de entrega (rota shipping).
         // Classificação validada contra o painel de vendas do ML (23/07):
         //   CV*   = tarifas de venda (comissão, cobrança MP, parcelamento absorvido)
         //   CXD*/CFF* = frete (CFFE "envio extra/intermunicipal" é o frete do Full!)
@@ -106,9 +109,7 @@ export async function POST(request: NextRequest) {
         //   CDIFAL = DIFAL cobrado pelo ML → já contado via NF-e (sale_taxes)
         //   PADS   = ads (tratado por dia na rota de billing)
         let commission = 0, shipping = 0, fixed = 0, rebate = 0
-        let uf: string | null = null
         for (const d of r.details ?? []) {
-          if (!uf) uf = toUF(d.sales_info?.[0]?.state_name)
           const ci = d.charge_info ?? {}
           const amt = Number(ci.detail_amount ?? 0)
           const st  = ci.detail_sub_type ?? ''
@@ -137,7 +138,6 @@ export async function POST(request: NextRequest) {
           const { error } = await db.from('sales').update({
             marketplace_commission:   Math.round(commission * share * 100) / 100,
             marketplace_fixed_fee:    Math.round(fixed * share * 100) / 100,
-            ...(uf ? { uf_destino: uf } : {}),
             // Frete: só grava se o extrato TEM linha CXD* — em vendas Full o frete
             // não passa pelo extrato (vem de /shipments/costs) e zerar apagaria ele
             ...(shipping > 0 ? { marketplace_shipping_fee: Math.round(shipping * share * 100) / 100 } : {}),
