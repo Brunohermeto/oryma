@@ -63,12 +63,15 @@ export async function POST(request: NextRequest) {
 
   // Vendas na janela — pedidos sem comissão OU sem tarifa são os alvos
   const { data: rows } = await db.from('sales')
-    .select('id, external_order_id, gross_price, marketplace_commission, marketplace_shipping_fee')
+    .select('id, external_order_id, gross_price, sale_date, marketplace_commission, marketplace_shipping_fee, rebate')
     .eq('marketplace', 'mercado_livre')
     .gte('sale_date', brazilDaysAgo(days))
     .order('sale_date', { ascending: false })
     .limit(1000)
 
+  // O ML lança a comissão antes do ESTORNO — pedido recente sem estorno volta
+  // à fila por até 10 dias, senão o estorno atrasado nunca seria capturado
+  const recorte = brazilDaysAgo(10)
   const orders = new Map<string, Array<{ saleId: string; gross: number }>>()
   for (const r of rows ?? []) {
     const m = r.external_order_id?.match(/^ml_(\d+)_/)
@@ -76,6 +79,7 @@ export async function POST(request: NextRequest) {
     const needs = force
       || Number(r.marketplace_commission ?? 0) === 0
       || Number(r.marketplace_shipping_fee ?? 0) === 0
+      || (Number(r.rebate ?? 0) === 0 && r.sale_date >= recorte)
     if (!needs) continue
     if (!orders.has(m[1])) orders.set(m[1], [])
     orders.get(m[1])!.push({ saleId: r.id, gross: Number(r.gross_price ?? 0) })
