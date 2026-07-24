@@ -55,10 +55,17 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
   const uid = await getMercadoLivreSellerId()
   const passos: Record<string, unknown> = {}
 
-  // 1. Pedido: cupom da loja (ML-funded não desconta)
+  // 1. Cupom: só a parte BANCADA PELO VENDEDOR desconta
+  //    (fonte exata: /orders/{id}/discounts → amounts.seller; cupom do ML tem seller=0)
   try {
-    const order = await mlGet<any>(`/orders/${orderId}`)
-    const cupomLoja = Number(order.coupon?.amount ?? 0)
+    let cupomLoja = 0
+    try {
+      const d = await mlGet<any>(`/orders/${orderId}/discounts`)
+      for (const det of d.details ?? []) {
+        if (det.type !== 'coupon') continue
+        for (const i of det.items ?? []) cupomLoja += Number(i.amounts?.seller ?? 0)
+      }
+    } catch { /* sem descontos */ }
     await db.from('sales').update({ discounts: cupomLoja }).eq('id', id)
     passos.cupom_loja = cupomLoja
   } catch (e) { passos.pedido = `erro: ${String(e).slice(0, 80)}` }

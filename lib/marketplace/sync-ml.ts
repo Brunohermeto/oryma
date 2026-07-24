@@ -106,6 +106,26 @@ function extractRebate(order: MLOrder): number {
 }
 
 /**
+ * Cupom: quanto O VENDEDOR banca (fonte exata: /orders/{id}/discounts →
+ * details[type=coupon].items[].amounts.seller). Cupom do ML tem seller=0.
+ * Só chamada quando o pagamento registra cupom (raro).
+ */
+async function getSellerCouponAmount(orderId: number): Promise<number> {
+  try {
+    await sleep(150)
+    const d = await mlGet<{ details?: Array<{ type?: string; items?: Array<{ amounts?: { seller?: number } }> }> }>(
+      `/orders/${orderId}/discounts`
+    )
+    let seller = 0
+    for (const det of d.details ?? []) {
+      if (det.type !== 'coupon') continue
+      for (const i of det.items ?? []) seller += Number(i.amounts?.seller ?? 0)
+    }
+    return seller
+  } catch { return 0 }
+}
+
+/**
  * Busca fee_details de um pedido individual via /orders/{id}.
  * O /orders/search NÃO retorna fee_details — só o endpoint individual.
  * fee_details contém: comissão real (ml_fee), frete ao vendedor (shipping*),
@@ -220,6 +240,11 @@ export async function syncMercadoLivre(
       const shippingReceived = Number(payment.shipping_cost ?? 0)
       const totalItemValue   = order.order_items.reduce((s, i) => s + i.unit_price * i.quantity, 0)
 
+      // Cupom: só a parte BANCADA PELO VENDEDOR reduz a receita
+      const couponSeller = Number(payment.coupon_amount ?? 0) > 0
+        ? await getSellerCouponAmount(order.id)
+        : 0
+
       for (const item of order.order_items) {
         const sku        = item.item.seller_sku ?? item.item.id
         const qty        = item.quantity
@@ -257,9 +282,8 @@ export async function syncMercadoLivre(
           marketplace_shipping_fee: itemShipping,
           ads_cost:                 0,
           cancellation:             0,
-          // Só cupom BANCADO PELA LOJA reduz a receita — cupom do ML (payments.coupon_amount
-          // sem order.coupon) é desconto ao comprador pago pelo ML, o repasse é integral
-          discounts:                (Number(order.coupon?.amount ?? 0)) * itemShare,
+          // Parte do cupom bancada pelo vendedor (fonte: /orders/{id}/discounts.amounts.seller)
+          discounts:                couponSeller * itemShare,
           rebate:                   itemRebate,
           synced_at:                new Date().toISOString(),
         }, { onConflict: 'external_order_id' })
