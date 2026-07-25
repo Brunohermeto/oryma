@@ -29,10 +29,13 @@ Ordem das seções:
    - Filtro de período: 7 / 30 / 90 dias / mês atual. Busca por nome/SKU.
    - Ordenável por qualquer coluna. Margem NULL (sem impostos ainda) fica
      "em cálculo" e fora das médias — mesma regra da página de Vendas.
-   - Linha expansível por produto: **% de vendas por estado** (UF de
-     destino), ranqueado — ex.: SP 38% · MG 21% · RJ 12%. Fonte:
-     `sales.uf_destino` no período filtrado; vendas sem UF entram como
-     "não informado".
+   - Linha expansível por produto: distribuição **por estado** (UF de
+     destino) no período filtrado, ranqueada, com **% das vendas** e
+     **margem média %** daquele produto em cada estado — ex.:
+     SP 38% das vendas · margem 24,1%. A margem por UF revela onde o
+     DIFAL/frete corroem o resultado. Fonte: `sales.uf_destino` +
+     `sale_costs`; vendas sem UF entram como "não informado"; margem por
+     UF só com vendas de impostos calculados.
    - Dados vêm por props do server component (uma consulta agregada em
      `sales` + `sale_costs` + `products`); filtro de período refaz via
      query string (`?days=`), busca/ordenação são client-side.
