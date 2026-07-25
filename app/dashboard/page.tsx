@@ -6,7 +6,9 @@ import { MarketplaceBarChart } from '@/components/charts/MarketplaceBarChart'
 import { TrendingUp, TrendingDown, ShoppingCart, Percent, DollarSign, ExternalLink } from 'lucide-react'
 import { InsightsPanel } from '@/components/dashboard/InsightsPanel'
 import { AuditAlertsPanel } from '@/components/dashboard/AuditAlertsPanel'
+import { FeeAuditPanel } from '@/components/dashboard/FeeAuditPanel'
 import { LiveSalesFeed } from '@/components/dashboard/LiveSalesFeed'
+import { MarginByProductTable, type ProductMarginRow } from '@/components/dashboard/MarginByProductTable'
 
 export const dynamic = 'force-dynamic'
 export const preferredRegion = 'gru1'
@@ -25,7 +27,11 @@ const MP_COLORS: Record<string, string> = {
   amazon:        '#00D6FF',
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage(
+  { searchParams }: { searchParams: Promise<{ days?: string }> }
+) {
+  const sp = await searchParams
+  const marginDays = [7, 30, 90].includes(Number(sp.days)) ? Number(sp.days) : 30
   const db = createSupabaseServiceClient()
   const now = new Date()
   // Usa últimos 30 dias como período principal (mais relevante que "mês atual")
@@ -37,7 +43,7 @@ export default async function DashboardPage() {
 
   const { data: sales } = await db
     .from('sales')
-    .select('marketplace, gross_price, marketplace_commission, marketplace_shipping_fee, ads_cost, cancellation, sale_date, sale_costs(total_cost, margin_value)')
+    .select('marketplace, gross_price, marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, rebate, ads_cost, cancellation, sale_date, sale_costs(total_cost, margin_value)')
     .gte('sale_date', start)
     .lte('sale_date', end)
 
@@ -75,6 +81,69 @@ export default async function DashboardPage() {
 
   // Supabase retorna relações como objeto único OU array — trata ambos
   const uw = (v: unknown) => !v ? null : Array.isArray(v) ? (v as any[])[0] ?? null : v
+
+  // ── Taxas pagas no período (bloco de gestão) ──
+  const fees = (sales ?? []).reduce((a, r) => {
+    a.comissao += Number(r.marketplace_commission ?? 0)
+    a.frete    += Number(r.marketplace_shipping_fee ?? 0)
+    a.fixa     += Number((r as any).marketplace_fixed_fee ?? 0)
+    a.ads      += Number(r.ads_cost ?? 0)
+    a.estorno  += Number((r as any).rebate ?? 0)
+    return a
+  }, { comissao: 0, frete: 0, fixa: 0, ads: 0, estorno: 0 })
+  const feesTotal = fees.comissao + fees.frete + fees.fixa + fees.ads - fees.estorno
+
+  // ── Margem por produto (período próprio via ?days=) ──
+  const { data: marginSales } = await db.from('sales')
+    .select(`product_id, gross_price, cancellation, quantity, uf_destino,
+      marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, rebate,
+      sale_taxes(id), sale_costs(total_cost, margin_value),
+      products(id, name, sku, stock_quantity, stock_full)`)
+    .gte('sale_date', format(subDays(now, marginDays - 1), 'yyyy-MM-dd'))
+    .not('product_id', 'is', null)
+    .limit(5000)
+
+  const byProduct = new Map<string, any>()
+  for (const s of marginSales ?? []) {
+    const p = uw(s.products) as any
+    if (!p) continue
+    const c = uw(s.sale_costs) as any
+    const hasTaxes = !!uw(s.sale_taxes)
+    const g = Number(s.gross_price) - Number(s.cancellation ?? 0)
+    let row = byProduct.get(p.id)
+    if (!row) {
+      row = { productId: p.id, name: p.name, sku: p.sku, units: 0, revenue: 0, cost: 0,
+              fees: 0, marginValue: 0, marginRevenue: 0, inCalc: 0,
+              stock: Number(p.stock_quantity ?? 0) + Number(p.stock_full ?? 0),
+              ufs: new Map<string, { units: number; mv: number; mg: number }>() }
+      byProduct.set(p.id, row)
+    }
+    row.units   += Number(s.quantity)
+    row.revenue += g
+    row.cost    += Number(c?.total_cost ?? 0)
+    row.fees    += Number(s.marketplace_commission ?? 0) + Number(s.marketplace_shipping_fee ?? 0)
+                 + Number((s as any).marketplace_fixed_fee ?? 0) - Number((s as any).rebate ?? 0)
+    const uf = s.uf_destino || 'não informado'
+    if (!row.ufs.has(uf)) row.ufs.set(uf, { units: 0, mv: 0, mg: 0 })
+    const u = row.ufs.get(uf)
+    u.units += Number(s.quantity)
+    if (hasTaxes && c?.margin_value !== null && c?.margin_value !== undefined) {
+      row.marginValue   += Number(c.margin_value)
+      row.marginRevenue += g
+      u.mv += Number(c.margin_value); u.mg += g
+    } else row.inCalc++
+  }
+  const marginRows: ProductMarginRow[] = [...byProduct.values()].map(r => ({
+    productId: r.productId, name: r.name, sku: r.sku, units: r.units,
+    revenue: r.revenue, cost: r.cost, fees: r.fees,
+    marginValue: r.marginValue, marginRevenue: r.marginRevenue, inCalc: r.inCalc,
+    velocityDay: r.units / marginDays,
+    coverageDays: r.units > 0 ? r.stock / (r.units / marginDays) : null,
+    byUf: [...r.ufs.entries()]
+      .map(([uf, u]: [string, any]) => ({
+        uf, units: u.units, marginPct: u.mg > 0 ? (u.mv / u.mg) * 100 : null }))
+      .sort((a: any, b: any) => b.units - a.units),
+  })).sort((a, b) => b.revenue - a.revenue)
 
   // ── KPIs ──
   const totalRevenue = (sales ?? []).reduce((s, r) => s + Number(r.gross_price) - Number(r.cancellation), 0)
@@ -156,6 +225,9 @@ export default async function DashboardPage() {
 
         {/* Auditoria automática — apontamentos por venda */}
         <AuditAlertsPanel />
+
+        {/* Vistoria de taxas do ML */}
+        <FeeAuditPanel />
 
         {/* ── KPI Cards ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -255,6 +327,36 @@ export default async function DashboardPage() {
           </a>
 
         </div>
+
+        {/* ── Taxas pagas ao marketplace ── */}
+        <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid rgba(15,23,42,0.07)', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}>
+          <div className="text-sm font-semibold mb-4" style={{ color: 'oklch(0.12 0.04 258)', fontFamily: 'var(--font-sora)' }}>
+            Taxas pagas ao marketplace — últimos 30 dias
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+            {[
+              { label: 'Comissão',    v: fees.comissao, color: '#d97706' },
+              { label: 'Frete',       v: fees.frete,    color: '#d97706' },
+              { label: 'Tarifa fixa', v: fees.fixa,     color: '#d97706' },
+              { label: 'Publicidade', v: fees.ads,      color: '#d97706' },
+              { label: 'Estorno',     v: -fees.estorno, color: '#16a34a' },
+              { label: 'Total',       v: feesTotal,     color: '#0B1023' },
+            ].map(item => (
+              <div key={item.label} className="rounded-xl px-3 py-2.5" style={{ background: 'oklch(0.97 0.008 258)' }}>
+                <div className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#64748B' }}>{item.label}</div>
+                <div className="text-[15px] font-bold" style={{ color: item.color, fontFamily: 'var(--font-geist-mono)' }}>
+                  {item.v < 0 ? `− ${fmtR(Math.abs(item.v))}` : fmtR(item.v)}
+                </div>
+                <div className="text-[11px]" style={{ color: '#64748B' }}>
+                  {totalRevenue > 0 ? `${(Math.abs(item.v) / totalRevenue * 100).toFixed(1)}% do faturamento` : '—'}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Margem por produto ── */}
+        <MarginByProductTable rows={marginRows} days={marginDays} />
 
         {/* ── Oryma Insights ── */}
         <InsightsPanel />

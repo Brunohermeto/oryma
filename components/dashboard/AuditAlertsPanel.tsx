@@ -25,6 +25,8 @@ export async function AuditAlertsPanel() {
   const { data: findings } = await db
     .from('audit_findings')
     .select('rule, severity, message')
+    // Regras da vistoria de taxas têm painel próprio (FeeAuditPanel)
+    .not('rule', 'in', '("comissao_acima_tabela","tarifa_fixa_divergente","frete_fora_padrao")')
     .order('detected_at', { ascending: false })
     .limit(500)
 

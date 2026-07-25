@@ -18,6 +18,12 @@ export const preferredRegion = 'gru1'
 
 const UF_EMITENTE = 'MG'  // MCL é de Belo Horizonte
 
+const SALES_AUDIT_RULES = [
+  'nf_icms_difal_duplicado', 'nf_difal_interno', 'nf_carga_alta', 'sem_nf',
+  'sem_tarifas', 'sem_frete', 'sem_produto', 'sem_custo',
+  'custo_incompativel', 'margem_negativa',
+]
+
 interface Finding { sale_id: string; rule: string; severity: string; message: string }
 
 export async function POST(request: NextRequest) {
@@ -103,10 +109,12 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Reconciliação: remove achados da janela e regrava os atuais (auto-cura)
+  // Reconciliação: remove SÓ os achados DESTAS regras (a vistoria de taxas tem as dela)
   const saleIds = (sales ?? []).map(s => s.id)
   for (let i = 0; i < saleIds.length; i += 200) {
-    await db.from('audit_findings').delete().in('sale_id', saleIds.slice(i, i + 200))
+    await db.from('audit_findings').delete()
+      .in('sale_id', saleIds.slice(i, i + 200))
+      .in('rule', SALES_AUDIT_RULES)
   }
   let inserted = 0
   for (let i = 0; i < findings.length; i += 200) {

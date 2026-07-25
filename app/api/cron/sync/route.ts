@@ -102,8 +102,18 @@ export async function GET(request: NextRequest) {
     fetch(`${baseUrl}/api/audit/sales?days=45`, { method: 'POST', headers }),
   ]).then(r => r[0])
 
+  // Vistoria de taxas (1 fatia; o ciclo diário local cobre o resto)
+  const feRes = await Promise.allSettled([
+    fetch(`${baseUrl}/api/audit/fees`, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ days: 30, limit: 25, skip: 0 }),
+    }),
+  ]).then(r => r[0])
+
   return NextResponse.json({
     ok: true,
+    fees_audit:   { status: feRes.status === 'fulfilled' ? 'triggered' : 'failed' },
     bling:        { status: blRes.status === 'fulfilled' ? 'triggered' : 'failed', days: blingDays },
     marketplaces: { status: mpRes.status === 'fulfilled' ? 'triggered' : 'failed', days: mpDays },
     ml_invoices:  { status: invRes.status === 'fulfilled' ? 'triggered' : 'failed' },

@@ -120,13 +120,23 @@ export function MarketplaceSyncButton() {
       setProgress('Etapa 6/7 — Estoque Full…')
       await fetch('/api/sync/ml/stock', { method: 'POST' }).catch(() => null)
 
-      // 7/7 margens + auditoria
+      // 7/7 margens + auditoria + vistoria de taxas
       setProgress('Etapa 7/7 — Recalculando custos, margens e auditoria…')
       await fetch('/api/landed-cost/relink', { method: 'POST' })
       await fetch('/api/audit/sales?days=45', { method: 'POST' }).catch(() => null)
 
+      // Vistoria de taxas vs tabela oficial (fatiada por anúncio, skip numérico)
+      setProgress('Etapa 7/7 — Vistoria de taxas vs tabela oficial do ML…')
+      for (let skip = 0; skip < 400; skip += 25) {
+        const r = await fetch('/api/audit/fees', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ days: 4, limit: 25, skip }),
+        }).then(x => x.ok ? x.json() : null).catch(() => null)
+        if (!r?.ok || (r.remaining_items ?? 0) <= 0) break
+      }
+
       setProgress('')
-      setResult(`✓ Completo: ${resumo.join(' · ')} — margens e auditoria atualizadas`)
+      setResult(`✓ Completo: ${resumo.join(' · ')} — margens, auditoria e vistoria de taxas atualizadas`)
       setStatus('done')
     } catch (err) {
       setProgress('')
