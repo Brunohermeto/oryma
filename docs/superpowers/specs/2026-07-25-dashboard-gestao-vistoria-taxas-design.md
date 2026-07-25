@@ -26,7 +26,7 @@ Ordem das seções:
 2. **Margem por produto** (componente client novo `MarginByProductTable`):
    - Colunas: produto, unidades, faturamento, custo, taxas totais, margem R$,
      margem % média, velocidade/dia, cobertura de estoque.
-   - Filtro de período: 7 / 30 / 90 dias / mês atual. Busca por nome/SKU.
+   - Filtro de período: 7 / 30 / 90 dias. Busca por nome/SKU.
    - Ordenável por qualquer coluna. Margem NULL (sem impostos ainda) fica
      "em cálculo" e fora das médias — mesma regra da página de Vendas.
    - Linha expansível por produto: distribuição **por estado** (UF de
