@@ -154,6 +154,7 @@ export default async function DashboardPage(
     commission: r.commission, ads: r.ads,
     cmvMedio: r.cost > 0 && r.units > 0 ? r.cost / r.units : null,
     marginPct: r.marginRevenue > 0 ? (r.marginValue / r.marginRevenue) * 100 : null,
+    velocityDay: r.units / marginDays,
     byUf: [...r.ufs.entries()]
       .map(([uf, u]: [string, any]) => ({
         uf, units: u.units, marginPct: u.mg > 0 ? (u.mv / u.mg) * 100 : null }))

@@ -28,6 +28,7 @@ export interface ProductMarginRow {
   ads: number
   cmvMedio: number | null  // custo total / unidades
   marginPct: number | null // margem média % (vendas com impostos calculados)
+  velocityDay: number      // unidades / dias do período filtrado
   byUf: Array<{ uf: string; units: number; marginPct: number | null }>
 }
 
@@ -51,7 +52,7 @@ function marginColor(m: number) {
 }
 
 type SortKey = 'name' | 'units' | 'revenue' | 'icms' | 'icmsPct' | 'difal' | 'difalPct'
-  | 'piscofins' | 'freteMedio' | 'estornoMedio' | 'commissionPct' | 'adsPct' | 'ads' | 'cmvMedio' | 'marginPct'
+  | 'piscofins' | 'freteMedio' | 'estornoMedio' | 'commissionPct' | 'adsPct' | 'ads' | 'cmvMedio' | 'marginPct' | 'velocityDay'
 
 export function MarginByProductTable({ rows, days }: { rows: ProductMarginRow[]; days: number }) {
   const [search, setSearch] = useState('')
@@ -170,6 +171,7 @@ export function MarginByProductTable({ rows, days }: { rows: ProductMarginRow[];
               <HTH k="ads" label="Ads R$" />
               <HTH k="cmvMedio" label="CMV méd" />
               <HTH k="marginPct" label="Margem méd %" />
+              <HTH k="velocityDay" label="Vel/dia" />
             </tr>
           </thead>
           <tbody>
@@ -231,10 +233,13 @@ export function MarginByProductTable({ rows, days }: { rows: ProductMarginRow[];
                         <span className="text-[11px] italic" style={{ color: B.muted }}>em cálculo</span>
                       )}
                     </td>
+                    <td className="px-2 py-2.5 text-right text-[13px]" style={{ color: B.text, fontFamily: 'var(--font-geist-mono)' }}>
+                      {r.velocityDay.toFixed(1)}
+                    </td>
                   </tr>
                   {isOpen && (
                     <tr key={`${r.productId}-uf`}>
-                      <td colSpan={15} className="px-2 pb-3 pt-1" style={{ background: B.bgSubtle }}>
+                      <td colSpan={16} className="px-2 pb-3 pt-1" style={{ background: B.bgSubtle }}>
                         <div className="flex flex-wrap gap-2 pl-6 pt-2">
                           {r.byUf.map(u => (
                             <div key={u.uf} className="flex items-center gap-2 bg-white rounded-lg px-2.5 py-1.5" style={{ border: `1px solid ${B.border}` }}>
@@ -255,7 +260,7 @@ export function MarginByProductTable({ rows, days }: { rows: ProductMarginRow[];
               )
             })}
             {sorted.length === 0 && (
-              <tr><td colSpan={15} className="px-2 py-6 text-center text-[13px]" style={{ color: B.muted }}>Nenhum produto no período/busca.</td></tr>
+              <tr><td colSpan={16} className="px-2 py-6 text-center text-[13px]" style={{ color: B.muted }}>Nenhum produto no período/busca.</td></tr>
             )}
           </tbody>
         </table>
