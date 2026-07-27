@@ -17,6 +17,7 @@ export interface SkuCostRow {
   effectiveDate: string | null
   source: 'nf' | 'manual' | null
   locked: boolean
+  archived: boolean
   salesCount: number
 }
 
@@ -36,7 +37,7 @@ function fmtDate(d: string) {
   return `${day}/${m}/${y}`
 }
 
-type Filter = 'todos' | 'sem_custo' | 'manual' | 'travado'
+type Filter = 'todos' | 'sem_custo' | 'manual' | 'travado' | 'arquivados'
 
 export function SkuCostTable({ rows }: { rows: SkuCostRow[] }) {
   const router = useRouter()
@@ -52,6 +53,9 @@ export function SkuCostTable({ rows }: { rows: SkuCostRow[] }) {
   const q = search.trim().toLowerCase()
   const filtered = rows.filter(r => {
     if (q && !r.sku.toLowerCase().includes(q) && !r.name.toLowerCase().includes(q)) return false
+    // Arquivados (sem venda 6m + sem estoque) só aparecem no próprio filtro
+    if (filter === 'arquivados') return r.archived
+    if (r.archived) return false
     if (filter === 'sem_custo') return r.cost === null
     if (filter === 'manual') return r.source === 'manual'
     if (filter === 'travado') return r.locked
@@ -106,11 +110,13 @@ export function SkuCostTable({ rows }: { rows: SkuCostRow[] }) {
     setLockBusy(null)
   }
 
+  const vivos = rows.filter(r => !r.archived)
   const FILTERS: Array<{ key: Filter; label: string }> = [
-    { key: 'todos', label: `Todos (${rows.length})` },
-    { key: 'sem_custo', label: `Sem custo (${rows.filter(r => r.cost === null).length})` },
-    { key: 'manual', label: `Manual (${rows.filter(r => r.source === 'manual').length})` },
-    { key: 'travado', label: `Travados (${rows.filter(r => r.locked).length})` },
+    { key: 'todos', label: `Todos (${vivos.length})` },
+    { key: 'sem_custo', label: `Sem custo (${vivos.filter(r => r.cost === null).length})` },
+    { key: 'manual', label: `Manual (${vivos.filter(r => r.source === 'manual').length})` },
+    { key: 'travado', label: `Travados (${vivos.filter(r => r.locked).length})` },
+    { key: 'arquivados', label: `Arquivados (${rows.length - vivos.length})` },
   ]
 
   return (

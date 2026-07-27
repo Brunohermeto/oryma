@@ -19,6 +19,7 @@ export interface ProductRow {
   sold12m: number          // unidades vendidas nos últimos 12 meses
   velocityPerDay: number   // un/dia descontando períodos de ruptura de estoque
   cmp: number | null
+  archived: boolean        // sem venda 6m e sem estoque — fora das listas por padrão
 }
 
 type SortKey = 'name' | 'stock' | 'velocity' | 'coverage' | 'cmp'
@@ -27,7 +28,7 @@ function fmtR(v: number) {
   return `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
-type Situacao = 'todos' | 'com_estoque' | 'sem_estoque' | 'critico' | 'sem_giro' | 'sem_custo'
+type Situacao = 'todos' | 'com_estoque' | 'sem_estoque' | 'critico' | 'sem_giro' | 'sem_custo' | 'arquivados'
 
 const SITUACOES: Array<{ key: Situacao; label: string }> = [
   { key: 'todos',       label: 'Todos' },
@@ -36,6 +37,7 @@ const SITUACOES: Array<{ key: Situacao; label: string }> = [
   { key: 'critico',     label: 'Repor (cobertura < 30d)' },
   { key: 'sem_giro',    label: 'Sem giro (capital parado)' },
   { key: 'sem_custo',   label: 'Sem custo' },
+  { key: 'arquivados',  label: 'Arquivados' },
 ]
 
 export function ProductsTable({ rows }: { rows: ProductRow[] }) {
@@ -57,7 +59,9 @@ export function ProductsTable({ rows }: { rows: ProductRow[] }) {
     let list = q
       ? enriched.filter(r => r.name.toLowerCase().includes(q) || r.sku.toLowerCase().includes(q))
       : enriched
-    if (situacao !== 'todos') {
+    // Arquivados (sem venda 6m + sem estoque) só aparecem no próprio filtro
+    list = situacao === 'arquivados' ? list.filter(r => r.archived) : list.filter(r => !r.archived)
+    if (situacao !== 'todos' && situacao !== 'arquivados') {
       list = list.filter(r =>
         situacao === 'com_estoque' ? r.totalStock > 0
         : situacao === 'sem_estoque' ? r.totalStock === 0

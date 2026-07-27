@@ -9,7 +9,7 @@ export default async function CustosPorSkuPage() {
   const db = createSupabaseServiceClient()
 
   const [{ data: products }, { data: cmps }, { data: salesRaw }] = await Promise.all([
-    db.from('products').select('id, sku, name, cost_locked').order('sku'),
+    db.from('products').select('id, sku, name, cost_locked, archived').order('sku'),
     db.from('cmp_costs')
       .select('product_id, cmp_value, effective_date, calculated_at, total_stock_qty')
       .order('effective_date', { ascending: false })
@@ -39,6 +39,7 @@ export default async function CustosPorSkuPage() {
       // Entrada manual grava total_stock_qty=1 (placeholder); NF grava a qtde do lote
       source: c ? (Number(c.total_stock_qty) === 1 ? 'manual' as const : 'nf' as const) : null,
       locked: !!p.cost_locked,
+      archived: !!p.archived,
       salesCount: salesCount[p.id] ?? 0,
     }
   }).sort((a, b) => b.salesCount - a.salesCount)

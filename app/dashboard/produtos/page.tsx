@@ -27,7 +27,7 @@ export default async function ProdutosPage() {
   }
 
   const [{ data: products }, { data: allCmps }, yearSales] = await Promise.all([
-    db.from('products').select('id, name, sku, stock_quantity, stock_full').order('name'),
+    db.from('products').select('id, name, sku, stock_quantity, stock_full, archived').order('name'),
     db.from('cmp_costs')
       .select('product_id, cmp_value, calculated_at')
       .order('calculated_at', { ascending: false })
@@ -77,6 +77,7 @@ export default async function ProdutosPage() {
       sold12m: sold,
       velocityPerDay: sold > 0 ? sold / dias : 0,
       cmp: cmpByProduct.get(p.id) ?? null,
+      archived: !!(p as any).archived,
     }
   })
 

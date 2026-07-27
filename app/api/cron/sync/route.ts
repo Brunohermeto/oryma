@@ -111,8 +111,14 @@ export async function GET(request: NextRequest) {
     }),
   ]).then(r => r[0])
 
+  // Arquiva SKUs mortos / desarquiva os que reviveram
+  const arRes = await Promise.allSettled([
+    fetch(`${baseUrl}/api/products/archive-sweep`, { method: 'POST', headers }),
+  ]).then(r => r[0])
+
   return NextResponse.json({
     ok: true,
+    archive:      { status: arRes.status === 'fulfilled' ? 'triggered' : 'failed' },
     fees_audit:   { status: feRes.status === 'fulfilled' ? 'triggered' : 'failed' },
     bling:        { status: blRes.status === 'fulfilled' ? 'triggered' : 'failed', days: blingDays },
     marketplaces: { status: mpRes.status === 'fulfilled' ? 'triggered' : 'failed', days: mpDays },
