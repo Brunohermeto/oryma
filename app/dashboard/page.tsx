@@ -115,7 +115,7 @@ export default async function DashboardPage(
       row = { productId: p.id, name: p.name, sku: p.sku, units: 0, revenue: 0,
               icms: 0, difal: 0, piscofins: 0, taxedRevenue: 0, inCalc: 0,
               freteSum: 0, freteCount: 0, estornoSum: 0, estornoCount: 0,
-              commission: 0, ads: 0, cost: 0,
+              commission: 0, ads: 0, cost: 0, marginValue: 0, marginRevenue: 0,
               ufs: new Map<string, { units: number; mv: number; mg: number }>() }
       byProduct.set(p.id, row)
     }
@@ -139,6 +139,8 @@ export default async function DashboardPage(
     const u = row.ufs.get(uf)
     u.units += Number(s.quantity)
     if (t && c?.margin_value !== null && c?.margin_value !== undefined) {
+      row.marginValue   += Number(c.margin_value)
+      row.marginRevenue += g
       u.mv += Number(c.margin_value); u.mg += g
     }
   }
@@ -151,6 +153,7 @@ export default async function DashboardPage(
     estornoMedio: r.estornoCount > 0 ? r.estornoSum / r.estornoCount : null,
     commission: r.commission, ads: r.ads,
     cmvMedio: r.cost > 0 && r.units > 0 ? r.cost / r.units : null,
+    marginPct: r.marginRevenue > 0 ? (r.marginValue / r.marginRevenue) * 100 : null,
     byUf: [...r.ufs.entries()]
       .map(([uf, u]: [string, any]) => ({
         uf, units: u.units, marginPct: u.mg > 0 ? (u.mv / u.mg) * 100 : null }))
