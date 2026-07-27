@@ -1,7 +1,9 @@
 'use client'
 
 /**
- * Margem média por produto — coração da gestão/precificação.
+ * Margem por Produto — raio-X fiscal e de taxas por produto (colunas do Bruno):
+ * Un, Faturamento, ICMS R$/%, DIFAL R$/%, PIS+COFINS, Frete médio, Estorno
+ * médio, Comissão %, Ads %/R$, CMV médio.
  * Filtro de período via links (?days=), busca e ordenação client-side.
  * Linha expandida: % de vendas e margem média por estado (UF de destino).
  */
@@ -15,13 +17,16 @@ export interface ProductMarginRow {
   sku: string
   units: number
   revenue: number
-  cost: number
-  fees: number
-  marginValue: number
-  marginRevenue: number
-  inCalc: number
-  velocityDay: number
-  coverageDays: number | null
+  icms: number
+  difal: number
+  piscofins: number
+  taxedRevenue: number     // faturamento das vendas COM impostos (denominador dos %)
+  inCalc: number           // vendas ainda sem impostos ("em cálculo")
+  freteMedio: number | null    // média entre vendas com frete registrado
+  estornoMedio: number | null  // média entre vendas com estorno
+  commission: number       // comissão + tarifa fixa (bruta)
+  ads: number
+  cmvMedio: number | null  // custo total / unidades
   byUf: Array<{ uf: string; units: number; marginPct: number | null }>
 }
 
@@ -33,7 +38,10 @@ const B = {
   brand: '#125BFF',
 }
 
-function fmtR(v: number) { return `R$ ${Math.round(v).toLocaleString('pt-BR')}` }
+function fmtR(v: number) {
+  return `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+function fmtR0(v: number) { return `R$ ${Math.round(v).toLocaleString('pt-BR')}` }
 
 function marginColor(m: number) {
   if (m >= 25) return 'oklch(0.50 0.19 145)'
@@ -41,7 +49,8 @@ function marginColor(m: number) {
   return 'oklch(0.52 0.20 25)'
 }
 
-type SortKey = 'name' | 'units' | 'revenue' | 'cost' | 'fees' | 'marginValue' | 'marginPct' | 'velocityDay' | 'coverageDays'
+type SortKey = 'name' | 'units' | 'revenue' | 'icms' | 'icmsPct' | 'difal' | 'difalPct'
+  | 'piscofins' | 'freteMedio' | 'estornoMedio' | 'commissionPct' | 'adsPct' | 'ads' | 'cmvMedio'
 
 export function MarginByProductTable({ rows, days }: { rows: ProductMarginRow[]; days: number }) {
   const [search, setSearch] = useState('')
@@ -53,10 +62,17 @@ export function MarginByProductTable({ rows, days }: { rows: ProductMarginRow[];
   const filtered = rows.filter(r => !q || r.name.toLowerCase().includes(q) || r.sku.toLowerCase().includes(q))
 
   const val = (r: ProductMarginRow): number | string => {
-    if (sortKey === 'name') return r.name.toLowerCase()
-    if (sortKey === 'marginPct') return r.marginRevenue > 0 ? r.marginValue / r.marginRevenue : -999
-    if (sortKey === 'coverageDays') return r.coverageDays ?? 99999
-    return r[sortKey]
+    switch (sortKey) {
+      case 'name':          return r.name.toLowerCase()
+      case 'icmsPct':       return r.taxedRevenue > 0 ? r.icms  / r.taxedRevenue : -1
+      case 'difalPct':      return r.taxedRevenue > 0 ? r.difal / r.taxedRevenue : -1
+      case 'commissionPct': return r.revenue > 0 ? r.commission / r.revenue : -1
+      case 'adsPct':        return r.revenue > 0 ? r.ads / r.revenue : -1
+      case 'freteMedio':    return r.freteMedio ?? -1
+      case 'estornoMedio':  return r.estornoMedio ?? -1
+      case 'cmvMedio':      return r.cmvMedio ?? -1
+      default:              return r[sortKey]
+    }
   }
   const sorted = [...filtered].sort((a, b) => {
     const va = val(a), vb = val(b)
@@ -85,6 +101,15 @@ export function MarginByProductTable({ rows, days }: { rows: ProductMarginRow[];
     </th>
   )
 
+  const pctOf = (v: number, base: number) => base > 0 ? `${(v / base * 100).toFixed(1)}%` : '—'
+
+  const Num = ({ v, bold = false, money = true }: { v: number | null; bold?: boolean; money?: boolean }) => (
+    <td className={`px-2 py-2.5 text-right text-[13px] ${bold ? 'font-semibold' : ''}`}
+        style={{ color: v !== null ? B.text : B.muted, fontFamily: 'var(--font-geist-mono)' }}>
+      {v === null ? '—' : money ? fmtR(v) : String(v)}
+    </td>
+  )
+
   return (
     <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid rgba(15,23,42,0.07)', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}>
       <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
@@ -93,7 +118,7 @@ export function MarginByProductTable({ rows, days }: { rows: ProductMarginRow[];
             Margem por Produto
           </div>
           <div className="text-[12px] mt-0.5" style={{ color: B.muted }}>
-            Clique no produto para abrir a distribuição por estado
+            Impostos, taxas e custo por produto · clique na linha para abrir por estado
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -131,19 +156,24 @@ export function MarginByProductTable({ rows, days }: { rows: ProductMarginRow[];
               <HTH k="name" label="Produto" right={false} />
               <HTH k="units" label="Un" />
               <HTH k="revenue" label="Faturamento" />
-              <HTH k="cost" label="Custo" />
-              <HTH k="fees" label="Taxas" />
-              <HTH k="marginValue" label="Margem R$" />
-              <HTH k="marginPct" label="Margem %" />
-              <HTH k="velocityDay" label="Vel/dia" />
-              <HTH k="coverageDays" label="Cobertura" />
+              <HTH k="icms" label="ICMS R$" />
+              <HTH k="icmsPct" label="ICMS %" />
+              <HTH k="difal" label="DIFAL R$" />
+              <HTH k="difalPct" label="DIFAL %" />
+              <HTH k="piscofins" label="PIS+COFINS" />
+              <HTH k="freteMedio" label="Frete méd" />
+              <HTH k="estornoMedio" label="Estorno méd" />
+              <HTH k="commissionPct" label="Comissão %" />
+              <HTH k="adsPct" label="Ads %" />
+              <HTH k="ads" label="Ads R$" />
+              <HTH k="cmvMedio" label="CMV méd" />
             </tr>
           </thead>
           <tbody>
             {sorted.map(r => {
-              const pct = r.marginRevenue > 0 ? (r.marginValue / r.marginRevenue) * 100 : null
               const isOpen = expanded.has(r.productId)
               const totalUfUnits = r.byUf.reduce((s, u) => s + u.units, 0)
+              const semImpostos = r.taxedRevenue === 0
               return (
                 <>
                   <tr
@@ -156,48 +186,43 @@ export function MarginByProductTable({ rows, days }: { rows: ProductMarginRow[];
                       <div className="flex items-center gap-1.5">
                         {isOpen ? <ChevronDown size={13} style={{ color: B.brand }} /> : <ChevronRight size={13} style={{ color: B.muted }} />}
                         <div className="min-w-0">
-                          <div className="text-[13px] font-medium truncate max-w-[220px]" style={{ color: B.text }}>{r.name}</div>
-                          <div className="text-[11px]" style={{ color: B.muted }}>{r.sku}</div>
+                          <div className="text-[13px] font-medium truncate max-w-[180px]" style={{ color: B.text }}>{r.name}</div>
+                          <div className="text-[11px]" style={{ color: B.muted }}>
+                            {r.sku}
+                            {r.inCalc > 0 && <span className="italic"> · {r.inCalc} em cálculo</span>}
+                          </div>
                         </div>
                       </div>
                     </td>
                     <td className="px-2 py-2.5 text-right text-[13px]" style={{ color: B.text, fontFamily: 'var(--font-geist-mono)' }}>{r.units}</td>
-                    <td className="px-2 py-2.5 text-right text-[13px] font-semibold" style={{ color: B.text, fontFamily: 'var(--font-geist-mono)' }}>{fmtR(r.revenue)}</td>
-                    <td className="px-2 py-2.5 text-right text-[13px]" style={{ color: B.muted, fontFamily: 'var(--font-geist-mono)' }}>{r.cost > 0 ? fmtR(r.cost) : '—'}</td>
-                    <td className="px-2 py-2.5 text-right text-[13px]" style={{ color: B.muted, fontFamily: 'var(--font-geist-mono)' }}>{fmtR(r.fees)}</td>
-                    <td className="px-2 py-2.5 text-right text-[13px] font-semibold" style={{ color: pct !== null ? marginColor(pct) : B.muted, fontFamily: 'var(--font-geist-mono)' }}>
-                      {pct !== null ? fmtR(r.marginValue) : '—'}
+                    <td className="px-2 py-2.5 text-right text-[13px] font-semibold" style={{ color: B.text, fontFamily: 'var(--font-geist-mono)' }}>{fmtR0(r.revenue)}</td>
+                    <Num v={semImpostos ? null : r.icms} />
+                    <td className="px-2 py-2.5 text-right text-[12px]" style={{ color: B.muted, fontFamily: 'var(--font-geist-mono)' }}>
+                      {semImpostos ? '—' : pctOf(r.icms, r.taxedRevenue)}
+                    </td>
+                    <Num v={semImpostos ? null : r.difal} />
+                    <td className="px-2 py-2.5 text-right text-[12px]" style={{ color: B.muted, fontFamily: 'var(--font-geist-mono)' }}>
+                      {semImpostos ? '—' : pctOf(r.difal, r.taxedRevenue)}
+                    </td>
+                    <Num v={semImpostos ? null : r.piscofins} />
+                    <Num v={r.freteMedio} />
+                    <td className="px-2 py-2.5 text-right text-[13px]" style={{ color: r.estornoMedio !== null ? '#16a34a' : B.muted, fontFamily: 'var(--font-geist-mono)' }}>
+                      {r.estornoMedio !== null ? fmtR(r.estornoMedio) : '—'}
                     </td>
                     <td className="px-2 py-2.5 text-right">
-                      {pct !== null ? (
-                        <span className="text-[12px] font-bold px-1.5 py-0.5 rounded-md" style={{ color: marginColor(pct), background: B.bgSubtle }}>
-                          {pct.toFixed(1)}%
-                        </span>
-                      ) : (
-                        <span className="text-[11px] italic" style={{ color: B.muted }}>em cálculo</span>
-                      )}
-                      {r.inCalc > 0 && pct !== null && (
-                        <div className="text-[10px] mt-0.5" style={{ color: B.muted }}>+{r.inCalc} em cálculo</div>
-                      )}
+                      <span className="text-[12px] font-bold px-1.5 py-0.5 rounded-md" style={{ color: '#d97706', background: B.bgSubtle }}>
+                        {pctOf(r.commission, r.revenue)}
+                      </span>
                     </td>
-                    <td className="px-2 py-2.5 text-right text-[13px]" style={{ color: B.text, fontFamily: 'var(--font-geist-mono)' }}>{r.velocityDay.toFixed(1)}</td>
-                    <td className="px-2 py-2.5 text-right">
-                      {r.coverageDays !== null ? (
-                        <span
-                          className="text-[12px] font-medium px-1.5 py-0.5 rounded-md"
-                          style={{
-                            color: r.coverageDays < 30 ? 'oklch(0.52 0.20 25)' : r.coverageDays < 60 ? 'oklch(0.62 0.16 70)' : B.muted,
-                            background: B.bgSubtle,
-                          }}
-                        >
-                          {Math.round(r.coverageDays)}d
-                        </span>
-                      ) : <span className="text-[12px]" style={{ color: B.muted }}>—</span>}
+                    <td className="px-2 py-2.5 text-right text-[12px]" style={{ color: B.muted, fontFamily: 'var(--font-geist-mono)' }}>
+                      {r.ads > 0 ? pctOf(r.ads, r.revenue) : '—'}
                     </td>
+                    <Num v={r.ads > 0 ? r.ads : null} />
+                    <Num v={r.cmvMedio} bold />
                   </tr>
                   {isOpen && (
                     <tr key={`${r.productId}-uf`}>
-                      <td colSpan={9} className="px-2 pb-3 pt-1" style={{ background: B.bgSubtle }}>
+                      <td colSpan={14} className="px-2 pb-3 pt-1" style={{ background: B.bgSubtle }}>
                         <div className="flex flex-wrap gap-2 pl-6 pt-2">
                           {r.byUf.map(u => (
                             <div key={u.uf} className="flex items-center gap-2 bg-white rounded-lg px-2.5 py-1.5" style={{ border: `1px solid ${B.border}` }}>
@@ -218,7 +243,7 @@ export function MarginByProductTable({ rows, days }: { rows: ProductMarginRow[];
               )
             })}
             {sorted.length === 0 && (
-              <tr><td colSpan={9} className="px-2 py-6 text-center text-[13px]" style={{ color: B.muted }}>Nenhum produto no período/busca.</td></tr>
+              <tr><td colSpan={14} className="px-2 py-6 text-center text-[13px]" style={{ color: B.muted }}>Nenhum produto no período/busca.</td></tr>
             )}
           </tbody>
         </table>

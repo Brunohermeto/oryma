@@ -95,10 +95,10 @@ export default async function DashboardPage(
 
   // ── Margem por produto (período próprio via ?days=) ──
   const { data: marginSales } = await db.from('sales')
-    .select(`product_id, gross_price, cancellation, quantity, uf_destino,
+    .select(`product_id, gross_price, cancellation, quantity, uf_destino, ads_cost,
       marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, rebate,
-      sale_taxes(id), sale_costs(total_cost, margin_value),
-      products(id, name, sku, stock_quantity, stock_full)`)
+      sale_taxes(icms, icms_difal, pis, cofins), sale_costs(total_cost, margin_value),
+      products(id, name, sku)`)
     .gte('sale_date', format(subDays(now, marginDays - 1), 'yyyy-MM-dd'))
     .not('product_id', 'is', null)
     .limit(5000)
@@ -108,37 +108,49 @@ export default async function DashboardPage(
     const p = uw(s.products) as any
     if (!p) continue
     const c = uw(s.sale_costs) as any
-    const hasTaxes = !!uw(s.sale_taxes)
+    const t = uw(s.sale_taxes) as any
     const g = Number(s.gross_price) - Number(s.cancellation ?? 0)
     let row = byProduct.get(p.id)
     if (!row) {
-      row = { productId: p.id, name: p.name, sku: p.sku, units: 0, revenue: 0, cost: 0,
-              fees: 0, marginValue: 0, marginRevenue: 0, inCalc: 0,
-              stock: Number(p.stock_quantity ?? 0) + Number(p.stock_full ?? 0),
+      row = { productId: p.id, name: p.name, sku: p.sku, units: 0, revenue: 0,
+              icms: 0, difal: 0, piscofins: 0, taxedRevenue: 0, inCalc: 0,
+              freteSum: 0, freteCount: 0, estornoSum: 0, estornoCount: 0,
+              commission: 0, ads: 0, cost: 0,
               ufs: new Map<string, { units: number; mv: number; mg: number }>() }
       byProduct.set(p.id, row)
     }
-    row.units   += Number(s.quantity)
-    row.revenue += g
-    row.cost    += Number(c?.total_cost ?? 0)
-    row.fees    += Number(s.marketplace_commission ?? 0) + Number(s.marketplace_shipping_fee ?? 0)
-                 + Number((s as any).marketplace_fixed_fee ?? 0) - Number((s as any).rebate ?? 0)
+    row.units      += Number(s.quantity)
+    row.revenue    += g
+    row.cost       += Number(c?.total_cost ?? 0)
+    row.commission += Number(s.marketplace_commission ?? 0) + Number((s as any).marketplace_fixed_fee ?? 0)
+    row.ads        += Number(s.ads_cost ?? 0)
+    const frete   = Number(s.marketplace_shipping_fee ?? 0)
+    const estorno = Number((s as any).rebate ?? 0)
+    if (frete   > 0) { row.freteSum   += frete;   row.freteCount++ }
+    if (estorno > 0) { row.estornoSum += estorno; row.estornoCount++ }
+    if (t) {
+      row.icms         += Number(t.icms ?? 0)
+      row.difal        += Number(t.icms_difal ?? 0)
+      row.piscofins    += Number(t.pis ?? 0) + Number(t.cofins ?? 0)
+      row.taxedRevenue += g
+    } else row.inCalc++
     const uf = s.uf_destino || 'não informado'
     if (!row.ufs.has(uf)) row.ufs.set(uf, { units: 0, mv: 0, mg: 0 })
     const u = row.ufs.get(uf)
     u.units += Number(s.quantity)
-    if (hasTaxes && c?.margin_value !== null && c?.margin_value !== undefined) {
-      row.marginValue   += Number(c.margin_value)
-      row.marginRevenue += g
+    if (t && c?.margin_value !== null && c?.margin_value !== undefined) {
       u.mv += Number(c.margin_value); u.mg += g
-    } else row.inCalc++
+    }
   }
   const marginRows: ProductMarginRow[] = [...byProduct.values()].map(r => ({
     productId: r.productId, name: r.name, sku: r.sku, units: r.units,
-    revenue: r.revenue, cost: r.cost, fees: r.fees,
-    marginValue: r.marginValue, marginRevenue: r.marginRevenue, inCalc: r.inCalc,
-    velocityDay: r.units / marginDays,
-    coverageDays: r.units > 0 ? r.stock / (r.units / marginDays) : null,
+    revenue: r.revenue,
+    icms: r.icms, difal: r.difal, piscofins: r.piscofins,
+    taxedRevenue: r.taxedRevenue, inCalc: r.inCalc,
+    freteMedio:   r.freteCount   > 0 ? r.freteSum   / r.freteCount   : null,
+    estornoMedio: r.estornoCount > 0 ? r.estornoSum / r.estornoCount : null,
+    commission: r.commission, ads: r.ads,
+    cmvMedio: r.cost > 0 && r.units > 0 ? r.cost / r.units : null,
     byUf: [...r.ufs.entries()]
       .map(([uf, u]: [string, any]) => ({
         uf, units: u.units, marginPct: u.mg > 0 ? (u.mv / u.mg) * 100 : null }))
