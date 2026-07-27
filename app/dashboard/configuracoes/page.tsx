@@ -220,23 +220,6 @@ export default async function ConfiguracoesPage({
           </div>
         </div>
 
-        {/* CMV manual para produtos sem NF-e */}
-        <div className="bg-white rounded-xl p-5" style={{ border: `1px solid ${B.border}` }}>
-          <div className="font-semibold text-[15px] mb-0.5" style={{ color: B.text, fontFamily: 'var(--font-sora)' }}>
-            Custos por SKU
-          </div>
-          <p className="text-[13px] mb-4" style={{ color: B.muted }}>
-            Custo vigente de cada produto (NF ou manual), edição com data de vigência e trava para kits/conjuntos.
-          </p>
-          <a
-            href="/dashboard/configuracoes/cmp-manual"
-            className="inline-flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-lg"
-            style={{ background: B.brand, color: 'white' }}
-          >
-            Abrir custos por SKU →
-          </a>
-        </div>
-
       </div>
     </>
   )

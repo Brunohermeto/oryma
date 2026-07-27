@@ -10,6 +10,7 @@ import {
   ShoppingBag,
   FolderOpen,
   Settings,
+  Tag,
   X,
 } from 'lucide-react'
 
@@ -34,6 +35,7 @@ const navGroups = [
       { href: '/dashboard',          label: 'Visão Geral',        icon: LayoutDashboard, exact: true },
       { href: '/dashboard/vendas',   label: 'Vendas & Margem',    icon: ShoppingBag },
       { href: '/dashboard/produtos', label: 'Produtos & Estoque', icon: Package },
+      { href: '/dashboard/custos',   label: 'Custos por SKU',     icon: Tag },
       { href: '/dashboard/dre',      label: 'DRE & Despesas',     icon: BarChart3 },
     ],
   },
