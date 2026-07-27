@@ -117,6 +117,11 @@ export async function recalculateLandedCost(importOrderId: string): Promise<void
 export async function recalculateCmp(productId: string, _effectiveDate?: string): Promise<number | null> {
   const db = createSupabaseServiceClient()
 
+  // SKU travado (kits/conjuntos): só o custo manual vale — NF não mexe
+  const { data: prod } = await db.from('products')
+    .select('cost_locked').eq('id', productId).maybeSingle()
+  if (prod?.cost_locked) return null
+
   const { data: batches } = await db
     .from('unit_costs')
     .select('total_unit_cost, quantity_in_batch, import_order_id')
