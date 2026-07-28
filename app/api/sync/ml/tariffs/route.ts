@@ -69,8 +69,9 @@ export async function POST(request: NextRequest) {
     .order('sale_date', { ascending: false })
     .limit(1000)
 
-  // O ML lança a comissão antes do ESTORNO — pedido recente sem estorno volta
-  // à fila por até 10 dias, senão o estorno atrasado nunca seria capturado
+  // Venda recente SEMPRE volta à fila por 10 dias: o extrato lança tarifas,
+  // estornos e ajustes de promoção em ondas (valores provisórios viram finais),
+  // e só a reconferência diária garante convergência com o painel do ML
   const recorte = brazilDaysAgo(10)
   const orders = new Map<string, Array<{ saleId: string; gross: number; curShipping: number }>>()
   for (const r of rows ?? []) {
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
     const needs = force
       || Number(r.marketplace_commission ?? 0) === 0
       || Number(r.marketplace_shipping_fee ?? 0) === 0
-      || (Number(r.rebate ?? 0) === 0 && r.sale_date >= recorte)
+      || r.sale_date >= recorte
     if (!needs) continue
     if (!orders.has(m[1])) orders.set(m[1], [])
     orders.get(m[1])!.push({ saleId: r.id, gross: Number(r.gross_price ?? 0), curShipping: Number(r.marketplace_shipping_fee ?? 0) })
