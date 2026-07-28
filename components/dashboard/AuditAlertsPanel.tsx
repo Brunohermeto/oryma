@@ -27,7 +27,7 @@ export async function AuditAlertsPanel() {
     .from('audit_findings')
     .select('id, rule, severity, message')
     // Regras da vistoria de taxas têm painel próprio (FeeAuditPanel)
-    .not('rule', 'in', '("comissao_acima_tabela","tarifa_fixa_divergente","frete_fora_padrao")')
+    .not('rule', 'in', '("comissao_acima_tabela","comissao_abaixo_tabela","tarifa_fixa_divergente","frete_fora_padrao")')
     .is('dismissed_at', null)
     .order('detected_at', { ascending: false })
     .limit(500)

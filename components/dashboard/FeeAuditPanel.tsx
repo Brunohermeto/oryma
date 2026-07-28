@@ -11,6 +11,7 @@ const B = { border: 'oklch(0.88 0.016 258)', muted: 'oklch(0.50 0.025 258)', tex
 
 const FEE_RULE_LABELS: Record<string, string> = {
   comissao_acima_tabela:  'Comissão acima da tabela oficial do ML',
+  comissao_abaixo_tabela: 'Comissão abaixo da tabela (possível valor líquido gravado)',
   tarifa_fixa_divergente: 'Tarifa fixa diferente da regra oficial',
   frete_fora_padrao:      'Frete acima do padrão histórico do produto',
 }

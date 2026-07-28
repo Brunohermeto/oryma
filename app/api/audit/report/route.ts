@@ -23,6 +23,7 @@ const RULE_LABELS: Record<string, string> = {
   custo_incompativel:      'Custo incompatível com o preço',
   margem_negativa:         'Venda com prejuízo relevante',
   comissao_acima_tabela:   'Comissão acima da tabela oficial do ML',
+  comissao_abaixo_tabela:  'Comissão abaixo da tabela (possível valor líquido gravado)',
   tarifa_fixa_divergente:  'Tarifa fixa diferente da regra oficial',
   frete_fora_padrao:       'Frete acima do padrão histórico',
 }

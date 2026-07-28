@@ -16,7 +16,7 @@ export const dynamic         = 'force-dynamic'
 export const maxDuration     = 60
 export const preferredRegion = 'gru1'
 
-const FEE_RULES = ['comissao_acima_tabela', 'tarifa_fixa_divergente', 'frete_fora_padrao']
+const FEE_RULES = ['comissao_acima_tabela', 'comissao_abaixo_tabela', 'tarifa_fixa_divergente', 'frete_fora_padrao']
 const TOL = 0.10
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
@@ -132,6 +132,17 @@ export async function POST(request: NextRequest) {
             rule: isFixed ? 'tarifa_fixa_divergente' : 'comissao_acima_tabela',
             severity: 'warn',
             message: `${nfLabel}: ML cobrou R$${cobrado.toFixed(2)} de tarifa de venda, tabela oficial diz R$${esperado.toFixed(2)} — R$${diff.toFixed(2)} a mais.`,
+            details: { cobrado: r2(cobrado), esperado: r2(esperado), diff },
+          })
+        } else if (diff < -5) {
+          // Sentinela da regra "comissão BRUTA + estorno separado": comissão bem
+          // ABAIXO da tabela é a assinatura de alguém ter gravado o valor LÍQUIDO
+          // (bruta − estorno) — mascara a conta. Auto-cura quando corrigido.
+          findings.push({
+            sale_id: s.id,
+            rule: 'comissao_abaixo_tabela',
+            severity: 'warn',
+            message: `${nfLabel}: comissão gravada R$${cobrado.toFixed(2)} bem abaixo da tabela (R$${esperado.toFixed(2)}) — possível gravação do valor líquido em vez de bruto + estorno.`,
             details: { cobrado: r2(cobrado), esperado: r2(esperado), diff },
           })
         }
