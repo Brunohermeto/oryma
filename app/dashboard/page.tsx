@@ -243,6 +243,21 @@ export default async function DashboardPage(
         {/* Auditoria sob demanda + relatório para conferência/contestação */}
         <RunAuditButton />
 
+        {/* Ritmo normal de chegada dos dados — evita alarme falso com venda recente */}
+        <details className="rounded-xl px-4 py-2.5" style={{ background: 'oklch(0.97 0.008 258)', border: '1px solid oklch(0.92 0.012 258)' }}>
+          <summary className="cursor-pointer text-[12px] font-medium" style={{ color: 'oklch(0.45 0.03 258)' }}>
+            ⏱ Vendas recentes com dados faltando? Veja o prazo normal de cada informação
+          </summary>
+          <div className="mt-2 space-y-1 text-[12px]" style={{ color: 'oklch(0.50 0.025 258)' }}>
+            <div>• <b>Venda</b> — entra assim que o pagamento é aprovado no marketplace (pedido aguardando pagamento ainda não aparece).</div>
+            <div>• <b>NF-e e impostos (Full)</b> — o ML emite a nota na <b>expedição</b> do pedido, não na venda; costuma chegar em horas, mas pode levar 1 dia.</div>
+            <div>• <b>NF-e e impostos (galpão)</b> — chegam quando a nota é emitida no Bling.</div>
+            <div>• <b>Comissão, tarifa fixa e estorno</b> — vêm do extrato de faturamento do ML, que fecha com <b>1 a 2 dias</b> de atraso; estorno promocional pode levar até 10 dias (o sistema re-verifica sozinho).</div>
+            <div>• <b>Publicidade (Ads)</b> — o ML cobra <b>por dia de campanha</b>, não por venda, e lança no extrato 1-2 dias depois; o valor do dia só é rateado entre as vendas quando o dia fecha.</div>
+            <div>• Enquanto algo falta, a margem fica <b>"em cálculo"</b> — o ciclo diário das 9h completa tudo automaticamente.</div>
+          </div>
+        </details>
+
         {/* Auditoria automática — apontamentos por venda */}
         <AuditAlertsPanel />
 
