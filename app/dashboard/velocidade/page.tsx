@@ -30,7 +30,7 @@ export default async function VelocidadePage() {
   const d60 = format(subDays(today, 60), 'yyyy-MM-dd')
   const d90 = format(subDays(today, 89), 'yyyy-MM-dd')
 
-  const { data: products } = await db.from('products').select('id, name, sku, stock_quantity, updated_at')
+  const { data: products } = await db.from('products').select('id, name, sku, stock_quantity, stock_full, archived, updated_at').eq('archived', false)
 
   // Verifica se o estoque foi sincronizado recentemente (últimas 24h)
   const lastUpdated = (products ?? []).reduce((latest, p) => {
@@ -110,11 +110,12 @@ export default async function VelocidadePage() {
     const unitsPerDay   = unitsPerDay30 > 0 ? unitsPerDay30 : unitsPerDay90
     const velocityLabel = unitsPerDay30 > 0 ? '30d' : unitsPerDay90 > 0 ? '90d (est.)' : null
 
-    // Estoque: usa stock_quantity do Bling (fonte oficial).
-    // Se não sincronizado, usa importado-vendido como fallback.
+    // Estoque CONCILIADO: galpão (Bling) + Full (marketplaces) — nunca só o galpão.
+    // Se o Bling não sincronizou, usa importado-vendido como fallback.
+    const fullStock  = Number((product as any).stock_full ?? 0)
     const blingStock = Number(product.stock_quantity ?? -1)
     const calcStock  = Math.max(0, (importedByProduct[product.id] ?? 0) - (soldByProduct[product.id] ?? 0))
-    const stock      = blingStock >= 0 ? blingStock : calcStock
+    const stock      = (blingStock >= 0 ? blingStock : calcStock) + fullStock
     const stockSource = blingStock >= 0 ? 'bling' : 'calc'
     const daysOfStock = unitsPerDay > 0 ? Math.floor(stock / unitsPerDay) : null
     const trend         = totalRecent > totalPrev * 1.1 ? 'up' : totalRecent < totalPrev * 0.9 ? 'down' : 'stable'
@@ -126,7 +127,7 @@ export default async function VelocidadePage() {
     })
 
     return { product, byMP, totalRecent, total90d, unitsPerDay, velocityLabel, daysOfStock, trend, curveData, stock, stockSource }
-  }).filter(r => r.totalRecent > 0 || Number(r.product.stock_quantity) > 0)
+  }).filter(r => r.totalRecent > 0 || r.stock > 0)
     .sort((a, b) => b.totalRecent - a.totalRecent)
 
   function stockColor(days: number | null) {

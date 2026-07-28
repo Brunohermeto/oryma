@@ -61,7 +61,7 @@ export async function InsightsPanel() {
     productsRes, recentSalesRes, salesNoCostRes, pendingNFeRes,
     curSalesRes, prevSalesRes, mpSalesRes, curRevRes, prevRevRes,
   ] = await Promise.allSettled([
-    db.from('products').select('id, name, sku, stock_quantity'),
+    db.from('products').select('id, name, sku, stock_quantity, stock_full, archived'),
     db.from('sales').select('product_id, quantity').gte('sale_date', d30).lte('sale_date', today),
     db.from('sales').select('product_id, products(name, sku)').gte('sale_date', start).lte('sale_date', end).is('sale_costs', null).limit(1),
     db.from('import_orders').select('id', { count: 'exact', head: true }).eq('costs_complete', false),
@@ -81,11 +81,14 @@ export async function InsightsPanel() {
     const byProd: Record<string, number> = {}
     for (const s of recentSales) byProd[s.product_id] = (byProd[s.product_id] ?? 0) + Number(s.quantity)
     for (const p of products) {
+      if ((p as any).archived) continue
       const upd = (byProd[p.id] ?? 0) / 30
       if (upd <= 0) continue
-      const daysLeft = Math.floor(Number(p.stock_quantity) / upd)
-      if (daysLeft < 15) insights.push({ id: `stock-critical-${p.id}`, severity: 'critical', title: `Estoque crítico — ${p.name}`, detail: `Ao ritmo atual (${upd.toFixed(1)} un./dia), acaba em ${daysLeft} dias.`, href: '/dashboard/velocidade', metric: `${daysLeft}d` })
-      else if (daysLeft < 30) insights.push({ id: `stock-warning-${p.id}`, severity: 'warning', title: `Repor em breve — ${p.name}`, detail: `${daysLeft} dias de estoque restantes (${upd.toFixed(1)} un./dia).`, href: '/dashboard/velocidade', metric: `${daysLeft}d` })
+      // Estoque CONCILIADO: galpão (Bling) + Full (marketplaces) — nunca só o galpão
+      const totalStock = Number(p.stock_quantity ?? 0) + Number((p as any).stock_full ?? 0)
+      const daysLeft = Math.floor(totalStock / upd)
+      if (daysLeft < 15) insights.push({ id: `stock-critical-${p.id}`, severity: 'critical', title: `Estoque crítico — ${p.name}`, detail: `Ao ritmo atual (${upd.toFixed(1)} un./dia), o estoque total (galpão + Full) acaba em ${daysLeft} dias.`, href: '/dashboard/produtos', metric: `${daysLeft}d` })
+      else if (daysLeft < 30) insights.push({ id: `stock-warning-${p.id}`, severity: 'warning', title: `Repor em breve — ${p.name}`, detail: `${daysLeft} dias de estoque total restantes (${upd.toFixed(1)} un./dia).`, href: '/dashboard/produtos', metric: `${daysLeft}d` })
     }
   }
 
