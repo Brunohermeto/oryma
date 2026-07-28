@@ -168,19 +168,31 @@ export default async function DashboardPage(
   const revenueChange = prevRevenue > 0 ? ((totalRevenue - prevRevenue) / prevRevenue) * 100 : 0
   const totalFees = (sales ?? []).reduce((s, r) => s + Number(r.marketplace_commission) + Number(r.marketplace_shipping_fee) + Number(r.ads_cost), 0)
   const totalCMV = (sales ?? []).reduce((s, r) => s + Number((uw(r.sale_costs) as any)?.total_cost ?? 0), 0)
-  const netRevenue = totalRevenue - totalFees
-  const grossProfit = netRevenue - totalCMV
-  const grossMargin = netRevenue > 0 ? (grossProfit / netRevenue) * 100 : 0
+  // Margem REAL = mesma conta da margem por venda (todos os custos + impostos,
+  // estorno somado, sobre o faturamento BRUTO), só das vendas já completas —
+  // NÃO a fórmula antiga receita líquida − CMV, que ignorava impostos/tarifa fixa.
+  let grossProfit = 0, marginBase = 0
+  for (const r of sales ?? []) {
+    const mv = (uw(r.sale_costs) as any)?.margin_value
+    if (mv === null || mv === undefined) continue
+    grossProfit += Number(mv)
+    marginBase  += Number(r.gross_price) - Number(r.cancellation)
+  }
+  const grossMargin = marginBase > 0 ? (grossProfit / marginBase) * 100 : 0
   const totalOrders = (sales ?? []).length
 
-  // ── Por marketplace ──
-  const byMP: Record<string, { revenue: number; fees: number; cmv: number; orders: number }> = {}
+  // ── Por marketplace (margem real por venda: margin_value / bruto das completas) ──
+  const byMP: Record<string, { revenue: number; marginValue: number; marginBase: number; orders: number }> = {}
   for (const s of sales ?? []) {
     const mp = s.marketplace
-    if (!byMP[mp]) byMP[mp] = { revenue: 0, fees: 0, cmv: 0, orders: 0 }
-    byMP[mp].revenue += Number(s.gross_price) - Number(s.cancellation)
-    byMP[mp].fees += Number(s.marketplace_commission) + Number(s.marketplace_shipping_fee) + Number(s.ads_cost)
-    byMP[mp].cmv += Number((s.sale_costs as any)?.[0]?.total_cost ?? 0)
+    if (!byMP[mp]) byMP[mp] = { revenue: 0, marginValue: 0, marginBase: 0, orders: 0 }
+    const g = Number(s.gross_price) - Number(s.cancellation)
+    byMP[mp].revenue += g
+    const mv = (uw(s.sale_costs) as any)?.margin_value
+    if (mv !== null && mv !== undefined) {
+      byMP[mp].marginValue += Number(mv)
+      byMP[mp].marginBase  += g
+    }
     byMP[mp].orders++
   }
 
@@ -200,8 +212,7 @@ export default async function DashboardPage(
 
   // ── Bar chart ──
   const barData = Object.entries(byMP).map(([mp, d]) => {
-    const net = d.revenue - d.fees
-    const margin = net > 0 ? ((net - d.cmv) / net) * 100 : 0
+    const margin = d.marginBase > 0 ? (d.marginValue / d.marginBase) * 100 : 0
     return { marketplace: MP_LABELS[mp] ?? mp, margem: margin, receita: d.revenue }
   })
 
@@ -439,8 +450,7 @@ export default async function DashboardPage(
                 <p className="text-sm" style={{ color: 'oklch(0.70 0.012 258)' }}>Conecte seus marketplaces para ver o resultado real por canal.</p>
               )}
               {Object.entries(byMP).sort((a, b) => b[1].revenue - a[1].revenue).map(([mp, d]) => {
-                const net = d.revenue - d.fees
-                const margin = net > 0 ? ((net - d.cmv) / net) * 100 : 0
+                const margin = d.marginBase > 0 ? (d.marginValue / d.marginBase) * 100 : 0
                 const pct = totalRevenue > 0 ? (d.revenue / totalRevenue) * 100 : 0
                 return (
                   <a

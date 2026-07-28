@@ -65,9 +65,9 @@ export async function InsightsPanel() {
     db.from('sales').select('product_id, quantity').gte('sale_date', d30).lte('sale_date', today),
     db.from('sales').select('product_id, products(name, sku)').gte('sale_date', start).lte('sale_date', end).is('sale_costs', null).limit(1),
     db.from('import_orders').select('id', { count: 'exact', head: true }).eq('costs_complete', false),
-    db.from('sales').select('gross_price, marketplace_commission, marketplace_shipping_fee, ads_cost, cancellation, sale_costs(total_cost)').gte('sale_date', start).lte('sale_date', end),
-    db.from('sales').select('gross_price, marketplace_commission, marketplace_shipping_fee, ads_cost, cancellation, sale_costs(total_cost)').gte('sale_date', prevStart).lte('sale_date', prevEnd),
-    db.from('sales').select('marketplace, gross_price, marketplace_commission, marketplace_shipping_fee, ads_cost, cancellation, sale_costs(total_cost)').gte('sale_date', start).lte('sale_date', end),
+    db.from('sales').select('gross_price, cancellation, sale_costs(margin_value)').gte('sale_date', start).lte('sale_date', end),
+    db.from('sales').select('gross_price, cancellation, sale_costs(margin_value)').gte('sale_date', prevStart).lte('sale_date', prevEnd),
+    db.from('sales').select('marketplace, gross_price, cancellation, sale_costs(margin_value)').gte('sale_date', start).lte('sale_date', end),
     db.from('sales').select('gross_price, cancellation').gte('sale_date', start).lte('sale_date', end),
     db.from('sales').select('gross_price, cancellation').gte('sale_date', prevStart).lte('sale_date', prevEnd),
   ])
@@ -106,13 +106,18 @@ export async function InsightsPanel() {
 
   // 4. Margem vs mês anterior
   if (curSalesRes.status === 'fulfilled' && prevSalesRes.status === 'fulfilled') {
+    // Margem REAL por venda (margin_value já tem todos os custos + impostos,
+    // estorno somado) sobre o faturamento BRUTO das vendas completas
     function calcMargin(rows: any[] | null | undefined) {
       if (!rows?.length) return null
-      const rev  = rows.reduce((s: number, r: any) => s + Number(r.gross_price) - Number(r.cancellation), 0)
-      const fees = rows.reduce((s: number, r: any) => s + Number(r.marketplace_commission) + Number(r.marketplace_shipping_fee) + Number(r.ads_cost), 0)
-      const cmv  = rows.reduce((s: number, r: any) => s + Number(uwc(r.sale_costs)?.total_cost ?? 0), 0)
-      const net  = rev - fees
-      return net <= 0 ? null : ((net - cmv) / net) * 100
+      let mv = 0, base = 0
+      for (const r of rows) {
+        const m = uwc(r.sale_costs)?.margin_value
+        if (m === null || m === undefined) continue
+        mv   += Number(m)
+        base += Number(r.gross_price) - Number(r.cancellation)
+      }
+      return base <= 0 ? null : (mv / base) * 100
     }
     const cur  = calcMargin(curSalesRes.value.data)
     const prev = calcMargin(prevSalesRes.value.data)
@@ -125,17 +130,17 @@ export async function InsightsPanel() {
 
   // 5. Melhor/pior marketplace
   if (mpSalesRes.status === 'fulfilled') {
-    const mpMap: Record<string, { net: number; cmv: number }> = {}
+    const mpMap: Record<string, { mv: number; base: number }> = {}
     const LABELS: Record<string, string> = { mercado_livre: 'Mercado Livre', shopee: 'Shopee', amazon: 'Amazon' }
     for (const s of (mpSalesRes.value.data ?? [])) {
       const mp = s.marketplace
-      if (!mpMap[mp]) mpMap[mp] = { net: 0, cmv: 0 }
-      const rev  = Number(s.gross_price) - Number(s.cancellation)
-      const fees = Number(s.marketplace_commission) + Number(s.marketplace_shipping_fee) + Number(s.ads_cost)
-      mpMap[mp].net  += rev - fees
-      mpMap[mp].cmv  += Number(uwc(s.sale_costs)?.total_cost ?? 0)
+      if (!mpMap[mp]) mpMap[mp] = { mv: 0, base: 0 }
+      const m = uwc(s.sale_costs)?.margin_value
+      if (m === null || m === undefined) continue
+      mpMap[mp].mv   += Number(m)
+      mpMap[mp].base += Number(s.gross_price) - Number(s.cancellation)
     }
-    const margins = Object.entries(mpMap).map(([mp, d]) => ({ mp, margin: d.net > 0 ? ((d.net - d.cmv) / d.net) * 100 : 0 })).filter(m => m.margin > 0).sort((a, b) => b.margin - a.margin)
+    const margins = Object.entries(mpMap).map(([mp, d]) => ({ mp, margin: d.base > 0 ? (d.mv / d.base) * 100 : 0 })).filter(m => m.margin > 0).sort((a, b) => b.margin - a.margin)
     if (margins.length >= 2) {
       const best = margins[0], worst = margins[margins.length - 1]
       insights.push({ id: 'best-channel', severity: 'positive', title: `${LABELS[best.mp] ?? best.mp} é o canal mais rentável`, detail: `Margem de ${fmtPct(best.margin)} vs. ${fmtPct(worst.margin)} do ${LABELS[worst.mp] ?? worst.mp}.`, href: `/dashboard/vendas?mp=${best.mp}&from=${start}&to=${end}`, metric: fmtPct(best.margin) })
