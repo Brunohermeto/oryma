@@ -119,24 +119,22 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
         marketplace_fixed_fee:  Math.round(fixed * 100) / 100,
         rebate:                 Math.round(rebate * 100) / 100,
       }
-      if (shipping > 0) fields.marketplace_shipping_fee = Math.round(shipping * 100) / 100
+      // Frete NÃO vem do extrato aqui: o CFFE traz o frete cheio (vendedor +
+      // cliente). A fonte oficial é /shipments/costs no passo 4.
       await db.from('sales').update(fields).eq('id', id)
-      passos.extrato = fields
+      passos.extrato = { ...fields, frete_extrato_ignorado: Math.round(shipping * 100) / 100 }
     } else passos.extrato = 'sem lançamentos ainda'
   } catch (e) { passos.extrato = `erro: ${String(e).slice(0, 80)}` }
 
-  // 4. Frete via shipments/costs (se o extrato não trouxe)
+  // 4. Frete via shipments/costs — fonte OFICIAL, sempre vence quando existir
   try {
-    const { data: cur } = await db.from('sales').select('marketplace_shipping_fee').eq('id', id).single()
-    if (Number(cur?.marketplace_shipping_fee ?? 0) === 0) {
-      const order = await mlGet<any>(`/orders/${orderId}`)
-      if (order.shipping?.id) {
-        const costs = await mlGet<any>(`/shipments/${order.shipping.id}/costs`)
-        const frete = (costs?.senders ?? []).reduce((s: number, x: any) => s + Number(x.cost ?? 0), 0)
-        if (frete > 0) {
-          await db.from('sales').update({ marketplace_shipping_fee: frete }).eq('id', id)
-          passos.frete = frete
-        }
+    const order = await mlGet<any>(`/orders/${orderId}`)
+    if (order.shipping?.id) {
+      const costs = await mlGet<any>(`/shipments/${order.shipping.id}/costs`)
+      const frete = (costs?.senders ?? []).reduce((s: number, x: any) => s + Number(x.cost ?? 0), 0)
+      if (frete > 0) {
+        await db.from('sales').update({ marketplace_shipping_fee: Math.round(frete * 100) / 100 }).eq('id', id)
+        passos.frete = frete
       }
     }
   } catch { /* opcional */ }

@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
   // O ML lança a comissão antes do ESTORNO — pedido recente sem estorno volta
   // à fila por até 10 dias, senão o estorno atrasado nunca seria capturado
   const recorte = brazilDaysAgo(10)
-  const orders = new Map<string, Array<{ saleId: string; gross: number }>>()
+  const orders = new Map<string, Array<{ saleId: string; gross: number; curShipping: number }>>()
   for (const r of rows ?? []) {
     const m = r.external_order_id?.match(/^ml_(\d+)_/)
     if (!m || skip.has(m[1])) continue
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
       || (Number(r.rebate ?? 0) === 0 && r.sale_date >= recorte)
     if (!needs) continue
     if (!orders.has(m[1])) orders.set(m[1], [])
-    orders.get(m[1])!.push({ saleId: r.id, gross: Number(r.gross_price ?? 0) })
+    orders.get(m[1])!.push({ saleId: r.id, gross: Number(r.gross_price ?? 0), curShipping: Number(r.marketplace_shipping_fee ?? 0) })
   }
 
   const batch = [...orders.keys()].slice(0, limit)
@@ -138,9 +138,10 @@ export async function POST(request: NextRequest) {
           const { error } = await db.from('sales').update({
             marketplace_commission:   Math.round(commission * share * 100) / 100,
             marketplace_fixed_fee:    Math.round(fixed * share * 100) / 100,
-            // Frete: só grava se o extrato TEM linha CXD* — em vendas Full o frete
-            // não passa pelo extrato (vem de /shipments/costs) e zerar apagaria ele
-            ...(shipping > 0 ? { marketplace_shipping_fee: Math.round(shipping * share * 100) / 100 } : {}),
+            // Frete: a fonte OFICIAL é /shipments/costs (senders[].cost, rota shipping).
+            // O CFFE do extrato traz o frete CHEIO (vendedor + parte do cliente) —
+            // só serve de RESERVA quando a venda ainda está sem frete nenhum.
+            ...(shipping > 0 && x.curShipping === 0 ? { marketplace_shipping_fee: Math.round(shipping * share * 100) / 100 } : {}),
             ...(rebate > 0 ? { rebate: Math.round(rebate * share * 100) / 100 } : {}),
           }).eq('id', x.saleId)
           if (error) throw new Error(error.message)

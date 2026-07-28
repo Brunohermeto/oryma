@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
   const allOrders = new Set([...chargesByOrder.keys(), ...rebateByOrder.keys()])
   for (const order of allOrders) {
     const { data: rows } = await db.from('sales')
-      .select('id, gross_price').like('external_order_id', `ml_${order}_%`)
+      .select('id, gross_price, marketplace_shipping_fee').like('external_order_id', `ml_${order}_%`)
     if (!rows?.length) continue
     const sum = rows.reduce((s, x) => s + Number(x.gross_price ?? 0), 0)
     const charges = chargesByOrder.get(order)
@@ -120,8 +120,10 @@ export async function POST(request: NextRequest) {
       if (charges) {
         fields.marketplace_commission   = Math.round(charges.commission * share * 100) / 100
         fields.marketplace_fixed_fee    = Math.round(charges.fixed * share * 100) / 100
-        // Frete só quando o extrato tem CXD* — Full vem de /shipments/costs
-        if (charges.shipping > 0) {
+        // Frete: fonte oficial é /shipments/costs (senders[].cost). O CFFE do
+        // extrato traz o frete CHEIO (inclui a parte do cliente) — só serve de
+        // reserva quando a venda ainda está sem frete nenhum.
+        if (charges.shipping > 0 && Number((x as any).marketplace_shipping_fee ?? 0) === 0) {
           fields.marketplace_shipping_fee = Math.round(charges.shipping * share * 100) / 100
         }
         tariffSales++
