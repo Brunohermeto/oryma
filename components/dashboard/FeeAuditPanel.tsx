@@ -5,6 +5,7 @@
  */
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { Scale, AlertTriangle, Info } from 'lucide-react'
+import { DismissFindingsButton } from './DismissFindingsButton'
 
 const B = { border: 'oklch(0.88 0.016 258)', muted: 'oklch(0.50 0.025 258)', text: '#0B1023' }
 
@@ -18,18 +19,20 @@ export async function FeeAuditPanel() {
   const db = createSupabaseServiceClient()
   const { data: findings } = await db
     .from('audit_findings')
-    .select('rule, severity, message, details')
+    .select('id, rule, severity, message, details')
     .in('rule', Object.keys(FEE_RULE_LABELS))
+    .is('dismissed_at', null)
     .order('detected_at', { ascending: false })
     .limit(500)
 
   const total = (findings ?? []).reduce((s, f) => s + Number((f.details as any)?.diff ?? 0), 0)
 
-  const groups = new Map<string, { severity: string; msgs: string[]; diff: number }>()
+  const groups = new Map<string, { severity: string; msgs: string[]; diff: number; ids: string[] }>()
   for (const f of findings ?? []) {
-    if (!groups.has(f.rule)) groups.set(f.rule, { severity: f.severity, msgs: [], diff: 0 })
+    if (!groups.has(f.rule)) groups.set(f.rule, { severity: f.severity, msgs: [], diff: 0, ids: [] })
     const g = groups.get(f.rule)!
     g.msgs.push(f.message)
+    g.ids.push(f.id)
     g.diff += Number((f.details as any)?.diff ?? 0)
   }
   const ord = { warn: 0, info: 1 } as Record<string, number>
@@ -67,6 +70,7 @@ export async function FeeAuditPanel() {
                   {g.diff > 0.5 && (
                     <span className="text-[11px] font-semibold" style={{ color: '#dc2626' }}>R$ {g.diff.toFixed(2)}</span>
                   )}
+                  <DismissFindingsButton ids={g.ids} />
                 </summary>
                 <div className="mt-2 space-y-1 pl-5">
                   {g.msgs.slice(0, 8).map((m, i) => (

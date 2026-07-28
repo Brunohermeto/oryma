@@ -1,5 +1,6 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { ShieldAlert, AlertTriangle, Info } from 'lucide-react'
+import { DismissFindingsButton } from './DismissFindingsButton'
 
 const B = {
   border: 'oklch(0.88 0.016 258)',
@@ -24,19 +25,21 @@ export async function AuditAlertsPanel() {
   const db = createSupabaseServiceClient()
   const { data: findings } = await db
     .from('audit_findings')
-    .select('rule, severity, message')
+    .select('id, rule, severity, message')
     // Regras da vistoria de taxas têm painel próprio (FeeAuditPanel)
     .not('rule', 'in', '("comissao_acima_tabela","tarifa_fixa_divergente","frete_fora_padrao")')
+    .is('dismissed_at', null)
     .order('detected_at', { ascending: false })
     .limit(500)
 
   if (!findings?.length) return null
 
   // Agrupa por regra, ordena por severidade
-  const groups = new Map<string, { severity: string; msgs: string[] }>()
+  const groups = new Map<string, { severity: string; msgs: string[]; ids: string[] }>()
   for (const f of findings) {
-    if (!groups.has(f.rule)) groups.set(f.rule, { severity: f.severity, msgs: [] })
+    if (!groups.has(f.rule)) groups.set(f.rule, { severity: f.severity, msgs: [], ids: [] })
     groups.get(f.rule)!.msgs.push(f.message)
+    groups.get(f.rule)!.ids.push(f.id)
   }
   const ord = { critical: 0, warn: 1, info: 2 } as Record<string, number>
   const sorted = [...groups.entries()].sort((a, b) => (ord[a[1].severity] ?? 9) - (ord[b[1].severity] ?? 9))
@@ -59,6 +62,7 @@ export async function AuditAlertsPanel() {
                 <Icon size={13} style={{ color, flexShrink: 0 }} />
                 {RULE_LABELS[rule] ?? rule}
                 <span className="text-[11px] font-bold px-1.5 rounded-full" style={{ color, background: 'white' }}>{g.msgs.length}</span>
+                <DismissFindingsButton ids={g.ids} />
               </summary>
               <div className="mt-2 space-y-1 pl-5">
                 {g.msgs.slice(0, 8).map((m, i) => (

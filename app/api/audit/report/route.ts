@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
     .from('audit_findings')
     .select(`rule, severity, message, details, detected_at,
       sales(external_order_id, sku, sale_date, nfe_saida_key, gross_price, marketplace)`)
+    .is('dismissed_at', null)
     .order('detected_at', { ascending: false })
     .limit(2000)
 

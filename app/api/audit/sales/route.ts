@@ -111,15 +111,32 @@ export async function POST(request: NextRequest) {
 
   // Reconciliação: remove SÓ os achados DESTAS regras (a vistoria de taxas tem as dela)
   const saleIds = (sales ?? []).map(s => s.id)
+
+  // Dispensas do usuário sobrevivem à regravação (venda+regra dispensada não volta)
+  const dismissed = new Set<string>()
+  for (let i = 0; i < saleIds.length; i += 200) {
+    const { data: dis } = await db.from('audit_findings')
+      .select('sale_id, rule')
+      .in('sale_id', saleIds.slice(i, i + 200))
+      .in('rule', SALES_AUDIT_RULES)
+      .not('dismissed_at', 'is', null)
+    for (const d of dis ?? []) dismissed.add(`${d.sale_id}|${d.rule}`)
+  }
+
   for (let i = 0; i < saleIds.length; i += 200) {
     await db.from('audit_findings').delete()
       .in('sale_id', saleIds.slice(i, i + 200))
       .in('rule', SALES_AUDIT_RULES)
   }
+  const now = new Date().toISOString()
+  const rows = findings.map(f => ({
+    ...f,
+    ...(dismissed.has(`${f.sale_id}|${f.rule}`) ? { dismissed_at: now } : {}),
+  }))
   let inserted = 0
-  for (let i = 0; i < findings.length; i += 200) {
-    const { error } = await db.from('audit_findings').insert(findings.slice(i, i + 200))
-    if (!error) inserted += Math.min(200, findings.length - i)
+  for (let i = 0; i < rows.length; i += 200) {
+    const { error } = await db.from('audit_findings').insert(rows.slice(i, i + 200))
+    if (!error) inserted += Math.min(200, rows.length - i)
   }
 
   const porRegra: Record<string, number> = {}

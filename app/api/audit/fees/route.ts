@@ -154,16 +154,32 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Dispensas do usuário sobrevivem à regravação (venda+regra dispensada não volta)
+  const dismissed = new Set<string>()
+  for (let i = 0; i < processedSaleIds.length; i += 200) {
+    const { data: dis } = await db.from('audit_findings')
+      .select('sale_id, rule')
+      .in('sale_id', processedSaleIds.slice(i, i + 200))
+      .in('rule', FEE_RULES)
+      .not('dismissed_at', 'is', null)
+    for (const d of dis ?? []) dismissed.add(`${d.sale_id}|${d.rule}`)
+  }
+
   // Auto-cura: apaga achados DESTAS regras para as vendas processadas, regrava
   for (let i = 0; i < processedSaleIds.length; i += 200) {
     await db.from('audit_findings').delete()
       .in('sale_id', processedSaleIds.slice(i, i + 200))
       .in('rule', FEE_RULES)
   }
+  const nowIso = new Date().toISOString()
+  const rows = findings.map(f => ({
+    ...f,
+    ...(dismissed.has(`${f.sale_id}|${f.rule}`) ? { dismissed_at: nowIso } : {}),
+  }))
   let inserted = 0
-  for (let i = 0; i < findings.length; i += 200) {
-    const { error } = await db.from('audit_findings').insert(findings.slice(i, i + 200))
-    if (!error) inserted += Math.min(200, findings.length - i)
+  for (let i = 0; i < rows.length; i += 200) {
+    const { error } = await db.from('audit_findings').insert(rows.slice(i, i + 200))
+    if (!error) inserted += Math.min(200, rows.length - i)
   }
 
   return NextResponse.json({
