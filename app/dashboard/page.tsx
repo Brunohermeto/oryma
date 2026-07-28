@@ -7,6 +7,7 @@ import { TrendingUp, TrendingDown, ShoppingCart, Percent, DollarSign, ExternalLi
 import { InsightsPanel } from '@/components/dashboard/InsightsPanel'
 import { AuditAlertsPanel } from '@/components/dashboard/AuditAlertsPanel'
 import { FeeAuditPanel } from '@/components/dashboard/FeeAuditPanel'
+import { RunAuditButton } from '@/components/dashboard/RunAuditButton'
 import { LiveSalesFeed } from '@/components/dashboard/LiveSalesFeed'
 import { MarginByProductTable, type ProductMarginRow } from '@/components/dashboard/MarginByProductTable'
 
@@ -238,6 +239,9 @@ export default async function DashboardPage(
     <>
       <TopBar title="Visão Geral" subtitle="Inteligência financeira consolidada · Ragaluma" />
       <div className="px-4 md:px-8 py-6 space-y-5">
+
+        {/* Auditoria sob demanda + relatório para conferência/contestação */}
+        <RunAuditButton />
 
         {/* Auditoria automática — apontamentos por venda */}
         <AuditAlertsPanel />
