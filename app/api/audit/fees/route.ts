@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { mlGet } from '@/lib/integrations/mercado-livre'
 import { brazilDaysAgo } from '@/lib/utils/brazil-time'
+import { applyCmpToSale } from '@/lib/landed-cost/calculator'
 
 export const dynamic         = 'force-dynamic'
 export const maxDuration     = 60
@@ -84,6 +85,7 @@ export async function POST(request: NextRequest) {
   }
   const findings: Finding[] = []
   const processedSaleIds: string[] = []
+  const fixOrders = new Set<string>()  // pedidos com comissão líquida gravada — consertar
   const r2 = (v: number) => Math.round(v * 100) / 100
 
   for (const mlb of batch) {
@@ -136,13 +138,15 @@ export async function POST(request: NextRequest) {
           })
         } else if (diff < -5) {
           // Sentinela da regra "comissão BRUTA + estorno separado": comissão bem
-          // ABAIXO da tabela é a assinatura de alguém ter gravado o valor LÍQUIDO
-          // (bruta − estorno) — mascara a conta. Auto-cura quando corrigido.
+          // ABAIXO da tabela = valor LÍQUIDO gravado por engano. Não só denuncia:
+          // marca o pedido para CONSERTO pelo extrato oficial (bloco abaixo).
+          const oid = s.external_order_id?.match(/^ml_(\d+)_/)?.[1]
+          if (oid) fixOrders.add(oid)
           findings.push({
             sale_id: s.id,
             rule: 'comissao_abaixo_tabela',
-            severity: 'warn',
-            message: `${nfLabel}: comissão gravada R$${cobrado.toFixed(2)} bem abaixo da tabela (R$${esperado.toFixed(2)}) — possível gravação do valor líquido em vez de bruto + estorno.`,
+            severity: 'info',
+            message: `${nfLabel}: comissão gravada R$${cobrado.toFixed(2)} abaixo da tabela (R$${esperado.toFixed(2)}) — valor líquido detectado; regravada automaticamente como bruta + estorno.`,
             details: { cobrado: r2(cobrado), esperado: r2(esperado), diff },
           })
         }
@@ -163,6 +167,47 @@ export async function POST(request: NextRequest) {
         }
       }
     }
+  }
+
+  // ── CONSERTO automático: regrava comissão BRUTA + estorno pelo extrato oficial ──
+  // (mesma regra da rota de tarifas: CV* + sale_fee.rebate; uma chamada por fatia)
+  let corrigidas = 0
+  if (fixOrders.size > 0) {
+    try {
+      const res = await mlGet<any>(
+        `/billing/integration/group/ML/order/details?order_ids=${[...fixOrders].join(',')}&limit=150`)
+      for (const r of res.results ?? []) {
+        const orderId = String(r.order_id)
+        let commission = 0, fixed = 0, rebate = 0
+        for (const d of r.details ?? []) {
+          const ci = d.charge_info ?? {}
+          const st = ci.detail_sub_type ?? ''
+          const amt = Number(ci.detail_amount ?? 0)
+          if (ci.detail_type === 'CHARGE') {
+            if (st === 'CFONPN' || st === 'CDIFAL' || st === 'PADS') continue
+            if (st.startsWith('CV')) commission += amt
+            else if (st.startsWith('CXD') || st.startsWith('CFF')) continue // frete: fonte é /shipments/costs
+            else fixed += amt
+          } else if (ci.detail_type === 'BONUS' && st !== 'BFONPN') rebate += amt
+        }
+        const promo = Number(r.sale_fee?.rebate ?? 0)
+        commission += promo; rebate += promo
+        if (commission <= 0) continue
+        const { data: srows } = await db.from('sales')
+          .select('id, gross_price').like('external_order_id', `ml_${orderId}_%`)
+        const sum = (srows ?? []).reduce((s2, x) => s2 + Number(x.gross_price ?? 0), 0)
+        for (const x of srows ?? []) {
+          const share = sum > 0 ? Number(x.gross_price ?? 0) / sum : 1 / (srows?.length ?? 1)
+          await db.from('sales').update({
+            marketplace_commission: r2(commission * share),
+            marketplace_fixed_fee:  r2(fixed * share),
+            rebate:                 r2(rebate * share),
+          }).eq('id', x.id)
+          await applyCmpToSale(x.id)  // margem recalculada na hora (relink já passou)
+          corrigidas++
+        }
+      }
+    } catch { /* fica para a próxima rodada */ }
   }
 
   // Dispensas do usuário sobrevivem à regravação (venda+regra dispensada não volta)
@@ -198,6 +243,7 @@ export async function POST(request: NextRequest) {
     processed_items: batch.length,
     processed_sales: processedSaleIds.length,
     achados: inserted,
+    comissoes_corrigidas: corrigidas,
     remaining_items: Math.max(0, items.length - skip - batch.length),
   })
 }
