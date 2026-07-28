@@ -56,17 +56,19 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
   // Load sales with taxes and costs
   const { data: sales } = await db
     .from('sales')
-    .select('marketplace, fulfillment_type, gross_price, cancellation, discounts, marketplace_commission, marketplace_shipping_fee, ads_cost, sale_taxes(*), sale_costs(total_cost)')
+    .select('marketplace, fulfillment_type, gross_price, cancellation, discounts, marketplace_commission, marketplace_fixed_fee, rebate, marketplace_shipping_fee, ads_cost, sale_taxes(*), sale_costs(total_cost)')
     .gte('sale_date', startDate)
     .lte('sale_date', endDate)
 
   // Load PIS/COFINS-imp credits (from import batches of the period)
   // Opção B: créditos NÃO estão no CMV — reduzem o imposto líquido sobre vendas
+  // Período pela DATA DA NOTA de importação (issue_date), nunca por calculated_at:
+  // os CMPs são regravados a cada recálculo e vazariam créditos históricos pro mês
   const { data: importCredits } = await db
     .from('unit_costs')
-    .select('pis_credit_unit, cofins_credit_unit, quantity_in_batch')
-    .gte('calculated_at', `${startDate}T00:00:00Z`)
-    .lte('calculated_at', `${endDate}T23:59:59Z`)
+    .select('pis_credit_unit, cofins_credit_unit, quantity_in_batch, import_orders!inner(issue_date)')
+    .gte('import_orders.issue_date', startDate)
+    .lte('import_orders.issue_date', endDate)
 
   const totalPisCredit    = (importCredits ?? []).reduce((s, c) => s + Number(c.pis_credit_unit)    * Number(c.quantity_in_batch), 0)
   const totalCofinsCredit = (importCredits ?? []).reduce((s, c) => s + Number(c.cofins_credit_unit) * Number(c.quantity_in_batch), 0)
@@ -87,8 +89,11 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
   const icms = zero()
   const icmsDifal = zero()
   const commissions = zero()
+  const fixedFees = zero()
+  const rebates = zero()
   const shippingFees = zero()
   const ads = zero()
+  const ipi = zero()
   const cmv = zero()
 
   for (const sale of sales ?? []) {
@@ -99,19 +104,20 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
     add(cancellations, mp, Number(sale.cancellation))
     add(discounts, mp, Number(sale.discounts))
     add(commissions, mp, Number(sale.marketplace_commission))
+    add(fixedFees, mp, Number((sale as any).marketplace_fixed_fee ?? 0))
+    add(rebates, mp, Number((sale as any).rebate ?? 0))
     add(shippingFees, mp, Number(sale.marketplace_shipping_fee))
     add(ads, mp, Number(sale.ads_cost))
 
-    // Taxes only for galpao sales (serie 2 NF-e)
-    if (sale.fulfillment_type === 'galpao') {
-      const taxRaw = sale.sale_taxes as unknown
-      const tax = taxRaw ? (Array.isArray(taxRaw) ? (taxRaw as any[])[0] : taxRaw) as { pis: number; cofins: number; icms: number; icms_difal: number } : null
-      if (tax) {
-        add(pis, mp, Number(tax.pis))
-        add(cofins, mp, Number(tax.cofins))
-        add(icms, mp, Number(tax.icms))
-        add(icmsDifal, mp, Number(tax.icms_difal))
-      }
+    // Impostos de TODAS as vendas: galpão (NF Bling) E Full (NF emitida pelo ML)
+    const taxRaw = sale.sale_taxes as unknown
+    const tax = taxRaw ? (Array.isArray(taxRaw) ? (taxRaw as any[])[0] : taxRaw) as { pis: number; cofins: number; icms: number; icms_difal: number; ipi: number } : null
+    if (tax) {
+      add(pis, mp, Number(tax.pis))
+      add(cofins, mp, Number(tax.cofins))
+      add(icms, mp, Number(tax.icms))
+      add(icmsDifal, mp, Number(tax.icms_difal))
+      add(ipi, mp, Number(tax.ipi ?? 0))
     }
 
     const costRaw = sale.sale_costs as unknown
@@ -139,24 +145,27 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
   const cofinsLiq: MPNumbers = { mercado_livre: Math.max(0, cofins.mercado_livre - cofinsCredit.mercado_livre), shopee: Math.max(0, cofins.shopee - cofinsCredit.shopee), amazon: Math.max(0, cofins.amazon - cofinsCredit.amazon), total: Math.max(0, cofins.total - totalCofinsCredit) }
 
   const totalTaxes: MPNumbers = {
-    mercado_livre: pisLiq.mercado_livre + cofinsLiq.mercado_livre + icms.mercado_livre + icmsDifal.mercado_livre,
-    shopee:        pisLiq.shopee        + cofinsLiq.shopee        + icms.shopee        + icmsDifal.shopee,
-    amazon:        pisLiq.amazon        + cofinsLiq.amazon        + icms.amazon        + icmsDifal.amazon,
-    total:         pisLiq.total         + cofinsLiq.total         + icms.total         + icmsDifal.total,
+    mercado_livre: pisLiq.mercado_livre + cofinsLiq.mercado_livre + icms.mercado_livre + icmsDifal.mercado_livre + ipi.mercado_livre,
+    shopee:        pisLiq.shopee        + cofinsLiq.shopee        + icms.shopee        + icmsDifal.shopee        + ipi.shopee,
+    amazon:        pisLiq.amazon        + cofinsLiq.amazon        + icms.amazon        + icmsDifal.amazon        + ipi.amazon,
+    total:         pisLiq.total         + cofinsLiq.total         + icms.total         + icmsDifal.total         + ipi.total,
   }
 
   const afterTaxes = subtract(netMarket, totalTaxes)
 
+  // Canal = comissão bruta + tarifa fixa + frete + ads − estorno (crédito do ML)
   const totalChannel: MPNumbers = {
-    mercado_livre: commissions.mercado_livre + shippingFees.mercado_livre + ads.mercado_livre,
-    shopee: commissions.shopee + shippingFees.shopee + ads.shopee,
-    amazon: commissions.amazon + shippingFees.amazon + ads.amazon,
-    total: commissions.total + shippingFees.total + ads.total,
+    mercado_livre: commissions.mercado_livre + fixedFees.mercado_livre + shippingFees.mercado_livre + ads.mercado_livre - rebates.mercado_livre,
+    shopee: commissions.shopee + fixedFees.shopee + shippingFees.shopee + ads.shopee - rebates.shopee,
+    amazon: commissions.amazon + fixedFees.amazon + shippingFees.amazon + ads.amazon - rebates.amazon,
+    total: commissions.total + fixedFees.total + shippingFees.total + ads.total - rebates.total,
   }
 
   const operationalRevenue = subtract(afterTaxes, totalChannel)
   const grossProfit = subtract(operationalRevenue, cmv)
-  const grossMarginPct = operationalRevenue.total > 0 ? (grossProfit.total / operationalRevenue.total) * 100 : 0
+  // Margens % sobre o FATURAMENTO BRUTO (regra do Bruno), não sobre receita operacional
+  const grossBase = grossRevenue.total || 1
+  const grossMarginPct = (grossProfit.total / grossBase) * 100
 
   // ── Expenses: distribute by revenue share ────────────────────────────
   const expensesByCategory: Record<string, MPNumbers> = {}
@@ -211,7 +220,7 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
   }
 
   const ebitda = subtract(grossProfit, totalExpenses)
-  const ebitdaMarginPct = operationalRevenue.total > 0 ? (ebitda.total / operationalRevenue.total) * 100 : 0
+  const ebitdaMarginPct = (ebitda.total / grossBase) * 100
 
   // ── IRPJ / CSLL (Lucro Real — applied to total only, shown in total column) ──
   const lucroBase = ebitda.total
@@ -227,7 +236,7 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
     amazon:        ebitda.amazon        - (ebitda.total > 0 ? irpjCsllTotal * (ebitda.amazon        / ebitda.total) : 0),
     total:         ebitda.total - irpjCsllTotal,
   }
-  const netMarginPct = operationalRevenue.total > 0 ? (resultadoLiquido.total / operationalRevenue.total) * 100 : 0
+  const netMarginPct = (resultadoLiquido.total / grossBase) * 100
 
   // ── Build rows ────────────────────────────────────────────────────────
   return [
@@ -244,10 +253,13 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
     ...(totalCofinsCredit > 0 ? [toRow('(+) Crédito COFINS-importação', cofinsCredit)] : []),
     toRow('(-) ICMS', icms, { negate: true }),
     toRow('(-) ICMS DIFAL', icmsDifal, { negate: true }),
+    ...(ipi.total > 0 ? [toRow('(-) IPI', ipi, { negate: true })] : []),
     toRow('= Receita após Impostos Líquidos', afterTaxes, { isTotal: true }),
 
     headerRow('Custos do Canal de Venda'),
-    toRow('(-) Comissões e Tarifas', commissions, { negate: true }),
+    toRow('(-) Comissões (brutas)', commissions, { negate: true }),
+    toRow('(-) Tarifa fixa / Full', fixedFees, { negate: true }),
+    toRow('(+) Estornos e bônus do canal', rebates),
     toRow('(-) Frete cobrado pelo Marketplace', shippingFees, { negate: true }),
     toRow('(-) ADS / Publicidade Marketplace', ads, { negate: true }),
     toRow('= Receita Operacional', operationalRevenue, { isTotal: true }),
