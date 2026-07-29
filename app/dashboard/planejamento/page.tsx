@@ -73,6 +73,19 @@ export default async function PlanejamentoPage() {
     }
   }
 
+  // Pedidos em curso SEM itens preenchidos, por família (primeira chegada)
+  const plansSemItens = new Map<string, { invoice: string; date: string }>()
+  const planIdsComItens = new Set((items ?? []).map(i => i.plan_id))
+  for (const pl of (plans ?? []) as (ImportPlan & { id: string })[]) {
+    const prof = profById.get(pl.profile_id ?? '')
+    if (!prof || pl.done || planIdsComItens.has(pl.id)) continue
+    const dates = resolvePlanDates(pl, prof, hoje)
+    if (dates.dg < hoje) continue
+    const root = String(prof.root_sku).toUpperCase()
+    const cur = plansSemItens.get(root)
+    if (!cur || dates.dg < cur.date) plansSemItens.set(root, { invoice: pl.invoice, date: dates.dg })
+  }
+
   // Painel de ruptura: produtos com giro (só famílias importadas)
   const ruptura: RupturaRow[] = []
   for (const p of familyProducts) {
@@ -85,11 +98,13 @@ export default async function PlanejamentoPage() {
     const dataRuptura = format(subDays(new Date(), -diasAteRuptura), 'yyyy-MM-dd')
     const chegadas = (arrivalsByProduct.get(p.id) ?? []).sort((a, b) => (a.date < b.date ? -1 : 1))
     const proxima = chegadas[0] ?? null
+    const rootDoSku = roots.find(r => p.sku.toUpperCase().startsWith(r))
     ruptura.push({
       sku: p.sku, name: p.name, stock, velocityDay: Math.round(vel * 100) / 100,
       diasAteRuptura, dataRuptura,
       proximaChegada: proxima ? { date: proxima.date, qty: proxima.qty, invoice: proxima.invoice } : null,
       gapDias: proxima ? Math.round((new Date(proxima.date).getTime() - new Date(dataRuptura).getTime()) / 86400000) : null,
+      pedidoSemItens: !proxima && rootDoSku ? (plansSemItens.get(rootDoSku) ?? null) : null,
     })
   }
   ruptura.sort((a, b) => a.diasAteRuptura - b.diasAteRuptura)

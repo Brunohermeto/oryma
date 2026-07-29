@@ -19,6 +19,7 @@ export interface RupturaRow {
   diasAteRuptura: number; dataRuptura: string
   proximaChegada: { date: string; qty: number; invoice: string } | null
   gapDias: number | null
+  pedidoSemItens: { invoice: string; date: string } | null
 }
 export interface ProductOption { id: string; sku: string; name: string }
 interface PlanItem { id?: string; plan_id?: string; product_id: string | null; sku: string; quantity: number }
@@ -126,11 +127,17 @@ function RupturaPanel({ rows }: { rows: RupturaRow[] }) {
                   </td>
                   <td className="px-3 py-2 text-right text-[12px]" style={{ color: B.muted }}>{fmtD(r.dataRuptura)}</td>
                   <td className="px-3 py-2 text-right text-[12px]" style={{ color: B.muted }}>
-                    {r.proximaChegada ? `${fmtD(r.proximaChegada.date)} (+${r.proximaChegada.qty} un · ${r.proximaChegada.invoice})` : 'nenhuma programada'}
+                    {r.proximaChegada
+                      ? `${fmtD(r.proximaChegada.date)} (+${r.proximaChegada.qty} un · ${r.proximaChegada.invoice})`
+                      : r.pedidoSemItens
+                        ? <span style={{ color: '#d97706' }}>pedido {r.pedidoSemItens.invoice} em curso (chega ~{fmtD(r.pedidoSemItens.date)}) — preencher itens</span>
+                        : 'nenhuma programada'}
                   </td>
                   <td className="px-3 py-2 text-right">
                     <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ color: cor, background: cor === '#dc2626' ? 'oklch(0.96 0.04 25)' : 'oklch(0.95 0.06 145)' }}>
-                      {semCobertura ? (r.diasAteRuptura < 90 ? 'PEDIR AGORA' : 'sem pedido') : furo ? `FURO de ${r.gapDias}d` : 'coberto'}
+                      {semCobertura
+                        ? (r.pedidoSemItens ? 'preencher itens' : r.diasAteRuptura < 90 ? 'PEDIR AGORA' : 'sem pedido')
+                        : furo ? `FURO de ${r.gapDias}d` : 'coberto'}
                     </span>
                   </td>
                 </tr>
@@ -179,6 +186,17 @@ function PedidosPanel({ plans, items, profiles, profById, products, hoje, onSave
   }
 
   const visiveis = plans.filter(p => showDone || !p.done)
+
+  // Ação rápida: marcar data real (embarque/galpão) — preserva os itens atuais
+  async function marcarData(pl: ImportPlan & { id: string }, campo: 'embarque_real' | 'galpao_real', label: string) {
+    const data = window.prompt(`${label} — confirme a data (AAAA-MM-DD):`, hoje)
+    if (!data || !/^\d{4}-\d{2}-\d{2}$/.test(data)) return
+    await onSave({
+      action: 'save_plan',
+      plan: { ...pl, [campo]: data },
+      items: items.filter(i => i.plan_id === pl.id),
+    })
+  }
 
   return (
     <div className="space-y-3">
@@ -264,9 +282,30 @@ function PedidosPanel({ plans, items, profiles, profById, products, hoje, onSave
               {aPagar > 0 && !pl.done && (
                 <span className="text-[12px] font-semibold" style={{ color: '#d97706' }}>a pagar: {fmtR(aPagar)}</span>
               )}
-              <button onClick={() => openEdit(pl)} className="ml-auto p-1.5 rounded-lg cursor-pointer" style={{ background: B.bgSubtle, border: 'none' }}>
-                <Pencil size={13} style={{ color: B.brand }} />
-              </button>
+              {planItems.length === 0 && !pl.done && (
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'oklch(0.96 0.08 70)', color: '#92400e' }}>
+                  itens não preenchidos
+                </span>
+              )}
+              <div className="ml-auto flex items-center gap-1.5">
+                {!pl.embarque_real && !pl.done && (
+                  <button onClick={() => marcarData(pl, 'embarque_real', `Embarque do pedido ${pl.invoice}`)}
+                    className="text-[11px] font-semibold px-2.5 py-1 rounded-lg cursor-pointer"
+                    style={{ background: 'oklch(0.94 0.08 204)', color: '#0097b2', border: 'none' }}>
+                    ✓ Embarcou
+                  </button>
+                )}
+                {pl.embarque_real && !pl.galpao_real && !pl.done && (
+                  <button onClick={() => marcarData(pl, 'galpao_real', `Chegada no galpão do pedido ${pl.invoice}`)}
+                    className="text-[11px] font-semibold px-2.5 py-1 rounded-lg cursor-pointer"
+                    style={{ background: 'oklch(0.94 0.10 145)', color: '#15803d', border: 'none' }}>
+                    ✓ Chegou no galpão
+                  </button>
+                )}
+                <button onClick={() => openEdit(pl)} className="p-1.5 rounded-lg cursor-pointer" style={{ background: B.bgSubtle, border: 'none' }}>
+                  <Pencil size={13} style={{ color: B.brand }} />
+                </button>
+              </div>
             </div>
             {/* Linha do tempo */}
             <div className="flex items-center gap-1 flex-wrap text-[12px] mb-2" style={{ color: B.muted }}>
