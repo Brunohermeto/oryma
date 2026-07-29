@@ -242,22 +242,33 @@ export async function getCurrentCmp(productId: string): Promise<number | null> {
  */
 async function getImportCreditAtDate(productId: string, saleDate: string): Promise<number> {
   const db = createSupabaseServiceClient()
+  // Sem embed unit_costs→import_orders (não há FK declarada): junta em código
   const { data: rows } = await db.from('unit_costs')
-    .select('pis_credit_unit, cofins_credit_unit, icms_credit_unit, quantity_in_batch, import_orders!inner(issue_date, cfop)')
+    .select('pis_credit_unit, cofins_credit_unit, icms_credit_unit, quantity_in_batch, import_order_id')
     .eq('product_id', productId)
-  const imports = (rows ?? [])
-    .filter(r => String((r as any).import_orders?.cfop ?? '').startsWith('3'))
-    .map(r => ({
-      date: (r as any).import_orders.issue_date as string,
+  if (!rows?.length) return 0
+  const orderIds = [...new Set(rows.map(r => r.import_order_id))]
+  const { data: orders } = await db.from('import_orders')
+    .select('id, issue_date, cfop').in('id', orderIds)
+  const byOrder = new Map((orders ?? []).map(o => [o.id, o]))
+
+  const lots = rows.map(r => {
+    const o = byOrder.get(r.import_order_id)
+    return {
+      date: (o?.issue_date as string) ?? '1900-01-01',
+      isImport: String(o?.cfop ?? '').startsWith('3'),
       credit: Number(r.pis_credit_unit ?? 0) + Number(r.cofins_credit_unit ?? 0) + Number(r.icms_credit_unit ?? 0),
       qty: Number(r.quantity_in_batch ?? 0),
-    }))
-  if (!imports.length) return 0
-  // Mesma regra de vigência do CMP: lote mais recente com emissão <= data da venda
-  const eligible = imports.filter(i => i.date <= saleDate)
-  const pool = eligible.length ? eligible : imports
-  const vigente = pool.reduce((best, i) => (i.date > best ? i.date : best), pool[0].date)
-  const batch = pool.filter(i => i.date === vigente)
+    }
+  })
+  // O crédito acompanha o MESMO lote que deu o custo (vigência do CMP):
+  // lote mais recente com emissão <= data da venda, entre TODOS os lotes.
+  // Se esse lote for nacional, crédito = 0 (já abatido no custo).
+  const eligible = lots.filter(l => l.date <= saleDate)
+  const pool = eligible.length ? eligible : lots
+  const vigente = pool.reduce((best, l) => (l.date > best ? l.date : best), pool[0].date)
+  const batch = pool.filter(l => l.date === vigente && l.isImport)
+  if (!batch.length) return 0
   const q = batch.reduce((s, b) => s + b.qty, 0) || 1
   return batch.reduce((s, b) => s + b.credit * b.qty, 0) / q
 }
@@ -324,5 +335,6 @@ export async function applyCmpToSale(saleId: string): Promise<void> {
     total_cost:        totalCost,
     margin_value:      marginValue,
     margin_pct:        marginPct,
+    import_credit:     Math.round(importCredit * 100) / 100,
   }, { onConflict: 'sale_id' })
 }

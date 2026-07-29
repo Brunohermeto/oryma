@@ -56,22 +56,9 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
   // Load sales with taxes and costs
   const { data: sales } = await db
     .from('sales')
-    .select('marketplace, fulfillment_type, gross_price, cancellation, discounts, marketplace_commission, marketplace_fixed_fee, rebate, marketplace_shipping_fee, ads_cost, sale_taxes(*), sale_costs(total_cost)')
+    .select('marketplace, fulfillment_type, gross_price, cancellation, discounts, marketplace_commission, marketplace_fixed_fee, rebate, marketplace_shipping_fee, ads_cost, sale_taxes(*), sale_costs(total_cost, import_credit)')
     .gte('sale_date', startDate)
     .lte('sale_date', endDate)
-
-  // Load PIS/COFINS-imp credits (from import batches of the period)
-  // Opção B: créditos NÃO estão no CMV — reduzem o imposto líquido sobre vendas
-  // Período pela DATA DA NOTA de importação (issue_date), nunca por calculated_at:
-  // os CMPs são regravados a cada recálculo e vazariam créditos históricos pro mês
-  const { data: importCredits } = await db
-    .from('unit_costs')
-    .select('pis_credit_unit, cofins_credit_unit, quantity_in_batch, import_orders!inner(issue_date)')
-    .gte('import_orders.issue_date', startDate)
-    .lte('import_orders.issue_date', endDate)
-
-  const totalPisCredit    = (importCredits ?? []).reduce((s, c) => s + Number(c.pis_credit_unit)    * Number(c.quantity_in_batch), 0)
-  const totalCofinsCredit = (importCredits ?? []).reduce((s, c) => s + Number(c.cofins_credit_unit) * Number(c.quantity_in_batch), 0)
 
   // Load operational expenses
   const { data: expenses } = await db
@@ -95,6 +82,7 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
   const ads = zero()
   const ipi = zero()
   const cmv = zero()
+  const importCredit = zero()
 
   for (const sale of sales ?? []) {
     const mp = sale.marketplace as MP
@@ -121,9 +109,12 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
     }
 
     const costRaw = sale.sale_costs as unknown
-    const cost = costRaw ? (Array.isArray(costRaw) ? (costRaw as any[])[0] : costRaw) as { total_cost: number } : null
+    const cost = costRaw ? (Array.isArray(costRaw) ? (costRaw as any[])[0] : costRaw) as { total_cost: number; import_credit?: number } : null
     if (cost) {
       add(cmv, mp, Number(cost.total_cost))
+      // Crédito de importação das UNIDADES VENDIDAS — mesma régua da margem
+      // por venda (PIS+COFINS+ICMS por produto, lote vigente)
+      add(importCredit, mp, Number(cost.import_credit ?? 0))
     }
   }
 
@@ -135,20 +126,12 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
     total: grossRevenue.total - cancellations.total - discounts.total,
   }
 
-  // Créditos distribuídos proporcionalmente pela receita de cada canal
-  const totalRev = grossRevenue.total || 1
-  const pisCredit:    MPNumbers = { mercado_livre: totalPisCredit    * (grossRevenue.mercado_livre / totalRev), shopee: totalPisCredit    * (grossRevenue.shopee / totalRev), amazon: totalPisCredit    * (grossRevenue.amazon / totalRev), total: totalPisCredit    }
-  const cofinsCredit: MPNumbers = { mercado_livre: totalCofinsCredit * (grossRevenue.mercado_livre / totalRev), shopee: totalCofinsCredit * (grossRevenue.shopee / totalRev), amazon: totalCofinsCredit * (grossRevenue.amazon / totalRev), total: totalCofinsCredit }
-
-  // Impostos líquidos = impostos brutos sobre vendas − créditos de importação
-  const pisLiq:    MPNumbers = { mercado_livre: Math.max(0, pis.mercado_livre    - pisCredit.mercado_livre),    shopee: Math.max(0, pis.shopee    - pisCredit.shopee),    amazon: Math.max(0, pis.amazon    - pisCredit.amazon),    total: Math.max(0, pis.total    - totalPisCredit)    }
-  const cofinsLiq: MPNumbers = { mercado_livre: Math.max(0, cofins.mercado_livre - cofinsCredit.mercado_livre), shopee: Math.max(0, cofins.shopee - cofinsCredit.shopee), amazon: Math.max(0, cofins.amazon - cofinsCredit.amazon), total: Math.max(0, cofins.total - totalCofinsCredit) }
-
+  // Impostos líquidos = débitos da saída − crédito de importação das vendas
   const totalTaxes: MPNumbers = {
-    mercado_livre: pisLiq.mercado_livre + cofinsLiq.mercado_livre + icms.mercado_livre + icmsDifal.mercado_livre + ipi.mercado_livre,
-    shopee:        pisLiq.shopee        + cofinsLiq.shopee        + icms.shopee        + icmsDifal.shopee        + ipi.shopee,
-    amazon:        pisLiq.amazon        + cofinsLiq.amazon        + icms.amazon        + icmsDifal.amazon        + ipi.amazon,
-    total:         pisLiq.total         + cofinsLiq.total         + icms.total         + icmsDifal.total         + ipi.total,
+    mercado_livre: pis.mercado_livre + cofins.mercado_livre + icms.mercado_livre + icmsDifal.mercado_livre + ipi.mercado_livre - importCredit.mercado_livre,
+    shopee:        pis.shopee        + cofins.shopee        + icms.shopee        + icmsDifal.shopee        + ipi.shopee        - importCredit.shopee,
+    amazon:        pis.amazon        + cofins.amazon        + icms.amazon        + icmsDifal.amazon        + ipi.amazon        - importCredit.amazon,
+    total:         pis.total         + cofins.total         + icms.total         + icmsDifal.total         + ipi.total         - importCredit.total,
   }
 
   const afterTaxes = subtract(netMarket, totalTaxes)
@@ -247,13 +230,12 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
     toRow('= Receita Líquida de Mercado', netMarket, { isTotal: true }),
 
     headerRow('Impostos sobre Vendas'),
-    toRow('(-) PIS s/ vendas (bruto)', pis, { negate: true }),
-    ...(totalPisCredit > 0 ? [toRow('(+) Crédito PIS-importação', pisCredit)] : []),
-    toRow('(-) COFINS s/ vendas (bruto)', cofins, { negate: true }),
-    ...(totalCofinsCredit > 0 ? [toRow('(+) Crédito COFINS-importação', cofinsCredit)] : []),
+    toRow('(-) PIS s/ vendas', pis, { negate: true }),
+    toRow('(-) COFINS s/ vendas', cofins, { negate: true }),
     toRow('(-) ICMS', icms, { negate: true }),
     toRow('(-) ICMS DIFAL', icmsDifal, { negate: true }),
     ...(ipi.total > 0 ? [toRow('(-) IPI', ipi, { negate: true })] : []),
+    ...(importCredit.total > 0 ? [toRow('(+) Créditos de importação (PIS/COFINS/ICMS das vendas)', importCredit)] : []),
     toRow('= Receita após Impostos Líquidos', afterTaxes, { isTotal: true }),
 
     headerRow('Custos do Canal de Venda'),
