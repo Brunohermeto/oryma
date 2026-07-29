@@ -129,12 +129,14 @@ export async function POST(request: NextRequest) {
   // ── Créditos de importação por produto (PIS+COFINS+ICMS por unidade, por lote) ──
   // Regra: o crédito acompanha o MESMO lote que dá o custo (vigência). Lote
   // nacional → crédito 0 (já abatido no custo). Espelha getImportCreditAtDate.
-  const [allUnitCosts, allOrders]: [any[], any[]] = await Promise.all([
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [allUnitCosts, allImportOrders]: [any[], any[]] = await Promise.all([
     fetchAll<any>(() => db.from('unit_costs')
       .select('product_id, import_order_id, pis_credit_unit, cofins_credit_unit, icms_credit_unit, quantity_in_batch')),
     fetchAll<any>(() => db.from('import_orders').select('id, issue_date, cfop')),
   ])
-  const orderById = new Map((allOrders ?? []).map(o => [o.id, o]))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const orderById = new Map<string, any>((allImportOrders ?? []).map(o => [o.id, o]))
   // product → lotes {date, isImport, credit, qty} ordenados ASC por data
   const lotsByProduct = new Map<string, Array<{ date: string; isImport: boolean; credit: number; qty: number }>>()
   for (const u of allUnitCosts ?? []) {
