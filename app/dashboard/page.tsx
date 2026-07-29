@@ -409,7 +409,7 @@ export default async function DashboardPage(
               Barras = lucro do dia (R$) · linha roxa = margem % · só vendas com cálculo completo
             </div>
           </div>
-          <MarginDailyChart data={marginTrend} />
+          <MarginDailyChart data={marginTrend} avgMargin={grossMargin} />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div

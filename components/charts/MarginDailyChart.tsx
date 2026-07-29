@@ -3,7 +3,7 @@
  * Margem por dia: barras = lucro R$ do dia (vendas completas), linha = margem %.
  * Dias sem vendas completas ficam sem ponto (margem nula ≠ margem zero).
  */
-import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
+import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine } from 'recharts'
 
 export interface MarginDailyPoint {
   date: string            // dd/MM
@@ -13,7 +13,7 @@ export interface MarginDailyPoint {
 
 function fmtR(v: number) { return `R$ ${Math.round(v).toLocaleString('pt-BR')}` }
 
-export function MarginDailyChart({ data }: { data: MarginDailyPoint[] }) {
+export function MarginDailyChart({ data, avgMargin }: { data: MarginDailyPoint[]; avgMargin?: number }) {
   if (!data.length) {
     return (
       <div className="flex items-center justify-center h-48 text-sm" style={{ color: 'oklch(0.70 0.012 285)' }}>
@@ -41,6 +41,11 @@ export function MarginDailyChart({ data }: { data: MarginDailyPoint[] }) {
             <Cell key={i} fill={(d.lucro ?? 0) >= 0 ? 'rgba(18,91,255,0.75)' : 'rgba(220,38,38,0.75)'} />
           ))}
         </Bar>
+        {avgMargin !== undefined && (
+          <ReferenceLine yAxisId="margem" y={Math.round(avgMargin * 10) / 10} stroke="#16a34a"
+            strokeDasharray="6 4" strokeWidth={1.5}
+            label={{ value: `média ${avgMargin.toFixed(1)}%`, position: 'insideTopRight', fontSize: 11, fill: '#16a34a' }} />
+        )}
         <Line yAxisId="margem" type="monotone" dataKey="margem" stroke="#7B61FF" strokeWidth={2}
               dot={{ r: 2 }} connectNulls />
       </ComposedChart>
