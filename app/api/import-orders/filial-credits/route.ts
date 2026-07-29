@@ -59,15 +59,24 @@ export async function POST(request: NextRequest) {
 
     const byProduct = new Map<string, { pis: number; cofins: number; icms: number }>()
     const byCode    = new Map<string, { pis: number; cofins: number; icms: number }>()
+    const byDesc: Array<{ prefix: string; c: { pis: number; cofins: number; icms: number } }> = []
+    const norm = (s: string) => (s ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 25)
     for (const it of parsed.items) {
       const c = { pis: it.unitPisImp, cofins: it.unitCofinsImp, icms: it.unitIcmsGnre }
       const pid = productByEan.get(it.cEAN)
       if (pid) byProduct.set(pid, c)
-      if (it.cProd) byCode.set(it.cProd, c)
+      // cProd "CFOP3102" é código-lixo do Bling — não serve de chave
+      if (it.cProd && !/^CFOP\d+/.test(it.cProd)) byCode.set(it.cProd, c)
+      if (it.xProd) byDesc.push({ prefix: norm(it.xProd), c })
     }
-    // 3º casamento: código do fornecedor (cProd da filial) DENTRO da descrição
-    // do item da transferência (ex: "MUH-035-1 - CADEIRA...") — as duas notas
-    // usam códigos próprios, mas a descrição preserva o do fornecedor
+    // 3º casamento: descrição — as duas notas descrevem o item igual
+    // ("MUH-035-1 - CADEIRA...") mesmo quando cProd/EAN não existem
+    const byDescription = (desc: string) => {
+      const d = norm(desc)
+      if (d.length < 10) return undefined
+      return byDesc.find(x => x.prefix === d)?.c
+    }
+    // 4º: código do fornecedor (cProd) dentro da descrição da transferência
     const codeInDescription = (desc: string) => {
       const d = (desc ?? '').toUpperCase()
       for (const [code, c] of byCode) {
@@ -79,6 +88,7 @@ export async function POST(request: NextRequest) {
     for (const item of items) {
       const c = (item.product_id && byProduct.get(item.product_id))
         || byCode.get(item.sku)
+        || byDescription((item as any).description)
         || codeInDescription((item as any).description)
       if (!c) {
         // itens auxiliares (caixas etc.) sem crédito não são erro
