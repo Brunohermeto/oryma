@@ -69,19 +69,22 @@ export default async function ImportacoesPage() {
       <TopBar title="NF-e / Importações" subtitle="Landed cost de 14 componentes por lote de importação" />
       <div className="px-4 md:px-8 py-6 space-y-6">
 
-        {/* Upload zone */}
-        <div className="bg-white rounded-xl p-6" style={{ border: `1px solid ${B.border}` }}>
-          <h2 className="font-semibold text-sm mb-4" style={{ color: B.text, fontFamily: 'var(--font-sora)' }}>
-            Importar NF-e XML
-          </h2>
-          <NFEUploadZone />
-        </div>
+        {/* Upload zone — recolhível */}
+        <details className="bg-white rounded-xl" style={{ border: `1px solid ${B.border}` }}>
+          <summary className="cursor-pointer select-none px-6 py-4 font-semibold text-sm" style={{ color: B.text, fontFamily: 'var(--font-sora)' }}>
+            Importar NF-e XML <span className="font-normal text-xs" style={{ color: B.muted }}>— clique para abrir</span>
+          </summary>
+          <div className="px-6 pb-6">
+            <NFEUploadZone />
+          </div>
+        </details>
 
-        {/* NF-e list */}
-        <div className="bg-white rounded-xl overflow-hidden" style={{ border: `1px solid ${B.border}` }}>
-          <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid ${B.border}` }}>
+        {/* NF-e list — recolhível (começa fechada: só o resumo à vista) */}
+        <details className="bg-white rounded-xl overflow-hidden" style={{ border: `1px solid ${B.border}` }} open={pending > 0}>
+          <summary className="cursor-pointer select-none px-5 py-4 flex items-center justify-between flex-wrap gap-2">
             <div className="font-semibold text-sm" style={{ color: B.text, fontFamily: 'var(--font-sora)' }}>
               NF-e de Entrada — Importações
+              <span className="font-normal text-xs ml-2" style={{ color: B.muted }}>({ordersWithTotals.length} notas · clique para abrir/fechar)</span>
             </div>
             <div className="flex gap-2 text-xs">
               <span className="font-semibold px-2.5 py-1 rounded-full"
@@ -93,9 +96,9 @@ export default async function ImportacoesPage() {
                 {pending} com custos pendentes
               </span>
             </div>
-          </div>
+          </summary>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" style={{ borderTop: `1px solid ${B.border}` }}>
           <table className="w-full text-sm">
             <thead>
               <tr style={{ background: B.bgSubtle, borderBottom: `1px solid ${B.border}` }}>
@@ -164,7 +167,7 @@ export default async function ImportacoesPage() {
             </tbody>
           </table>
           </div>
-        </div>
+        </details>
 
         {/* Transferências matriz/filial — créditos da NF de entrada da filial */}
         <FilialCreditsPanel transfers={transfers} />
