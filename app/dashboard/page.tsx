@@ -151,6 +151,29 @@ export default async function DashboardPage(
       u.mv += Number(c.margin_value); u.mg += g
     }
   }
+  // ── Vendas por ESTADO (mesmo período do filtro ?days=) ──
+  const ufGlobal = new Map<string, { units: number; revenue: number; mv: number; mg: number }>()
+  for (const s of marginSales ?? []) {
+    const uf = s.uf_destino || '??'
+    if (!ufGlobal.has(uf)) ufGlobal.set(uf, { units: 0, revenue: 0, mv: 0, mg: 0 })
+    const u = ufGlobal.get(uf)!
+    const g = Number(s.gross_price) - Number(s.cancellation ?? 0)
+    u.units   += Number(s.quantity)
+    u.revenue += g
+    const mvv = (uw(s.sale_costs) as any)?.margin_value
+    if (mvv !== null && mvv !== undefined) { u.mv += Number(mvv); u.mg += g }
+  }
+  const ufTotalRevenue = [...ufGlobal.values()].reduce((s, u) => s + u.revenue, 0) || 1
+  const ufTotalUnits   = [...ufGlobal.values()].reduce((s, u) => s + u.units, 0) || 1
+  const ufRows = [...ufGlobal.entries()]
+    .map(([uf, u]) => ({
+      uf, units: u.units, revenue: u.revenue,
+      pctRevenue: (u.revenue / ufTotalRevenue) * 100,
+      pctUnits: (u.units / ufTotalUnits) * 100,
+      marginPct: u.mg > 0 ? (u.mv / u.mg) * 100 : null,
+    }))
+    .sort((a, b) => b.revenue - a.revenue)
+
   const marginRows: ProductMarginRow[] = [...byProduct.values()].map(r => ({
     productId: r.productId, name: r.name, sku: r.sku, units: r.units,
     revenue: r.revenue,
@@ -409,6 +432,46 @@ export default async function DashboardPage(
 
         {/* ── Margem por produto ── */}
         <MarginByProductTable rows={marginRows} days={marginDays} />
+
+        {/* ── Vendas por estado (mesmo período do filtro) ── */}
+        <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid rgba(15,23,42,0.07)', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}>
+          <div className="text-sm font-semibold mb-1" style={{ color: 'oklch(0.12 0.04 258)', fontFamily: 'var(--font-sora)' }}>
+            Vendas por Estado — últimos {marginDays} dias
+          </div>
+          <div className="text-[12px] mb-4" style={{ color: 'oklch(0.50 0.025 258)' }}>
+            Participação no faturamento, % das unidades e margem média em cada UF de destino
+          </div>
+          <div className="space-y-2">
+            {ufRows.map(u => (
+              <div key={u.uf} className="flex items-center gap-3">
+                <span className="w-8 text-[13px] font-bold" style={{ color: u.uf === '??' ? 'oklch(0.60 0.02 258)' : '#125BFF' }}>
+                  {u.uf === '??' ? '—' : u.uf}
+                </span>
+                <div className="flex-1 h-4 rounded-full overflow-hidden" style={{ background: 'oklch(0.96 0.010 258)' }}>
+                  <div className="h-full rounded-full" style={{
+                    width: `${Math.max(u.pctRevenue, 1)}%`,
+                    background: 'linear-gradient(90deg, #125BFF, #00D6FF)',
+                  }} />
+                </div>
+                <span className="w-24 text-right text-[12px] font-semibold num" style={{ color: '#0B1023', fontFamily: 'var(--font-geist-mono)' }}>
+                  {fmtR(u.revenue)}
+                </span>
+                <span className="w-14 text-right text-[12px]" style={{ color: 'oklch(0.50 0.025 258)', fontFamily: 'var(--font-geist-mono)' }}>
+                  {u.pctUnits.toFixed(0)}% vd
+                </span>
+                <span className="w-20 text-right text-[12px] font-semibold" style={{
+                  color: u.marginPct === null ? 'oklch(0.60 0.02 258)' : marginColor(u.marginPct),
+                  fontFamily: 'var(--font-geist-mono)',
+                }}>
+                  {u.marginPct !== null ? `${u.marginPct.toFixed(1)}% mg` : 'em cálculo'}
+                </span>
+              </div>
+            ))}
+            {ufRows.length === 0 && (
+              <div className="text-[13px]" style={{ color: 'oklch(0.50 0.025 258)' }}>Sem vendas no período.</div>
+            )}
+          </div>
+        </div>
 
         {/* ── Oryma Insights ── */}
         <InsightsPanel />
