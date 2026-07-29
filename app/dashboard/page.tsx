@@ -394,6 +394,51 @@ export default async function DashboardPage(
           ))}
         </div>
 
+        {/* ── Gráficos — recolhível ── */}
+        <details open>
+        <summary className="cursor-pointer select-none text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: 'oklch(0.55 0.03 258)' }}>
+          Gráficos — receita, margem e canais
+        </summary>
+        <div className="space-y-4">
+        <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid rgba(15,23,42,0.07)', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}>
+          <div className="mb-4">
+            <div className="text-sm font-semibold" style={{ color: 'oklch(0.12 0.04 258)', fontFamily: 'var(--font-sora)' }}>
+              Margem e Lucro por Dia — Últimos 30 dias
+            </div>
+            <div className="text-[12px] mt-0.5" style={{ color: 'oklch(0.50 0.025 258)' }}>
+              Barras = lucro do dia (R$) · linha roxa = margem % · só vendas com cálculo completo
+            </div>
+          </div>
+          <MarginDailyChart data={marginTrend} />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div
+            className="col-span-2 bg-white rounded-2xl p-5"
+            style={{ border: '1px solid rgba(15,23,42,0.07)', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}
+          >
+            <div className="mb-4">
+              <div className="text-sm font-semibold" style={{ color: 'oklch(0.12 0.04 258)', fontFamily: 'var(--font-sora)' }}>
+                Receita por Dia — Últimos 30 dias
+              </div>
+              <div className="text-[12px] mt-0.5" style={{ color: 'oklch(0.50 0.025 258)' }}>Canais: ML · Shopee · Amazon</div>
+            </div>
+            <RevenueLineChart data={trendData} />
+          </div>
+
+          <div
+            className="bg-white rounded-2xl p-5"
+            style={{ border: '1px solid rgba(15,23,42,0.07)', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}
+          >
+            <div className="text-sm font-semibold mb-1" style={{ color: 'oklch(0.12 0.04 258)', fontFamily: 'var(--font-sora)' }}>
+              Margem por Canal
+            </div>
+            <div className="text-[12px] mb-4" style={{ color: 'oklch(0.50 0.025 258)' }}>Mês atual</div>
+            <MarketplaceBarChart data={barData} />
+          </div>
+        </div>
+        </div>
+        </details>
+
         {/* Auditoria sob demanda + relatório para conferência/contestação */}
         <RunAuditButton />
 
@@ -497,51 +542,6 @@ export default async function DashboardPage(
 
         {/* ── Oryma Insights ── */}
         <InsightsPanel />
-
-        {/* ── Gráficos — recolhível ── */}
-        <details open>
-        <summary className="cursor-pointer select-none text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: 'oklch(0.55 0.03 258)' }}>
-          Gráficos — receita, margem e canais
-        </summary>
-        <div className="space-y-4">
-        <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid rgba(15,23,42,0.07)', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}>
-          <div className="mb-4">
-            <div className="text-sm font-semibold" style={{ color: 'oklch(0.12 0.04 258)', fontFamily: 'var(--font-sora)' }}>
-              Margem e Lucro por Dia — Últimos 30 dias
-            </div>
-            <div className="text-[12px] mt-0.5" style={{ color: 'oklch(0.50 0.025 258)' }}>
-              Barras = lucro do dia (R$) · linha roxa = margem % · só vendas com cálculo completo
-            </div>
-          </div>
-          <MarginDailyChart data={marginTrend} />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div
-            className="col-span-2 bg-white rounded-2xl p-5"
-            style={{ border: '1px solid rgba(15,23,42,0.07)', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}
-          >
-            <div className="mb-4">
-              <div className="text-sm font-semibold" style={{ color: 'oklch(0.12 0.04 258)', fontFamily: 'var(--font-sora)' }}>
-                Receita por Dia — Últimos 30 dias
-              </div>
-              <div className="text-[12px] mt-0.5" style={{ color: 'oklch(0.50 0.025 258)' }}>Canais: ML · Shopee · Amazon</div>
-            </div>
-            <RevenueLineChart data={trendData} />
-          </div>
-
-          <div
-            className="bg-white rounded-2xl p-5"
-            style={{ border: '1px solid rgba(15,23,42,0.07)', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}
-          >
-            <div className="text-sm font-semibold mb-1" style={{ color: 'oklch(0.12 0.04 258)', fontFamily: 'var(--font-sora)' }}>
-              Margem por Canal
-            </div>
-            <div className="text-[12px] mb-4" style={{ color: 'oklch(0.50 0.025 258)' }}>Mês atual</div>
-            <MarketplaceBarChart data={barData} />
-          </div>
-        </div>
-        </div>
-        </details>
 
         {/* ── Resultado por marketplace + Top produtos — recolhível ── */}
         <details open>
