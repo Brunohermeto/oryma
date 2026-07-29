@@ -18,6 +18,12 @@ export default async function PlanejamentoPage() {
     db.from('products').select('id, sku, name, stock_quantity, stock_full, archived').eq('archived', false).order('sku'),
   ])
 
+  // Só produtos das famílias com perfil de importação cadastrado (planilha do
+  // Bruno). Para incluir outro produto: criar o perfil dele na aba Perfis.
+  const roots = (profiles ?? []).map(p => String(p.root_sku).toUpperCase())
+  const daFamilia = (sku: string) => roots.some(r => sku.toUpperCase().startsWith(r))
+  const familyProducts = (products ?? []).filter(p => daFamilia(p.sku))
+
   // Velocidade real: 12 meses descontando rupturas (gaps > 14d sem venda)
   const yearAgo = format(subDays(new Date(), 365), 'yyyy-MM-dd')
   const PAGE = 1000
@@ -67,9 +73,9 @@ export default async function PlanejamentoPage() {
     }
   }
 
-  // Painel de ruptura: produtos com giro
+  // Painel de ruptura: produtos com giro (só famílias importadas)
   const ruptura: RupturaRow[] = []
-  for (const p of products ?? []) {
+  for (const p of familyProducts) {
     const sold = soldBy.get(p.id) ?? 0
     if (sold <= 0) continue
     const vel = sold / activeDays(datesBy.get(p.id) ?? [])
@@ -88,7 +94,7 @@ export default async function PlanejamentoPage() {
   }
   ruptura.sort((a, b) => a.diasAteRuptura - b.diasAteRuptura)
 
-  const productOptions: ProductOption[] = (products ?? []).map(p => ({ id: p.id, sku: p.sku, name: p.name }))
+  const productOptions: ProductOption[] = familyProducts.map(p => ({ id: p.id, sku: p.sku, name: p.name }))
 
   return (
     <>
