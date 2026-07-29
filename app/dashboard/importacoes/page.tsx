@@ -184,16 +184,16 @@ export default async function ImportacoesPage() {
 
         {/* Evolução de CMP e margem por lote — recolhível */}
         <details>
-          <summary className="cursor-pointer select-none text-[12px] font-semibold mb-2" style={{ color: B.muted }}>
-            📊 Evolução de custo e margem por lote — clique para abrir
+          <summary className="cursor-pointer select-none text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: B.muted }}>
+            Evolução de custo e margem por lote
           </summary>
           <CmpEvolutionTable />
         </details>
 
         {/* Entrada manual de custo — recolhível */}
         <details>
-          <summary className="cursor-pointer select-none text-[12px] font-semibold mb-2" style={{ color: B.muted }}>
-            ✏️ Custo manual (CMV) por produto — clique para abrir
+          <summary className="cursor-pointer select-none text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: B.muted }}>
+            Custo manual (CMV) por produto
           </summary>
           <ManualCostForm products={productsData.data ?? []} />
         </details>
@@ -201,8 +201,8 @@ export default async function ImportacoesPage() {
         {/* Landed cost — despesas extras por NF-e — recolhível */}
         {ordersWithTotals.length > 0 && (
           <details>
-            <summary className="cursor-pointer select-none text-[12px] font-semibold mb-2" style={{ color: B.muted }}>
-              💰 Despesas extras por NF-e (frete, seguro, despachante…) — clique para abrir
+            <summary className="cursor-pointer select-none text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: B.muted }}>
+              Despesas extras por NF-e (frete, seguro, despachante)
             </summary>
             <LandedCostForm orders={ordersWithTotals} />
           </details>

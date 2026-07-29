@@ -2,6 +2,7 @@ import { TopBar } from '@/components/layout/TopBar'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { format, startOfMonth, endOfMonth, subMonths, subDays, eachDayOfInterval } from 'date-fns'
 import { RevenueLineChart } from '@/components/charts/RevenueLineChart'
+import { MarginDailyChart, type MarginDailyPoint } from '@/components/charts/MarginDailyChart'
 import { MarketplaceBarChart } from '@/components/charts/MarketplaceBarChart'
 import { TrendingUp, TrendingDown, ShoppingCart, Percent, DollarSign, ExternalLink } from 'lucide-react'
 import { InsightsPanel } from '@/components/dashboard/InsightsPanel'
@@ -260,6 +261,27 @@ export default async function DashboardPage(
     return row
   })
 
+  // ── Margem/lucro por dia (30d, vendas completas) ──
+  const dayAgg = new Map<string, { mv: number; base: number }>()
+  for (const s of sales ?? []) {
+    const mv = (uw(s.sale_costs) as any)?.margin_value
+    if (mv === null || mv === undefined) continue
+    const d = s.sale_date as string
+    if (!dayAgg.has(d)) dayAgg.set(d, { mv: 0, base: 0 })
+    const a = dayAgg.get(d)!
+    a.mv   += Number(mv)
+    a.base += Number(s.gross_price) - Number(s.cancellation ?? 0)
+  }
+  const marginTrend: MarginDailyPoint[] = days.map(day => {
+    const key = format(day, 'yyyy-MM-dd')
+    const a = dayAgg.get(key)
+    return {
+      date: format(day, 'dd/MM'),
+      lucro: a ? Math.round(a.mv * 100) / 100 : null,
+      margem: a && a.base > 0 ? Math.round((a.mv / a.base) * 1000) / 10 : null,
+    }
+  })
+
   // ── Bar chart ──
   const barData = Object.entries(byMP).map(([mp, d]) => {
     const margin = d.marginBase > 0 ? (d.marginValue / d.marginBase) * 100 : 0
@@ -378,7 +400,7 @@ export default async function DashboardPage(
         {/* Ritmo normal de chegada dos dados — evita alarme falso com venda recente */}
         <details className="rounded-xl px-4 py-2.5" style={{ background: 'oklch(0.97 0.008 258)', border: '1px solid oklch(0.92 0.012 258)' }}>
           <summary className="cursor-pointer text-[12px] font-medium" style={{ color: 'oklch(0.45 0.03 258)' }}>
-            ⏱ Vendas recentes com dados faltando? Veja o prazo normal de cada informação
+            Vendas recentes com dados faltando? Veja o prazo normal de cada informação
           </summary>
           <div className="mt-2 space-y-1 text-[12px]" style={{ color: 'oklch(0.50 0.025 258)' }}>
             <div>• <b>Venda</b> — entra assim que o pagamento é aprovado no marketplace (pedido aguardando pagamento ainda não aparece).</div>
@@ -478,9 +500,21 @@ export default async function DashboardPage(
 
         {/* ── Gráficos — recolhível ── */}
         <details open>
-        <summary className="cursor-pointer select-none text-[12px] font-semibold mb-2" style={{ color: 'oklch(0.45 0.03 258)' }}>
-          📈 Gráficos — receita por dia e margem por canal
+        <summary className="cursor-pointer select-none text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: 'oklch(0.55 0.03 258)' }}>
+          Gráficos — receita, margem e canais
         </summary>
+        <div className="space-y-4">
+        <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid rgba(15,23,42,0.07)', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}>
+          <div className="mb-4">
+            <div className="text-sm font-semibold" style={{ color: 'oklch(0.12 0.04 258)', fontFamily: 'var(--font-sora)' }}>
+              Margem e Lucro por Dia — Últimos 30 dias
+            </div>
+            <div className="text-[12px] mt-0.5" style={{ color: 'oklch(0.50 0.025 258)' }}>
+              Barras = lucro do dia (R$) · linha roxa = margem % · só vendas com cálculo completo
+            </div>
+          </div>
+          <MarginDailyChart data={marginTrend} />
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div
             className="col-span-2 bg-white rounded-2xl p-5"
@@ -506,12 +540,13 @@ export default async function DashboardPage(
             <MarketplaceBarChart data={barData} />
           </div>
         </div>
+        </div>
         </details>
 
         {/* ── Resultado por marketplace + Top produtos — recolhível ── */}
         <details open>
-        <summary className="cursor-pointer select-none text-[12px] font-semibold mb-2" style={{ color: 'oklch(0.45 0.03 258)' }}>
-          🏆 Resultado por canal e produtos com maior resultado
+        <summary className="cursor-pointer select-none text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: 'oklch(0.55 0.03 258)' }}>
+          Resultado por canal e top produtos
         </summary>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
@@ -637,8 +672,8 @@ export default async function DashboardPage(
 
         {/* ── Vendas por Canal em Tempo Real — recolhível (fechada por padrão) ── */}
         <details>
-        <summary className="cursor-pointer select-none text-[12px] font-semibold mb-2" style={{ color: 'oklch(0.45 0.03 258)' }}>
-          🔴 Vendas por canal em tempo real — clique para abrir
+        <summary className="cursor-pointer select-none text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: 'oklch(0.55 0.03 258)' }}>
+          Vendas por canal em tempo real
         </summary>
         <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid rgba(15,23,42,0.07)', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}>
           <LiveSalesFeed />
