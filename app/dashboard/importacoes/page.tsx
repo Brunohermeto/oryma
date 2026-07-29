@@ -5,6 +5,10 @@ import { LandedCostForm } from '@/components/importacoes/LandedCostForm'
 import { ManualCostForm } from '@/components/importacoes/ManualCostForm'
 import { RelinkButton } from '@/components/importacoes/RelinkButton'
 import { CmpEvolutionTable } from '@/components/importacoes/CmpEvolutionTable'
+import { FilialCreditsPanel, type TransferOrder } from '@/components/importacoes/FilialCreditsPanel'
+
+// CFOPs de transferência entre estabelecimentos próprios (matriz/filial)
+const TRANSFER_CFOPS = new Set(['5151', '5152', '6151', '6152'])
 
 export const dynamic = 'force-dynamic'
 export const preferredRegion = 'gru1'
@@ -39,6 +43,26 @@ export default async function ImportacoesPage() {
 
   const complete = ordersWithTotals.filter(o => o.costs_complete).length
   const pending  = ordersWithTotals.filter(o => !o.costs_complete).length
+
+  // Transferências matriz/filial: crédito PIS/COFINS vem da NF de entrada da filial
+  const transferOrders = ordersWithTotals.filter(o => TRANSFER_CFOPS.has(String(o.cfop ?? '')))
+  let transfers: TransferOrder[] = []
+  if (transferOrders.length) {
+    const { data: tItems } = await db.from('import_items')
+      .select('import_order_id, unit_pis_imp, unit_cofins_imp, unit_icms_gnre')
+      .in('import_order_id', transferOrders.map(o => o.id))
+    const credited = new Set(
+      (tItems ?? [])
+        .filter(i => Number(i.unit_pis_imp) > 0 || Number(i.unit_cofins_imp) > 0 || Number(i.unit_icms_gnre) > 0)
+        .map(i => i.import_order_id)
+    )
+    transfers = transferOrders.map(o => ({
+      id: o.id,
+      nfe_number: String(o.nfe_number ?? ''),
+      issue_date: String(o.issue_date ?? ''),
+      hasCredits: credited.has(o.id),
+    }))
+  }
 
   return (
     <>
@@ -100,7 +124,15 @@ export default async function ImportacoesPage() {
                   className={`transition-colors hover:bg-[oklch(0.96_0.010_258)] ${!order.costs_complete ? 'bg-[oklch(0.98_0.04_70_/_0.4)]' : ''}`}
                   style={{ borderBottom: `1px solid ${B.bgSubtle}` }}
                 >
-                  <td className="px-5 py-3 font-medium" style={{ color: B.text }}>{order.nfe_number}</td>
+                  <td className="px-5 py-3 font-medium" style={{ color: B.text }}>
+                    {order.nfe_number}
+                    {TRANSFER_CFOPS.has(String(order.cfop ?? '')) && (
+                      <span className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full align-middle"
+                            style={{ background: 'oklch(0.94 0.06 258)', color: '#125BFF' }}>
+                        transferência
+                      </span>
+                    )}
+                  </td>
                   <td className="px-5 py-3 text-xs" style={{ color: B.subtle }}>{order.supplier}</td>
                   <td className="px-5 py-3 text-xs" style={{ color: B.muted }}>{order.issue_date}</td>
                   <td className="px-4 py-3 text-right num" style={{ color: B.subtle, fontFamily: 'var(--font-geist-mono)' }}>
@@ -133,6 +165,9 @@ export default async function ImportacoesPage() {
           </table>
           </div>
         </div>
+
+        {/* Transferências matriz/filial — créditos da NF de entrada da filial */}
+        <FilialCreditsPanel transfers={transfers} />
 
         {/* Re-vincular produtos e recalcular CMP */}
         <div className="bg-white rounded-xl p-5" style={{ border: `1px solid ${B.border}` }}>
