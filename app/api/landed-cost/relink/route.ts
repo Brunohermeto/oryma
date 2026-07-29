@@ -126,6 +126,44 @@ export async function POST(request: NextRequest) {
   const taxBySale = new Map<string, any>()
   for (const t of allTaxes ?? []) taxBySale.set(t.sale_id, t)
 
+  // ── Créditos de importação por produto (PIS+COFINS+ICMS por unidade, por lote) ──
+  // Regra: o crédito acompanha o MESMO lote que dá o custo (vigência). Lote
+  // nacional → crédito 0 (já abatido no custo). Espelha getImportCreditAtDate.
+  const [allUnitCosts, allOrders]: [any[], any[]] = await Promise.all([
+    fetchAll<any>(() => db.from('unit_costs')
+      .select('product_id, import_order_id, pis_credit_unit, cofins_credit_unit, icms_credit_unit, quantity_in_batch')),
+    fetchAll<any>(() => db.from('import_orders').select('id, issue_date, cfop')),
+  ])
+  const orderById = new Map((allOrders ?? []).map(o => [o.id, o]))
+  // product → lotes {date, isImport, credit, qty} ordenados ASC por data
+  const lotsByProduct = new Map<string, Array<{ date: string; isImport: boolean; credit: number; qty: number }>>()
+  for (const u of allUnitCosts ?? []) {
+    const o = orderById.get(u.import_order_id)
+    if (!lotsByProduct.has(u.product_id)) lotsByProduct.set(u.product_id, [])
+    lotsByProduct.get(u.product_id)!.push({
+      date: (o?.issue_date as string) ?? '1900-01-01',
+      isImport: String(o?.cfop ?? '').startsWith('3'),
+      credit: Number(u.pis_credit_unit ?? 0) + Number(u.cofins_credit_unit ?? 0) + Number(u.icms_credit_unit ?? 0),
+      qty: Number(u.quantity_in_batch ?? 0),
+    })
+  }
+  for (const list of lotsByProduct.values()) list.sort((a, b) => (a.date < b.date ? -1 : 1))
+
+  function getCreditForDate(productId: string, saleDate: string): number {
+    const list = lotsByProduct.get(productId)
+    if (!list?.length) return 0
+    let vigente: string | null = null
+    for (const l of list) {
+      if (l.date <= saleDate) vigente = l.date
+      else break
+    }
+    if (!vigente) vigente = list[0].date  // venda anterior ao primeiro lote
+    const batch = list.filter(l => l.date === vigente && l.isImport)
+    if (!batch.length) return 0
+    const q = batch.reduce((s, b) => s + b.qty, 0) || 1
+    return batch.reduce((s, b) => s + b.credit * b.qty, 0) / q
+  }
+
   // Mapa: product_id → CMPs ordenados por effective_date ASC
   const cmpsByProduct = new Map<string, Array<{ id: string; value: number; date: string }>>()
   for (const c of allCmps ?? []) {
@@ -154,6 +192,7 @@ export async function POST(request: NextRequest) {
     sale_id: string; cmp_cost_id: string | null
     unit_cost_applied: number; total_cost: number
     margin_value: number | null; margin_pct: number | null
+    import_credit: number
   }> = []
 
   for (const sale of allSales ?? []) {
@@ -181,15 +220,18 @@ export async function POST(request: NextRequest) {
                       - totalTaxes  // impostos da NF-e saída
     // Sem NF-e de saída ainda (impostos ausentes) = dados incompletos →
     // margem fica NULL ("em cálculo") em vez de um número inflado e falso
+    // Crédito de importação das unidades (devolvido à margem — débito da saída entra cheio)
+    const importCredit = getCreditForDate(sale.product_id, sale.sale_date) * qty
     const hasTaxes    = !!taxes
-    const marginValue = hasTaxes ? netRevenue - totalCost : null
+    const marginValue = hasTaxes ? netRevenue - totalCost + importCredit : null
     // Margem % sobre o faturamento bruto (definição do Bruno)
     const gross       = Number(sale.gross_price)
-    const marginPct   = hasTaxes && gross > 0 ? (netRevenue - totalCost) / gross : null
+    const marginPct   = hasTaxes && gross > 0 ? (netRevenue - totalCost + importCredit) / gross : null
     saleCostRows.push({
       sale_id: sale.id, cmp_cost_id: cmp.id,
       unit_cost_applied: cmp.value, total_cost: totalCost,
       margin_value: marginValue, margin_pct: marginPct,
+      import_credit: Math.round(importCredit * 100) / 100,
     })
   }
 
