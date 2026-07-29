@@ -50,9 +50,15 @@ export default async function DashboardPage(
 
   const { data: prevSales } = await db
     .from('sales')
-    .select('gross_price')
+    .select('gross_price, cancellation, marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, rebate, ads_cost, sale_costs(margin_value)')
     .gte('sale_date', prevStart)
     .lte('sale_date', prevEnd)
+
+  // Alertas abertos (auditoria + vistoria, sem os dispensados) — semáforo de saúde
+  const { count: openAlerts } = await db
+    .from('audit_findings')
+    .select('id', { count: 'exact', head: true })
+    .is('dismissed_at', null)
 
   const { data: trendSales } = await db
     .from('sales')
@@ -164,8 +170,29 @@ export default async function DashboardPage(
 
   // ── KPIs ──
   const totalRevenue = (sales ?? []).reduce((s, r) => s + Number(r.gross_price) - Number(r.cancellation), 0)
-  const prevRevenue = (prevSales ?? []).reduce((s, r) => s + Number(r.gross_price), 0)
+  const prevRevenue = (prevSales ?? []).reduce((s, r) => s + Number(r.gross_price) - Number(r.cancellation ?? 0), 0)
   const revenueChange = prevRevenue > 0 ? ((totalRevenue - prevRevenue) / prevRevenue) * 100 : 0
+
+  // ── Período anterior (comparação em tudo) ──
+  let prevProfit = 0, prevMarginBase = 0
+  for (const r of prevSales ?? []) {
+    const mv = (uw(r.sale_costs) as any)?.margin_value
+    if (mv === null || mv === undefined) continue
+    prevProfit     += Number(mv)
+    prevMarginBase += Number(r.gross_price) - Number(r.cancellation ?? 0)
+  }
+  const prevMargin = prevMarginBase > 0 ? (prevProfit / prevMarginBase) * 100 : null
+  const prevOrders = (prevSales ?? []).length
+  const prevFees   = (prevSales ?? []).reduce((s, r) =>
+    s + Number(r.marketplace_commission ?? 0) + Number(r.marketplace_shipping_fee ?? 0)
+      + Number((r as any).marketplace_fixed_fee ?? 0) + Number(r.ads_cost ?? 0) - Number((r as any).rebate ?? 0), 0)
+
+  // ── Saúde dos dados (semáforo) ──
+  const completeSales = (sales ?? []).filter(r => {
+    const mv = (uw(r.sale_costs) as any)?.margin_value
+    return mv !== null && mv !== undefined
+  }).length
+  const emCalculo = (sales ?? []).length - completeSales
   const totalFees = (sales ?? []).reduce((s, r) => s + Number(r.marketplace_commission) + Number(r.marketplace_shipping_fee) + Number(r.ads_cost), 0)
   const totalCMV = (sales ?? []).reduce((s, r) => s + Number((uw(r.sale_costs) as any)?.total_cost ?? 0), 0)
   // Margem REAL = mesma conta da margem por venda (todos os custos + impostos,
@@ -251,6 +278,77 @@ export default async function DashboardPage(
       <TopBar title="Visão Geral" subtitle="Inteligência financeira consolidada · Ragaluma" />
       <div className="px-4 md:px-8 py-6 space-y-5">
 
+        {/* ── Semáforo de saúde dos dados ── */}
+        <div className="flex items-center gap-2 flex-wrap text-[12px]">
+          <span className="font-semibold px-2.5 py-1 rounded-full" style={{
+            background: emCalculo === 0 ? 'oklch(0.94 0.10 145)' : 'oklch(0.96 0.08 70)',
+            color: emCalculo === 0 ? '#15803d' : '#92400e',
+          }}>
+            {completeSales} vendas completas{emCalculo > 0 ? ` · ${emCalculo} em cálculo` : ' · tudo calculado ✓'}
+          </span>
+          <a href="#alertas" className="font-semibold px-2.5 py-1 rounded-full" style={{
+            background: (openAlerts ?? 0) > 0 ? 'oklch(0.96 0.04 25)' : 'oklch(0.94 0.10 145)',
+            color: (openAlerts ?? 0) > 0 ? '#dc2626' : '#15803d',
+            textDecoration: 'none',
+          }}>
+            {(openAlerts ?? 0) > 0 ? `${openAlerts} alertas abertos` : 'sem alertas ✓'}
+          </a>
+          {lastSync && (
+            <span className="px-2.5 py-1 rounded-full" style={{ background: 'oklch(0.96 0.010 258)', color: 'oklch(0.50 0.025 258)' }}>
+              sync: {new Date(lastSync.started_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
+        </div>
+
+        {/* ── KPIs gigantes com comparação vs período anterior ── */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            {
+              label: 'Faturamento (30d)', href: `/dashboard/vendas?from=${start}&to=${end}`,
+              value: fmtR(totalRevenue), color: '#125BFF',
+              delta: prevRevenue > 0 ? revenueChange : null, deltaFmt: (d: number) => `${d > 0 ? '+' : ''}${d.toFixed(1)}%`,
+            },
+            {
+              label: 'Lucro Real (30d)', href: '/dashboard/dre',
+              value: fmtR(grossProfit), color: grossProfit >= 0 ? '#16a34a' : '#dc2626',
+              delta: prevProfit !== 0 ? ((grossProfit - prevProfit) / Math.abs(prevProfit)) * 100 : null,
+              deltaFmt: (d: number) => `${d > 0 ? '+' : ''}${d.toFixed(0)}%`,
+            },
+            {
+              label: 'Margem Real', href: '/dashboard/dre',
+              value: fmtPct(grossMargin), color: marginColor(grossMargin),
+              delta: prevMargin !== null ? grossMargin - prevMargin : null,
+              deltaFmt: (d: number) => `${d > 0 ? '+' : ''}${d.toFixed(1)}pp`,
+            },
+            {
+              label: 'Pedidos', href: `/dashboard/vendas?from=${start}&to=${end}`,
+              value: String(totalOrders), color: '#0B1023',
+              delta: prevOrders > 0 ? ((totalOrders - prevOrders) / prevOrders) * 100 : null,
+              deltaFmt: (d: number) => `${d > 0 ? '+' : ''}${d.toFixed(0)}%`,
+            },
+          ].map(k => (
+            <a key={k.label} href={k.href} className="block rounded-2xl px-5 py-4 bg-white" style={{
+              border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 3px rgba(15,23,42,0.04)', textDecoration: 'none',
+            }}>
+              <div className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: '#64748B' }}>{k.label}</div>
+              <div className="font-bold leading-none" style={{ color: k.color, fontFamily: 'var(--font-sora)', fontSize: 34, letterSpacing: '-0.03em' }}>
+                {k.value}
+              </div>
+              {k.delta !== null && Math.abs(k.delta) >= 0.05 && (
+                <div className="flex items-center gap-1 mt-2">
+                  {k.delta > 0
+                    ? <TrendingUp size={12} style={{ color: '#16a34a' }} />
+                    : <TrendingDown size={12} style={{ color: '#dc2626' }} />}
+                  <span className="text-[12px] font-semibold" style={{ color: k.delta > 0 ? '#16a34a' : '#dc2626' }}>
+                    {k.deltaFmt(k.delta)}
+                  </span>
+                  <span className="text-[11px]" style={{ color: '#94a3b8' }}>vs 30d anteriores</span>
+                </div>
+              )}
+            </a>
+          ))}
+        </div>
+
         {/* Auditoria sob demanda + relatório para conferência/contestação */}
         <RunAuditButton />
 
@@ -270,114 +368,22 @@ export default async function DashboardPage(
         </details>
 
         {/* Auditoria automática — apontamentos por venda */}
-        <AuditAlertsPanel />
-
-        {/* Vistoria de taxas do ML */}
-        <FeeAuditPanel />
-
-        {/* ── KPI Cards ── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-
-          {/* Receita Bruta */}
-          <a href={`/dashboard/vendas?from=${start}&to=${end}`} className="block rounded-2xl p-5 transition-all group" style={{
-            background: 'linear-gradient(135deg, #ffffff 0%, rgba(18,91,255,0.04) 100%)',
-            border: '1px solid rgba(18,91,255,0.12)',
-            boxShadow: '0 2px 12px rgba(18,91,255,0.08)',
-            textDecoration: 'none',
-          }}>
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#64748B' }}>Receita Bruta</span>
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(18,91,255,0.10)' }}>
-                <DollarSign size={15} style={{ color: '#125BFF' }} />
-              </div>
-            </div>
-            <div className="font-bold leading-none mb-2" style={{ color: '#125BFF', fontFamily: 'var(--font-sora)', fontSize: 26, letterSpacing: '-0.03em' }}>
-              {fmtR(totalRevenue)}
-            </div>
-            {revenueChange !== 0 && (
-              <div className="flex items-center gap-1">
-                {revenueChange > 0
-                  ? <TrendingUp size={11} style={{ color: '#22c55e' }} />
-                  : <TrendingDown size={11} style={{ color: '#ef4444' }} />}
-                <span className="text-[11px] font-medium" style={{ color: revenueChange > 0 ? '#22c55e' : '#ef4444' }}>
-                  {Math.abs(revenueChange).toFixed(1)}% vs. período anterior
-                </span>
-              </div>
-            )}
-          </a>
-
-          {/* Pedidos */}
-          <a href={`/dashboard/vendas?from=${start}&to=${end}`} className="block rounded-2xl p-5 transition-all" style={{
-            background: 'linear-gradient(135deg, #ffffff 0%, rgba(0,214,255,0.04) 100%)',
-            border: '1px solid rgba(0,214,255,0.15)',
-            boxShadow: '0 2px 12px rgba(0,214,255,0.06)',
-            textDecoration: 'none',
-          }}>
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#64748B' }}>Pedidos</span>
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(0,214,255,0.10)' }}>
-                <ShoppingCart size={15} style={{ color: '#0097b2' }} />
-              </div>
-            </div>
-            <div className="font-bold leading-none mb-2" style={{ color: '#0097b2', fontFamily: 'var(--font-sora)', fontSize: 34, letterSpacing: '-0.04em' }}>
-              {totalOrders}
-            </div>
-            <div className="text-[11px]" style={{ color: '#64748B' }}>
-              Ticket médio: {totalOrders > 0 ? fmtR(totalRevenue / totalOrders) : '—'}
-            </div>
-          </a>
-
-          {/* Taxas, Fretes & Ads */}
-          <a href="/dashboard/dre" className="block rounded-2xl p-5 transition-all" style={{
-            background: 'linear-gradient(135deg, #ffffff 0%, rgba(245,158,11,0.04) 100%)',
-            border: '1px solid rgba(245,158,11,0.15)',
-            boxShadow: '0 2px 12px rgba(245,158,11,0.06)',
-            textDecoration: 'none',
-          }}>
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#64748B' }}>Taxas, Fretes & Ads</span>
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(245,158,11,0.10)' }}>
-                <Percent size={15} style={{ color: '#d97706' }} />
-              </div>
-            </div>
-            <div className="font-bold leading-none mb-2" style={{ color: '#d97706', fontFamily: 'var(--font-sora)', fontSize: 26, letterSpacing: '-0.03em' }}>
-              {fmtR(totalFees)}
-            </div>
-            <div className="text-[11px]" style={{ color: '#64748B' }}>
-              {totalRevenue > 0 ? `${fmtPct((totalFees / totalRevenue) * 100)} da receita bruta` : '—'}
-            </div>
-          </a>
-
-          {/* Margem Real */}
-          <a href="/dashboard/dre" className="block rounded-2xl p-5 transition-all" style={{
-            background: `linear-gradient(135deg, #ffffff 0%, ${grossMargin >= 20 ? 'rgba(34,197,94,0.05)' : 'rgba(239,68,68,0.04)'} 100%)`,
-            border: `1px solid ${grossMargin >= 20 ? 'rgba(34,197,94,0.18)' : 'rgba(239,68,68,0.15)'}`,
-            boxShadow: `0 2px 12px ${grossMargin >= 20 ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.06)'}`,
-            textDecoration: 'none',
-          }}>
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#64748B' }}>Margem Real</span>
-              <span className="text-[10px] font-bold px-2 py-1 rounded-full" style={{
-                background: marginBg(grossMargin),
-                color: marginColor(grossMargin),
-              }}>
-                {grossMargin >= 35 ? 'Boa' : grossMargin >= 20 ? 'Ok' : 'Baixa'}
-              </span>
-            </div>
-            <div className="font-bold leading-none mb-2" style={{ color: marginColor(grossMargin), fontFamily: 'var(--font-sora)', fontSize: 34, letterSpacing: '-0.04em' }}>
-              {fmtPct(grossMargin)}
-            </div>
-            <div className="text-[11px]" style={{ color: '#64748B' }}>
-              Lucro estimado: {fmtR(grossProfit)}
-            </div>
-          </a>
-
+        <div id="alertas" className="space-y-5">
+          <AuditAlertsPanel />
+          <FeeAuditPanel />
         </div>
 
         {/* ── Taxas pagas ao marketplace ── */}
         <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid rgba(15,23,42,0.07)', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}>
-          <div className="text-sm font-semibold mb-4" style={{ color: 'oklch(0.12 0.04 258)', fontFamily: 'var(--font-sora)' }}>
-            Taxas pagas ao marketplace — últimos 30 dias
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
+            <span className="text-sm font-semibold" style={{ color: 'oklch(0.12 0.04 258)', fontFamily: 'var(--font-sora)' }}>
+              Taxas pagas ao marketplace — últimos 30 dias
+            </span>
+            {prevFees > 0 && Math.abs(feesTotal - prevFees) / prevFees >= 0.005 && (
+              <span className="text-[12px] font-semibold" style={{ color: feesTotal > prevFees ? '#dc2626' : '#16a34a' }}>
+                {feesTotal > prevFees ? '▲' : '▼'} {(Math.abs(feesTotal - prevFees) / prevFees * 100).toFixed(1)}% vs 30d anteriores
+              </span>
+            )}
           </div>
           <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
             {[
@@ -407,7 +413,11 @@ export default async function DashboardPage(
         {/* ── Oryma Insights ── */}
         <InsightsPanel />
 
-        {/* ── Gráficos ── */}
+        {/* ── Gráficos — recolhível ── */}
+        <details open>
+        <summary className="cursor-pointer select-none text-[12px] font-semibold mb-2" style={{ color: 'oklch(0.45 0.03 258)' }}>
+          📈 Gráficos — receita por dia e margem por canal
+        </summary>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div
             className="col-span-2 bg-white rounded-2xl p-5"
@@ -433,8 +443,13 @@ export default async function DashboardPage(
             <MarketplaceBarChart data={barData} />
           </div>
         </div>
+        </details>
 
-        {/* ── Resultado por marketplace + Top produtos ── */}
+        {/* ── Resultado por marketplace + Top produtos — recolhível ── */}
+        <details open>
+        <summary className="cursor-pointer select-none text-[12px] font-semibold mb-2" style={{ color: 'oklch(0.45 0.03 258)' }}>
+          🏆 Resultado por canal e produtos com maior resultado
+        </summary>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
           {/* Por marketplace */}
@@ -555,11 +570,17 @@ export default async function DashboardPage(
           </div>
 
         </div>
+        </details>
 
-        {/* ── Vendas por Canal em Tempo Real ── */}
+        {/* ── Vendas por Canal em Tempo Real — recolhível (fechada por padrão) ── */}
+        <details>
+        <summary className="cursor-pointer select-none text-[12px] font-semibold mb-2" style={{ color: 'oklch(0.45 0.03 258)' }}>
+          🔴 Vendas por canal em tempo real — clique para abrir
+        </summary>
         <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid rgba(15,23,42,0.07)', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}>
           <LiveSalesFeed />
         </div>
+        </details>
 
         {/* Última sync */}
         {lastSync && (

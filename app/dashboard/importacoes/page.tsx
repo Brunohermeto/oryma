@@ -172,25 +172,41 @@ export default async function ImportacoesPage() {
         {/* Transferências matriz/filial — créditos da NF de entrada da filial */}
         <FilialCreditsPanel transfers={transfers} />
 
-        {/* Re-vincular produtos e recalcular CMP */}
-        <div className="bg-white rounded-xl p-5" style={{ border: `1px solid ${B.border}` }}>
-          <div className="font-semibold text-sm mb-1" style={{ color: B.text, fontFamily: 'var(--font-sora)' }}>
-            Recalcular CMP
+        {/* Re-vincular produtos e recalcular CMP — recolhível */}
+        <details className="bg-white rounded-xl" style={{ border: `1px solid ${B.border}` }}>
+          <summary className="cursor-pointer select-none px-5 py-4 font-semibold text-sm" style={{ color: B.text, fontFamily: 'var(--font-sora)' }}>
+            Recalcular CMP <span className="font-normal text-xs" style={{ color: B.muted }}>— vincula NF-e aos SKUs e recalcula custos</span>
+          </summary>
+          <div className="px-5 pb-5">
+            <RelinkButton />
           </div>
-          <p className="text-xs mb-4" style={{ color: B.muted }}>
-            Use após importar produtos do Bling. Vincula os itens das NF-e importadas aos SKUs e recalcula o Custo Médio Ponderado.
-          </p>
-          <RelinkButton />
-        </div>
+        </details>
 
-        {/* Evolução de CMP e margem por lote de importação */}
-        <CmpEvolutionTable />
+        {/* Evolução de CMP e margem por lote — recolhível */}
+        <details>
+          <summary className="cursor-pointer select-none text-[12px] font-semibold mb-2" style={{ color: B.muted }}>
+            📊 Evolução de custo e margem por lote — clique para abrir
+          </summary>
+          <CmpEvolutionTable />
+        </details>
 
-        {/* Entrada manual de custo */}
-        <ManualCostForm products={productsData.data ?? []} />
+        {/* Entrada manual de custo — recolhível */}
+        <details>
+          <summary className="cursor-pointer select-none text-[12px] font-semibold mb-2" style={{ color: B.muted }}>
+            ✏️ Custo manual (CMV) por produto — clique para abrir
+          </summary>
+          <ManualCostForm products={productsData.data ?? []} />
+        </details>
 
-        {/* Landed cost form — adiciona despesas extras a NF-e já importadas */}
-        {ordersWithTotals.length > 0 && <LandedCostForm orders={ordersWithTotals} />}
+        {/* Landed cost — despesas extras por NF-e — recolhível */}
+        {ordersWithTotals.length > 0 && (
+          <details>
+            <summary className="cursor-pointer select-none text-[12px] font-semibold mb-2" style={{ color: B.muted }}>
+              💰 Despesas extras por NF-e (frete, seguro, despachante…) — clique para abrir
+            </summary>
+            <LandedCostForm orders={ordersWithTotals} />
+          </details>
+        )}
       </div>
     </>
   )
