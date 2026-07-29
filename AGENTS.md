@@ -23,6 +23,10 @@ Qualquer código novo que grave ou leia valores de venda DEVE segui-las.
 - Fonte: `/shipments/{id}/costs` → `senders[].cost`.
 - O lançamento CFFE/CXD do extrato traz o frete CHEIO (vendedor + parte do
   cliente) — usar SÓ como reserva quando a venda está com frete zero.
+- **`sales.shipping_received` (frete pago pelo COMPRADOR) NUNCA é receita**:
+  no Mercado Envios vai para o ML/transportadora, não chega ao vendedor
+  (regra 2026-07-29). Fica gravado só como informação — jamais somar em
+  faturamento, margem ou DRE.
 
 ## 3. Cupom: só a parte do vendedor desconta
 - Fonte: `/orders/{id}/discounts` → `details[type=coupon].items[].amounts.seller`.

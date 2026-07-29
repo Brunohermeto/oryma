@@ -89,9 +89,10 @@ function SaleDetailPanel({ sale }: { sale: SaleRow }) {
   }, [sale.id, cost, costDetail, loadingDetail])
 
   const faturamento    = Number(sale.gross_price) - Number(sale.cancellation) - Number(sale.discounts ?? 0)
+  // Frete do COMPRADOR (shipping_received) NÃO é receita: no Mercado Envios
+  // vai para o ML/transportadora — exibido só como informação
   const freteRecebido  = Number(sale.shipping_received ?? 0)
   const fretePago      = Number(sale.marketplace_shipping_fee ?? 0)
-  const freteNeto      = freteRecebido - fretePago
   const totalTaxes     = Number(taxes?.total_taxes ?? 0)
   const commission     = Number(sale.marketplace_commission)
   const adsC           = Number(sale.ads_cost)
@@ -111,7 +112,7 @@ function SaleDetailPanel({ sale }: { sale: SaleRow }) {
   // Lucro só com dados completos: sem NF-e (impostos) ou sem custo = "em cálculo",
   // nunca um número inflado
   const lucro = cost && taxes
-    ? faturamento + freteNeto - impostoLiquido - commission - fixedFee - adsC + rebate - cmv
+    ? faturamento - fretePago - impostoLiquido - commission - fixedFee - adsC + rebate - cmv
     : null
 
   // ── Avaliação de completude dos dados ───────────────────────────────────────
@@ -263,21 +264,15 @@ function SaleDetailPanel({ sale }: { sale: SaleRow }) {
               </div>
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs">
-                  <span style={{ color: B.muted }}>Frete cobrado do comprador</span>
-                  <span className="num font-medium" style={{ color: freteRecebido > 0 ? '#16a34a' : B.muted, fontFamily: 'var(--font-geist-mono)' }}>
-                    {freteRecebido > 0 ? `+${fmtR(freteRecebido)}` : '—'}
-                  </span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span style={{ color: B.muted }}>Frete pago ao canal / transportadora</span>
-                  <span className="num font-medium" style={{ color: fretePago > 0 ? '#dc2626' : B.muted, fontFamily: 'var(--font-geist-mono)' }}>
-                    {fretePago > 0 ? `(${fmtR(fretePago)})` : '—'}
+                  <span style={{ color: B.muted }}>Frete pago pelo comprador (fica com o ML — não é receita)</span>
+                  <span className="num font-medium" style={{ color: B.muted, fontFamily: 'var(--font-geist-mono)' }}>
+                    {freteRecebido > 0 ? fmtR(freteRecebido) : '—'}
                   </span>
                 </div>
                 <div className="flex justify-between text-xs pt-1.5" style={{ borderTop: `1px solid ${B.border}` }}>
-                  <span className="font-semibold" style={{ color: B.subtle }}>Frete líquido</span>
-                  <span className="num font-bold" style={{ color: freteNeto >= 0 ? '#16a34a' : '#dc2626', fontFamily: 'var(--font-geist-mono)' }}>
-                    {freteNeto >= 0 ? `+${fmtR(freteNeto)}` : `(${fmtR(Math.abs(freteNeto))})`}
+                  <span className="font-semibold" style={{ color: B.subtle }}>Frete do vendedor (nosso custo)</span>
+                  <span className="num font-bold" style={{ color: fretePago > 0 ? '#dc2626' : B.muted, fontFamily: 'var(--font-geist-mono)' }}>
+                    {fretePago > 0 ? `(${fmtR(fretePago)})` : '—'}
                   </span>
                 </div>
                 {rebate > 0 && (
@@ -414,7 +409,7 @@ function SaleDetailPanel({ sale }: { sale: SaleRow }) {
               <div className="space-y-1.5">
                 {[
                   { label: 'Faturamento bruto',          value: faturamento,   sign: 1 },
-                  { label: '(+) Frete líquido',           value: freteNeto,     sign: freteNeto >= 0 ? 1 : -1 },
+                  { label: '(-) Frete do vendedor',       value: -fretePago,    sign: -1 },
                   ...(rebate > 0 ? [{ label: '(+) Estorno / rebate', value: rebate, sign: 1 }] : []),
                   { label: totalCreditos > 0 ? '(-) Impostos líquidos s/ venda' : '(-) Impostos s/ vendas', value: -impostoLiquido, sign: -1 },
                   { label: '(-) Comissão marketplace',    value: -commission,  sign: -1 },
@@ -493,7 +488,7 @@ export function SalesTable({ sales }: { sales: SaleRow[] }) {
       <thead>
         <tr style={{ background: 'oklch(0.96 0.010 258)', borderBottom: `1px solid ${B.border}` }}>
           <th className="w-6 px-2 py-3" />
-          {['Data','Produto','Canal','Qtd.','Preço unit.','Faturamento','Impostos','Comissão MP','Estorno','Frete líq.','ADS','Custo (CMV)','Lucro','Margem'].map((h, i) => (
+          {['Data','Produto','Canal','Qtd.','Preço unit.','Faturamento','Impostos','Comissão MP','Estorno','Frete','ADS','Custo (CMV)','Lucro','Margem'].map((h, i) => (
             <th
               key={h}
               className={`py-3 text-[11px] font-semibold uppercase tracking-wide ${i < 3 ? 'text-left px-4' : 'text-right px-4'} ${i === 13 ? 'px-5' : ''}`}
@@ -520,16 +515,15 @@ export function SalesTable({ sales }: { sales: SaleRow[] }) {
           const totalTaxes    = Number(taxes?.total_taxes ?? 0)
           const commission    = Number(sale.marketplace_commission)
           const fretePago     = Number(sale.marketplace_shipping_fee ?? 0)
-          const freteRecebido = Number(sale.shipping_received ?? 0)
-          const freteNeto     = freteRecebido - fretePago
           const adsC          = Number(sale.ads_cost)
           const rebate        = Number(sale.rebate ?? 0)
           const faturamento   = Number(sale.gross_price) - Number(sale.cancellation) - Number(sale.discounts ?? 0)
           const cmv           = Number(cost?.total_cost ?? 0)
           const fixedFee      = Number((sale as any).marketplace_fixed_fee ?? 0)
-          // lucro só com dados completos (custo E impostos) — igual ao painel
-          const lucro         = cost && taxes
-            ? faturamento + freteNeto - totalTaxes - commission - fixedFee - adsC + rebate - cmv
+          // Lucro = margem GRAVADA da venda (mesma conta do sistema inteiro:
+          // todos os custos + crédito de importação; frete do comprador fora)
+          const lucro         = cost?.margin_value !== null && cost?.margin_value !== undefined
+            ? Number(cost.margin_value)
             : null
           const marginPct     = cost?.margin_pct !== null && cost?.margin_pct !== undefined ? Number(cost.margin_pct) : null
           const badge         = MP_BADGE[sale.marketplace] ?? { bg: B.bgSubtle, color: B.brand }
@@ -607,14 +601,12 @@ export function SalesTable({ sales }: { sales: SaleRow[] }) {
                 <td className="px-4 py-2.5 text-right text-xs num" style={{ color: rebate > 0 ? '#16a34a' : B.muted, fontFamily: 'var(--font-geist-mono)' }}>
                   {rebate > 0 ? `+${fmtR(rebate)}` : '—'}
                 </td>
-                {/* Frete líquido (recebido - pago) — verde se positivo, vermelho se negativo */}
+                {/* Frete do VENDEDOR (nosso custo) — o frete do comprador fica com o ML */}
                 <td className="px-4 py-2.5 text-right text-xs num" style={{
-                  color: freteNeto === 0 ? B.muted : freteNeto > 0 ? '#16a34a' : '#dc2626',
+                  color: fretePago > 0 ? '#dc2626' : B.muted,
                   fontFamily: 'var(--font-geist-mono)',
                 }}>
-                  {freteNeto === 0 ? '—'
-                    : freteNeto > 0 ? `+${fmtR(freteNeto)}`
-                    : `(${fmtR(Math.abs(freteNeto))})`}
+                  {fretePago > 0 ? `(${fmtR(fretePago)})` : '—'}
                 </td>
                 <td className="px-4 py-2.5 text-right text-xs num" style={{ color: '#dc2626', fontFamily: 'var(--font-geist-mono)' }}>
                   {adsC > 0 ? `(${fmtR(adsC)})` : '—'}

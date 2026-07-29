@@ -299,7 +299,9 @@ export async function applyCmpToSale(saleId: string): Promise<void> {
 
   // Receita líquida completa:
   // + gross_price         (preço do produto)
-  // + shipping_received   (frete cobrado do comprador → é receita do vendedor)
+  // ATENÇÃO: shipping_received (frete pago pelo COMPRADOR) NÃO é receita —
+  // no Mercado Envios esse valor vai para o ML/transportadora, nunca chega
+  // ao vendedor (regra do Bruno, 2026-07-29). Fica gravado só como informação.
   // - marketplace_commission (comissão do canal)
   // - marketplace_shipping_fee (frete pago pelo vendedor ao canal/transportadora)
   // - ads_cost            (investimento em anúncios)
@@ -307,7 +309,6 @@ export async function applyCmpToSale(saleId: string): Promise<void> {
   // - discounts           (cupons/descontos concedidos ao comprador)
   // + rebate              (rebates recebidos: desconto tarifário ML, bonificação fornecedor, etc.)
   const netRevenue = Number(sale.gross_price)
-                   + Number(sale.shipping_received  ?? 0)
                    - Number(sale.marketplace_commission ?? 0)
                    - Number(sale.marketplace_shipping_fee ?? 0)
                    - Number((sale as any).marketplace_fixed_fee ?? 0)

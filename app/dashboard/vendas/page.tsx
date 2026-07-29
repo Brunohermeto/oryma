@@ -74,7 +74,9 @@ export default async function VendasPage({
     const taxes = unwrap<{ total_taxes: number }>(s.sale_taxes)
     const cost  = unwrap<{ total_cost: number; margin_pct: number }>(s.sale_costs)
     acc.revenue      += Number(s.gross_price) - Number(s.cancellation) - Number((s as any).discounts ?? 0)
-    acc.freteNeto    += Number(s.shipping_received ?? 0) - Number(s.marketplace_shipping_fee ?? 0)
+    // Frete do COMPRADOR (shipping_received) não é receita — vai para o ML.
+    // Só o frete do VENDEDOR entra, como custo (negativo).
+    acc.freteNeto    += -Number(s.marketplace_shipping_fee ?? 0)
     acc.fixedFees    += Number((s as any).marketplace_fixed_fee ?? 0)
     acc.commission   += Number(s.marketplace_commission)
     acc.ads          += Number(s.ads_cost)

@@ -57,7 +57,8 @@ function calcSale(sale: Sale) {
   const shippingFee   = Number(sale.marketplace_shipping_fee)
   const ads           = Number(sale.ads_cost)
   const cmv           = Number(sale.sale_costs?.total_cost ?? 0)
-  const faturamento   = grossPrice + shippingRec - cancellation - discounts
+  // shippingRec (frete do comprador) não é receita — fica com o ML
+  const faturamento   = grossPrice - cancellation - discounts
   const totalFees     = commission + shippingFee + ads
   const totalCosts    = totalFees + cmv
   const receitaLiq    = faturamento - totalFees
@@ -183,7 +184,7 @@ function SaleRow({ sale }: { sale: Sale }) {
                 Receita
               </div>
               <PLRow label="Preço de venda"        value={c.grossPrice}     color={B.brand} bold positive />
-              {c.shippingRec > 0  && <PLRow label="(+) Frete cobrado ao cliente" value={c.shippingRec}  color="#16a34a" indent positive />}
+              {c.shippingRec > 0  && <PLRow label="Frete pago pelo cliente (fica com o ML)" value={c.shippingRec} color={B.muted} indent />}
               {c.cancellation > 0 && <PLRow label="(-) Cancelamento"            value={c.cancellation} color="#dc2626" indent cost />}
               {c.discounts > 0    && <PLRow label="(-) Desconto / cupom"         value={c.discounts}    color="#d97706" indent cost />}
               <PLRow label="= Faturamento líquido" value={c.faturamento} bold sep />

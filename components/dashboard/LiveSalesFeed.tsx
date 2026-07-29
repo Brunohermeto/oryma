@@ -95,7 +95,8 @@ function SaleCard({ sale }: { sale: Sale }) {
   const ads             = Number(sale.ads_cost)
   const cmv             = Number(sale.sale_costs?.total_cost ?? 0)
 
-  const faturamento     = grossPrice + shippingRec - cancellation - discounts
+  // shippingRec (frete do comprador) não é receita — fica com o ML
+  const faturamento     = grossPrice - cancellation - discounts
   const totalFees       = commission + shippingFee + ads
   const receitaLiquida  = faturamento - totalFees
   const lucro           = sale.sale_costs ? receitaLiquida - cmv : null

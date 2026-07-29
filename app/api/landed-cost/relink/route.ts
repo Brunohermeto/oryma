@@ -210,8 +210,9 @@ export async function POST(request: NextRequest) {
       + Number(taxes.icms_difal ?? 0)
       + Number(taxes.ipi       ?? 0)
       : 0
+    // shipping_received (frete do COMPRADOR) NÃO é receita: vai para o
+    // ML/transportadora no Mercado Envios — nunca chega ao vendedor
     const netRevenue  = Number(sale.gross_price)
-                      + Number(sale.shipping_received        ?? 0)
                       - Number(sale.marketplace_commission   ?? 0)
                       - Number(sale.marketplace_shipping_fee ?? 0)
                       - Number(sale.marketplace_fixed_fee    ?? 0)
