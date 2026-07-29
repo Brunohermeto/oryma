@@ -37,8 +37,13 @@ const navGroups = [
       { href: '/dashboard/vendas',   label: 'Vendas & Margem',    icon: ShoppingBag },
       { href: '/dashboard/produtos', label: 'Produtos & Estoque', icon: Package },
       { href: '/dashboard/custos',   label: 'Custos por SKU',     icon: Tag },
-      { href: '/dashboard/planejamento', label: 'Planejamento',   icon: Ship },
       { href: '/dashboard/dre',      label: 'DRE & Despesas',     icon: BarChart3 },
+    ],
+  },
+  {
+    label: 'Importação',
+    items: [
+      { href: '/dashboard/planejamento', label: 'Planejamento',   icon: Ship },
     ],
   },
   {
