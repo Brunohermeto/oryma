@@ -233,6 +233,35 @@ export async function getCurrentCmp(productId: string): Promise<number | null> {
  * After a sale, records the CMP that was effective at the sale date.
  * Uses getCmpAtDate so each sale reflects the cost of that period.
  */
+/**
+ * Créditos recuperáveis por unidade (PIS + COFINS + ICMS) do lote de
+ * IMPORTAÇÃO vigente na data da venda. Cada compra alimenta a base de crédito
+ * por produto (regra do Bruno, 2026-07-28) — a margem da venda devolve esse
+ * crédito, pois o débito da NF de saída entra cheio.
+ * Compra NACIONAL não entra aqui: seus créditos já são abatidos no custo.
+ */
+async function getImportCreditAtDate(productId: string, saleDate: string): Promise<number> {
+  const db = createSupabaseServiceClient()
+  const { data: rows } = await db.from('unit_costs')
+    .select('pis_credit_unit, cofins_credit_unit, icms_credit_unit, quantity_in_batch, import_orders!inner(issue_date, cfop)')
+    .eq('product_id', productId)
+  const imports = (rows ?? [])
+    .filter(r => String((r as any).import_orders?.cfop ?? '').startsWith('3'))
+    .map(r => ({
+      date: (r as any).import_orders.issue_date as string,
+      credit: Number(r.pis_credit_unit ?? 0) + Number(r.cofins_credit_unit ?? 0) + Number(r.icms_credit_unit ?? 0),
+      qty: Number(r.quantity_in_batch ?? 0),
+    }))
+  if (!imports.length) return 0
+  // Mesma regra de vigência do CMP: lote mais recente com emissão <= data da venda
+  const eligible = imports.filter(i => i.date <= saleDate)
+  const pool = eligible.length ? eligible : imports
+  const vigente = pool.reduce((best, i) => (i.date > best ? i.date : best), pool[0].date)
+  const batch = pool.filter(i => i.date === vigente)
+  const q = batch.reduce((s, b) => s + b.qty, 0) || 1
+  return batch.reduce((s, b) => s + b.credit * b.qty, 0) / q
+}
+
 export async function applyCmpToSale(saleId: string): Promise<void> {
   const db = createSupabaseServiceClient()
 
@@ -276,13 +305,17 @@ export async function applyCmpToSale(saleId: string): Promise<void> {
                    - Number(sale.discounts           ?? 0)
                    + Number(sale.rebate              ?? 0)
                    - saleTaxes
+  // Crédito da importação (PIS+COFINS+ICMS por unidade): devolvido à margem,
+  // pois o débito da saída entra cheio e a compra gera crédito por produto
+  const importCredit = (await getImportCreditAtDate(sale.product_id, sale.sale_date)) * qty
+
   // Sem NF-e ainda (impostos ausentes) → margem NULL ("em cálculo"),
   // não um número inflado com custos que ainda não chegaram
   const hasTaxes    = !!t
-  const marginValue = hasTaxes ? netRevenue - totalCost : null
+  const marginValue = hasTaxes ? netRevenue - totalCost + importCredit : null
   // Margem % sobre o faturamento bruto (definição do Bruno)
   const gross       = Number(sale.gross_price)
-  const marginPct   = hasTaxes && gross > 0 ? (netRevenue - totalCost) / gross : null
+  const marginPct   = hasTaxes && gross > 0 ? (netRevenue - totalCost + importCredit) / gross : null
 
   await db.from('sale_costs').upsert({
     sale_id:           saleId,

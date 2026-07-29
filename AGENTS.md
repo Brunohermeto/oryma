@@ -36,7 +36,12 @@ Qualquer código novo que grave ou leia valores de venda DEVE segui-las.
 
 ## 5. Margem = todos os custos, sobre o faturamento BRUTO
 - margem = (bruto − cancelamento − cupom-vendedor − comissão − tarifa fixa −
-  frete − ads − impostos da NF − CMV + estorno) / bruto.
+  frete − ads − impostos da NF − CMV + estorno + crédito-importação) / bruto.
+- Crédito-importação (regra 2026-07-28): cada compra gera crédito de
+  PIS+COFINS+ICMS POR PRODUTO. Produto importado: o débito da saída entra
+  cheio e a margem devolve o crédito unitário do lote vigente
+  (`getImportCreditAtDate`). Nacional: crédito já abatido no CUSTO — não
+  devolver de novo (dupla contagem).
 - Venda sem `sale_taxes` = margem NULL ("em cálculo") — fora de médias e somas.
 - Impostos debitam de TODAS as vendas (Full via NF do ML, galpão via Bling).
 
