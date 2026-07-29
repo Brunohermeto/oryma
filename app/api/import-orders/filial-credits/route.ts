@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
 
   const db = createSupabaseServiceClient()
   const { data: items } = await db.from('import_items')
-    .select('id, sku, product_id, quantity, total_fob_value')
+    .select('id, sku, product_id, quantity, total_fob_value, description')
     .eq('import_order_id', orderId)
   if (!items?.length) return NextResponse.json({ error: 'NF sem itens' }, { status: 404 })
 
@@ -65,9 +65,21 @@ export async function POST(request: NextRequest) {
       if (pid) byProduct.set(pid, c)
       if (it.cProd) byCode.set(it.cProd, c)
     }
+    // 3º casamento: código do fornecedor (cProd da filial) DENTRO da descrição
+    // do item da transferência (ex: "MUH-035-1 - CADEIRA...") — as duas notas
+    // usam códigos próprios, mas a descrição preserva o do fornecedor
+    const codeInDescription = (desc: string) => {
+      const d = (desc ?? '').toUpperCase()
+      for (const [code, c] of byCode) {
+        if (code.length >= 4 && d.includes(code.toUpperCase())) return c
+      }
+      return undefined
+    }
 
     for (const item of items) {
-      const c = (item.product_id && byProduct.get(item.product_id)) || byCode.get(item.sku)
+      const c = (item.product_id && byProduct.get(item.product_id))
+        || byCode.get(item.sku)
+        || codeInDescription((item as any).description)
       if (!c) {
         // itens auxiliares (caixas etc.) sem crédito não são erro
         if (item.product_id) naoCasados.push(item.sku)
