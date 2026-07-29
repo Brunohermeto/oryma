@@ -263,12 +263,6 @@ function SaleDetailPanel({ sale }: { sale: SaleRow }) {
                 </span>
               </div>
               <div className="space-y-1.5">
-                <div className="flex justify-between text-xs">
-                  <span style={{ color: B.muted }}>Frete pago pelo comprador (fica com o ML — não é receita)</span>
-                  <span className="num font-medium" style={{ color: B.muted, fontFamily: 'var(--font-geist-mono)' }}>
-                    {freteRecebido > 0 ? fmtR(freteRecebido) : '—'}
-                  </span>
-                </div>
                 <div className="flex justify-between text-xs pt-1.5" style={{ borderTop: `1px solid ${B.border}` }}>
                   <span className="font-semibold" style={{ color: B.subtle }}>Frete do vendedor (nosso custo)</span>
                   <span className="num font-bold" style={{ color: fretePago > 0 ? '#dc2626' : B.muted, fontFamily: 'var(--font-geist-mono)' }}>

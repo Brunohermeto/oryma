@@ -184,7 +184,6 @@ function SaleRow({ sale }: { sale: Sale }) {
                 Receita
               </div>
               <PLRow label="Preço de venda"        value={c.grossPrice}     color={B.brand} bold positive />
-              {c.shippingRec > 0  && <PLRow label="Frete pago pelo cliente (fica com o ML)" value={c.shippingRec} color={B.muted} indent />}
               {c.cancellation > 0 && <PLRow label="(-) Cancelamento"            value={c.cancellation} color="#dc2626" indent cost />}
               {c.discounts > 0    && <PLRow label="(-) Desconto / cupom"         value={c.discounts}    color="#d97706" indent cost />}
               <PLRow label="= Faturamento líquido" value={c.faturamento} bold sep />
