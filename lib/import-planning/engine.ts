@@ -41,6 +41,15 @@ export interface ImportPlan {
   notes: string | null
   done: boolean
   compromissado?: boolean   // false = pedido PREVISTO (em estudo, ainda não fechado)
+  extras?: PagamentoExtra[] // taxas avulsas (Siscomex, AFRMM, armazenagem, despachante…)
+}
+
+export interface PagamentoExtra {
+  label: string
+  valor: number
+  ancora?: 'D0' | 'D1' | 'D2' | 'DG'  // quando por âncora da linha do tempo…
+  offset?: number
+  data?: string                        // …ou data fixa (vence sobre a âncora)
 }
 
 export interface PlanDates {
@@ -104,6 +113,14 @@ export function resolvePagamentos(plan: ImportPlan, profile: ImportProfile, date
       date: ancoras[profile.imposto_frete_ancora] ?? dates.d2,
       amount: plan.valor_imposto_frete,
     })
+  }
+  // Taxas extras avulsas: data fixa ou âncora+offset — recascateiam junto
+  for (const ex of plan.extras ?? []) {
+    if (!ex?.label || !(Number(ex.valor) > 0)) continue
+    const date = ex.data && /^\d{4}-\d{2}-\d{2}$/.test(ex.data)
+      ? ex.data
+      : addDays(ancoras[ex.ancora ?? 'D2'] ?? dates.d2, Number(ex.offset ?? 0))
+    pags.push({ label: ex.label, date, amount: Number(ex.valor) })
   }
   return pags.sort((a, b) => (a.date < b.date ? -1 : 1))
 }

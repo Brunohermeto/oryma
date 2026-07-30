@@ -11,7 +11,7 @@ import { useRouter } from 'next/navigation'
 import { Ship, Plus, Pencil, Trash2, AlertTriangle, RefreshCw } from 'lucide-react'
 import {
   resolvePlanDates, resolvePagamentos, STATUS_COLORS,
-  type ImportPlan, type ImportProfile, type Parcela,
+  type ImportPlan, type ImportProfile, type Parcela, type PagamentoExtra,
 } from '@/lib/import-planning/engine'
 
 export interface RupturaRow {
@@ -205,23 +205,25 @@ function PedidosPanel({ plans, items, profiles, profById, products, hoje, onSave
 }) {
   const [editing, setEditing] = useState<Partial<ImportPlan & { id?: string }> | null>(null)
   const [editItems, setEditItems] = useState<PlanItem[]>([])
+  const [editExtras, setEditExtras] = useState<PagamentoExtra[]>([])
   const [parcelasTxt, setParcelasTxt] = useState('')
   const [showDone, setShowDone] = useState(false)
 
   function openNew() {
     setEditing({ containers: 1, order_date: hoje, valor_fornecedor: 0, valor_imposto_frete: 0, done: false })
-    setEditItems([]); setParcelasTxt('')
+    setEditItems([]); setEditExtras([]); setParcelasTxt('')
   }
   function openEdit(pl: ImportPlan & { id: string }) {
     setEditing({ ...pl })
     setEditItems(items.filter(i => i.plan_id === pl.id).map(i => ({ ...i })))
+    setEditExtras((pl.extras ?? []).map(e => ({ ...e })))
     setParcelasTxt(parcelasToText(pl.parcelas))
   }
   async function save() {
     if (!editing) return
     const ok = await onSave({
       action: 'save_plan',
-      plan: { ...editing, parcelas: parcelasTxt.trim() ? parseParcelas(parcelasTxt) : null },
+      plan: { ...editing, parcelas: parcelasTxt.trim() ? parseParcelas(parcelasTxt) : null, extras: editExtras },
       items: editItems,
     })
     if (ok) setEditing(null)
@@ -281,6 +283,47 @@ function PedidosPanel({ plans, items, profiles, profById, products, hoje, onSave
           <Campo label={`Parcelas deste pedido (vazio = herda do perfil${editing.profile_id ? `: ${parcelasToText(profById.get(editing.profile_id!)?.parcelas)}` : ''}) — formato: 20% D0 · 80% D1+90`}>
             <input className="inp w-full" value={parcelasTxt} onChange={e => setParcelasTxt(e.target.value)} placeholder="ex: 25% D0 · 25% D1 · 25% D2+30 · 25% D2+60" />
           </Campo>
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: B.muted }}>
+              Taxas extras da importação (Siscomex, AFRMM, armazenagem, despachante…) — cada uma com sua data
+            </div>
+            {editExtras.map((ex, idx) => (
+              <div key={idx} className="flex items-center gap-2 mb-1.5 flex-wrap">
+                <input className="inp flex-1" placeholder="descrição (ex: Taxa Siscomex)" value={ex.label}
+                       onChange={e => { const n = [...editExtras]; n[idx] = { ...ex, label: e.target.value }; setEditExtras(n) }} />
+                <input className="inp w-28" type="number" step="0.01" placeholder="valor R$" value={ex.valor || ''}
+                       onChange={e => { const n = [...editExtras]; n[idx] = { ...ex, valor: Number(e.target.value) }; setEditExtras(n) }} />
+                <select className="inp" value={ex.data ? 'data' : (ex.ancora ?? 'D2')}
+                        onChange={e => {
+                          const n = [...editExtras]
+                          n[idx] = e.target.value === 'data'
+                            ? { ...ex, ancora: undefined, offset: undefined, data: hoje }
+                            : { ...ex, ancora: e.target.value as PagamentoExtra['ancora'], data: undefined }
+                          setEditExtras(n)
+                        }}>
+                  <option value="D0">no pedido (D0)</option>
+                  <option value="D1">no embarque (D1)</option>
+                  <option value="D2">no porto (D2)</option>
+                  <option value="DG">no galpão</option>
+                  <option value="data">data fixa</option>
+                </select>
+                {ex.data !== undefined ? (
+                  <input className="inp" type="date" value={ex.data}
+                         onChange={e => { const n = [...editExtras]; n[idx] = { ...ex, data: e.target.value }; setEditExtras(n) }} />
+                ) : (
+                  <input className="inp w-20" type="number" placeholder="+dias" value={ex.offset || ''}
+                         onChange={e => { const n = [...editExtras]; n[idx] = { ...ex, offset: Number(e.target.value) }; setEditExtras(n) }} />
+                )}
+                <button onClick={() => setEditExtras(editExtras.filter((_, i) => i !== idx))} className="p-1 cursor-pointer" style={{ border: 'none', background: 'transparent' }}>
+                  <Trash2 size={13} style={{ color: '#dc2626' }} />
+                </button>
+              </div>
+            ))}
+            <button onClick={() => setEditExtras([...editExtras, { label: '', valor: 0, ancora: 'D2', offset: 0 }])}
+                    className="text-[12px] font-medium cursor-pointer mb-3" style={{ color: B.brand, border: 'none', background: 'transparent' }}>
+              + adicionar taxa extra
+            </button>
+          </div>
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: B.muted }}>Itens (SKUs e quantidades)</div>
             {editItems.map((it, idx) => (
