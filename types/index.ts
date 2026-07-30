@@ -12,7 +12,7 @@ export type OperationalExpenseCategory =
   | 'sistemas_software' | 'contabilidade_consultoria' | 'outras_despesas'
 export type SyncSource = 'mercado_livre' | 'shopee' | 'amazon' | 'bling'
 export type SyncStatus = 'success' | 'error' | 'running'
-export type IntegrationId = 'mercado_livre' | 'shopee' | 'amazon' | 'bling'
+export type IntegrationId = 'mercado_livre' | 'shopee' | 'amazon' | 'bling' | 'magalu'
 
 export interface Credential {
   id: IntegrationId
