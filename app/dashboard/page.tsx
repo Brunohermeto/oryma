@@ -394,6 +394,22 @@ export default async function DashboardPage(
                   <span className="text-[11px]" style={{ color: '#94a3b8' }}>vs 30d anteriores</span>
                 </div>
               )}
+              {/* Faturamento aberto por marketplace + total */}
+              {k.label.startsWith('Faturamento') && (
+                <div className="mt-3 pt-2 space-y-1" style={{ borderTop: '1px solid oklch(0.94 0.01 258)' }}>
+                  {MP_ORDER.filter(mp => byMP[mp]?.revenue > 0).map(mp => (
+                    <div key={mp} className="flex items-center justify-between text-[11px]">
+                      <span className="inline-flex items-center gap-1.5" style={{ color: '#64748B' }}>
+                        <span className="w-2 h-2 rounded-sm inline-block" style={{ background: MP_INFO[mp]?.color }} />
+                        {mpLabel(mp)}
+                      </span>
+                      <span className="font-semibold" style={{ color: '#0B1023', fontFamily: 'var(--font-geist-mono)' }}>
+                        {fmtR(byMP[mp].revenue)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </a>
           ))}
         </div>
