@@ -3,7 +3,7 @@ export const preferredRegion = 'gru1'
 
 import { TopBar } from '@/components/layout/TopBar'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
-import { PlanejamentoView, type RupturaRow, type ProductOption } from '@/components/planejamento/PlanejamentoView'
+import { PlanejamentoView, type RupturaRow, type ProductOption, type ProjecaoMes } from '@/components/planejamento/PlanejamentoView'
 import { resolvePlanDates, type ImportPlan, type ImportProfile } from '@/lib/import-planning/engine'
 import { format, subDays } from 'date-fns'
 
@@ -111,6 +111,57 @@ export default async function PlanejamentoPage() {
 
   const productOptions: ProductOption[] = familyProducts.map(p => ({ id: p.id, sku: p.sku, name: p.name }))
 
+  // ── Etapa 3: receita projetada (12 meses) das famílias importadas ──
+  // Preço médio e margem % dos últimos 60 dias, por produto
+  const d60 = format(subDays(new Date(), 60), 'yyyy-MM-dd')
+  const { data: recentSales } = await db.from('sales')
+    .select('product_id, gross_price, quantity, sale_costs(margin_value)')
+    .gte('sale_date', d60).not('product_id', 'is', null).limit(5000)
+  const priceAgg = new Map<string, { gross: number; qty: number; mv: number; mvGross: number }>()
+  for (const s of recentSales ?? []) {
+    if (!priceAgg.has(s.product_id)) priceAgg.set(s.product_id, { gross: 0, qty: 0, mv: 0, mvGross: 0 })
+    const a = priceAgg.get(s.product_id)!
+    a.gross += Number(s.gross_price)
+    a.qty   += Number(s.quantity ?? 1)
+    const c = s.sale_costs as any
+    const mv = (Array.isArray(c) ? c[0] : c)?.margin_value
+    if (mv !== null && mv !== undefined) { a.mv += Number(mv); a.mvGross += Number(s.gross_price) }
+  }
+
+  // Simulação diária por produto: vende à velocidade real enquanto houver
+  // estoque; chegada de pedido (com itens) repõe; sem estoque = sem receita.
+  const receitaMes = new Map<string, { receita: number; lucro: number }>()
+  const addD = (n: number) => { const d = new Date(); d.setDate(d.getDate() + n); return format(d, 'yyyy-MM-dd') }
+  for (const p of familyProducts) {
+    const sold = soldBy.get(p.id) ?? 0
+    if (sold <= 0) continue
+    const vel = sold / activeDays(datesBy.get(p.id) ?? [])
+    const agg = priceAgg.get(p.id)
+    const avgPrice  = agg && agg.qty > 0 ? agg.gross / agg.qty : 0
+    const marginPct = agg && agg.mvGross > 0 ? agg.mv / agg.mvGross : 0
+    if (vel <= 0 || avgPrice <= 0) continue
+    const chegadas = new Map<string, number>()
+    for (const a of arrivalsByProduct.get(p.id) ?? []) {
+      chegadas.set(a.date, (chegadas.get(a.date) ?? 0) + a.qty)
+    }
+    let avail = Number(p.stock_quantity ?? 0) + Number((p as any).stock_full ?? 0)
+    for (let d = 0; d < 365; d++) {
+      const dia = addD(d)
+      avail += chegadas.get(dia) ?? 0
+      const vendeu = Math.min(vel, avail)
+      if (vendeu <= 0) continue
+      avail -= vendeu
+      const mes = dia.slice(0, 7)
+      if (!receitaMes.has(mes)) receitaMes.set(mes, { receita: 0, lucro: 0 })
+      const r = receitaMes.get(mes)!
+      r.receita += vendeu * avgPrice
+      r.lucro   += vendeu * avgPrice * marginPct
+    }
+  }
+  const projecao: ProjecaoMes[] = [...receitaMes.entries()]
+    .sort((a, b) => (a[0] < b[0] ? -1 : 1)).slice(0, 12)
+    .map(([mes, v]) => ({ mes, receita: Math.round(v.receita), lucro: Math.round(v.lucro) }))
+
   return (
     <>
       <TopBar
@@ -124,6 +175,7 @@ export default async function PlanejamentoPage() {
           items={(items ?? []) as any[]}
           ruptura={ruptura}
           products={productOptions}
+          projecao={projecao}
           hoje={hoje}
         />
       </div>

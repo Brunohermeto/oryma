@@ -22,6 +22,7 @@ export interface RupturaRow {
   pedidoSemItens: { invoice: string; date: string } | null
 }
 export interface ProductOption { id: string; sku: string; name: string }
+export interface ProjecaoMes { mes: string; receita: number; lucro: number }
 interface PlanItem { id?: string; plan_id?: string; product_id: string | null; sku: string; quantity: number }
 
 const B = {
@@ -43,12 +44,13 @@ function parseParcelas(txt: string): Parcela[] {
 const parcelasToText = (ps: Parcela[] | null | undefined) =>
   (ps ?? []).map(p => `${Math.round(p.pct * 100)}% ${p.ancora}${p.offset ? `+${p.offset}` : ''}`).join(' · ')
 
-export function PlanejamentoView({ profiles, plans, items, ruptura, products, hoje }: {
+export function PlanejamentoView({ profiles, plans, items, ruptura, products, projecao, hoje }: {
   profiles: ImportProfile[]
   plans: (ImportPlan & { id: string })[]
   items: PlanItem[]
   ruptura: RupturaRow[]
   products: ProductOption[]
+  projecao: ProjecaoMes[]
   hoje: string
 }) {
   const router = useRouter()
@@ -88,7 +90,7 @@ export function PlanejamentoView({ profiles, plans, items, ruptura, products, ho
 
       {tab === 'ruptura' && <RupturaPanel rows={ruptura} hoje={hoje} />}
       {tab === 'pedidos' && <PedidosPanel plans={plans} items={items} profiles={profiles} profById={profById} products={products} hoje={hoje} onSave={post} />}
-      {tab === 'caixa' && <CaixaPanel plans={plans} profById={profById} hoje={hoje} />}
+      {tab === 'caixa' && <CaixaPanel plans={plans} profById={profById} projecao={projecao} hoje={hoje} />}
       {tab === 'perfis' && <PerfisPanel profiles={profiles} onSave={post} />}
     </div>
   )
@@ -392,9 +394,10 @@ function PedidosPanel({ plans, items, profiles, profById, products, hoje, onSave
 }
 
 /* ── Fluxo de caixa (Etapa 2): desencaixe mensal consolidado ─────────── */
-function CaixaPanel({ plans, profById, hoje }: {
+function CaixaPanel({ plans, profById, projecao, hoje }: {
   plans: (ImportPlan & { id: string })[]
   profById: Map<string, ImportProfile>
+  projecao: ProjecaoMes[]
   hoje: string
 }) {
   // Todos os pagamentos dos pedidos não concluídos, resolvidos em datas
@@ -477,6 +480,71 @@ function CaixaPanel({ plans, profById, hoje }: {
             </div>
           )}
         </div>
+      </div>
+
+      {/* ── Etapa 3: caixa líquido projetado (entradas − saídas) ── */}
+      <div className="bg-white rounded-2xl p-5" style={{ border: `1px solid ${B.border}` }}>
+        <div className="font-semibold text-sm mb-1" style={{ color: B.text, fontFamily: 'var(--font-sora)' }}>
+          Caixa líquido projetado — próximos 12 meses
+        </div>
+        <div className="text-[12px] mb-4" style={{ color: B.muted }}>
+          Entradas = faturamento projetado das famílias importadas (velocidade real × preço médio 60d,
+          <b> parando quando o estoque acaba e retomando na chegada do pedido</b>). Saídas = parcelas das importações.
+          Lucro projetado usa a margem real média de cada produto.
+        </div>
+        {(() => {
+          const saidasPorMes = new Map<string, number>()
+          for (const [m, ls] of byMonth) saidasPorMes.set(m, ls.reduce((s, l) => s + l.amount, 0))
+          const todosMeses = [...new Set([...projecao.map(p => p.mes), ...saidasPorMes.keys()])]
+            .filter(m => m >= hoje.slice(0, 7)).sort().slice(0, 12)
+          let acumulado = 0
+          const fmtMes2 = (m: string) => {
+            const nomes = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+            return `${nomes[Number(m.slice(5, 7)) - 1]}/${m.slice(2, 4)}`
+          }
+          return (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr style={{ borderBottom: `1px solid ${B.border}` }}>
+                    {['Mês', 'Entradas (faturamento)', 'Lucro projetado', 'Saídas (importações)', 'Líquido do mês', 'Acumulado'].map((h, i) => (
+                      <th key={h} className={`px-3 py-2 text-[11px] font-semibold uppercase tracking-wide ${i === 0 ? 'text-left' : 'text-right'}`} style={{ color: B.muted }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {todosMeses.map(m => {
+                    const pr = projecao.find(p => p.mes === m)
+                    const entrada = pr?.receita ?? 0
+                    const lucro   = pr?.lucro ?? 0
+                    const saida   = saidasPorMes.get(m) ?? 0
+                    const liquido = lucro - saida
+                    acumulado += liquido
+                    return (
+                      <tr key={m} style={{ borderBottom: `1px solid ${B.bgSubtle}` }}>
+                        <td className="px-3 py-2 text-[13px] font-semibold" style={{ color: B.text }}>{fmtMes2(m)}</td>
+                        <td className="px-3 py-2 text-right" style={{ color: B.text, fontFamily: 'var(--font-geist-mono)' }}>{fmtR(entrada)}</td>
+                        <td className="px-3 py-2 text-right" style={{ color: '#16a34a', fontFamily: 'var(--font-geist-mono)' }}>{fmtR(lucro)}</td>
+                        <td className="px-3 py-2 text-right" style={{ color: '#dc2626', fontFamily: 'var(--font-geist-mono)' }}>{saida > 0 ? `(${fmtR(saida)})` : '—'}</td>
+                        <td className="px-3 py-2 text-right font-semibold" style={{ color: liquido >= 0 ? '#16a34a' : '#dc2626', fontFamily: 'var(--font-geist-mono)' }}>
+                          {liquido >= 0 ? fmtR(liquido) : `(${fmtR(Math.abs(liquido))})`}
+                        </td>
+                        <td className="px-3 py-2 text-right font-bold" style={{ color: acumulado >= 0 ? B.text : '#dc2626', fontFamily: 'var(--font-geist-mono)' }}>
+                          {acumulado >= 0 ? fmtR(acumulado) : `(${fmtR(Math.abs(acumulado))})`}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+              <div className="text-[11px] mt-3" style={{ color: B.muted }}>
+                Nota: o "líquido" compara o LUCRO projetado das vendas (não o faturamento, que inclui custos já pagos)
+                com o desencaixe das importações — é a visão de geração de caixa. Pedidos sem itens preenchidos não
+                geram reposição na projeção.
+              </div>
+            </div>
+          )
+        })()}
       </div>
     </div>
   )
