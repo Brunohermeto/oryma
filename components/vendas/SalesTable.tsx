@@ -12,16 +12,10 @@ const B = {
   violeta:  '#7B61FF',
 }
 
-const MP_LABELS: Record<string, string> = {
-  mercado_livre: 'Mercado Livre', shopee: 'Shopee', amazon: 'Amazon',
-}
-const MP_BADGE: Record<string, { bg: string; color: string }> = {
-  mercado_livre: { bg: 'oklch(0.94 0.06 258)', color: '#125BFF' },
-  shopee:        { bg: 'oklch(0.94 0.08 280)', color: '#7B61FF' },
-  amazon:        { bg: 'oklch(0.94 0.08 204)', color: '#0097b2' },
-}
+import { MarketplaceBadge, mpLabel } from '@/components/marketplaces'
+
 const FULFILLMENT_LABELS: Record<string, string> = {
-  galpao: 'Galpão', full_ml: 'Full ML', fba_amazon: 'FBA',
+  galpao: 'Galpão', full_ml: 'Full ML', fba_amazon: 'FBA', full_magalu: 'Full Magalu',
 }
 
 function fmtR(v: number) {
@@ -520,7 +514,6 @@ export function SalesTable({ sales }: { sales: SaleRow[] }) {
             ? Number(cost.margin_value)
             : null
           const marginPct     = cost?.margin_pct !== null && cost?.margin_pct !== undefined ? Number(cost.margin_pct) : null
-          const badge         = MP_BADGE[sale.marketplace] ?? { bg: B.bgSubtle, color: B.brand }
 
           // Indicador de completude dos dados
           const commissionPct = faturamento > 0 ? commission / faturamento : 0
@@ -573,9 +566,7 @@ export function SalesTable({ sales }: { sales: SaleRow[] }) {
                   </div>
                 </td>
                 <td className="px-4 py-2.5">
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: badge.bg, color: badge.color }}>
-                    {MP_LABELS[sale.marketplace] ?? sale.marketplace}
-                  </span>
+                  <MarketplaceBadge mp={sale.marketplace} />
                 </td>
                 <td className="px-4 py-2.5 text-right text-xs" style={{ color: B.subtle }}>{Number(sale.quantity).toFixed(0)}</td>
                 <td className="px-4 py-2.5 text-right text-xs num" style={{ color: B.subtle, fontFamily: 'var(--font-geist-mono)' }}>

@@ -187,6 +187,35 @@ export function ProductsTable({ rows }: { rows: ProductRow[] }) {
                 </td>
               </tr>
             ))}
+            {/* ── Linha TOTAL (produtos do filtro atual) ── */}
+            {view.length > 0 && (() => {
+              const t = view.reduce((a, r) => {
+                a.stock += r.stock; a.full += r.stockFull; a.total += r.totalStock
+                a.sold += r.sold12m; a.vel += r.velocityPerDay
+                a.capital += r.cmp !== null ? r.cmp * r.totalStock : 0
+                return a
+              }, { stock: 0, full: 0, total: 0, sold: 0, vel: 0, capital: 0 })
+              return (
+                <tr style={{ background: B.bgSubtle, borderTop: `2px solid ${B.border}` }}>
+                  <td className="py-2.5 px-4 font-bold" style={{ color: B.text }}>TOTAL ({view.length} produtos)</td>
+                  <td className="py-2.5 px-4 text-right num" style={{ fontFamily: 'var(--font-geist-mono)', color: B.text }}>
+                    <span className="font-bold">{t.total.toFixed(0)}</span>
+                    <div className="text-[10px]" style={{ color: B.muted }}>galpão {t.stock.toFixed(0)} · full {t.full.toFixed(0)}</div>
+                  </td>
+                  <td className="py-2.5 px-4 text-right num" style={{ fontFamily: 'var(--font-geist-mono)', color: B.text }}>
+                    <span className="font-bold">{t.vel.toFixed(1)}/dia</span>
+                    <div className="text-[10px]" style={{ color: B.muted }}>{t.sold.toFixed(0)} un em 12m</div>
+                  </td>
+                  <td className="py-2.5 px-4 text-right text-[11px]" style={{ color: B.muted }}>
+                    {t.vel > 0 ? `${Math.round(t.total / t.vel)} dias` : '—'}
+                  </td>
+                  <td className="py-2.5 px-4 text-right num font-bold" style={{ fontFamily: 'var(--font-geist-mono)', color: B.text }}>
+                    <div className="text-[10px] font-normal" style={{ color: B.muted }}>capital em estoque</div>
+                    {fmtR(t.capital)}
+                  </td>
+                </tr>
+              )
+            })()}
           </tbody>
         </table>
       </div>

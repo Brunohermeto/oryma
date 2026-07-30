@@ -18,16 +18,7 @@ export const preferredRegion = 'gru1'
 function fmtR(v: number) { return `R$ ${Math.round(v).toLocaleString('pt-BR')}` }
 function fmtPct(v: number) { return `${v.toFixed(1)}%` }
 
-const MP_LABELS: Record<string, string> = {
-  mercado_livre: 'Mercado Livre',
-  shopee: 'Shopee',
-  amazon: 'Amazon',
-}
-const MP_COLORS: Record<string, string> = {
-  mercado_livre: '#125BFF',
-  shopee:        '#7B61FF',
-  amazon:        '#00D6FF',
-}
+import { MP_INFO, MP_ORDER, mpLabel } from '@/components/marketplaces'
 
 export default async function DashboardPage(
   { searchParams }: { searchParams: Promise<{ days?: string }> }
@@ -90,20 +81,29 @@ export default async function DashboardPage(
   // Supabase retorna relações como objeto único OU array — trata ambos
   const uw = (v: unknown) => !v ? null : Array.isArray(v) ? (v as any[])[0] ?? null : v
 
-  // ── Taxas pagas no período (bloco de gestão) ──
-  const fees = (sales ?? []).reduce((a, r) => {
-    a.comissao += Number(r.marketplace_commission ?? 0)
-    a.frete    += Number(r.marketplace_shipping_fee ?? 0)
-    a.fixa     += Number((r as any).marketplace_fixed_fee ?? 0)
-    a.ads      += Number(r.ads_cost ?? 0)
-    a.estorno  += Number((r as any).rebate ?? 0)
-    return a
-  }, { comissao: 0, frete: 0, fixa: 0, ads: 0, estorno: 0 })
-  const feesTotal = fees.comissao + fees.frete + fees.fixa + fees.ads - fees.estorno
+  // ── Taxas pagas no período — por marketplace + total ──
+  type FeeAgg = { comissao: number; frete: number; fixa: number; ads: number; estorno: number; revenue: number }
+  const newFeeAgg = (): FeeAgg => ({ comissao: 0, frete: 0, fixa: 0, ads: 0, estorno: 0, revenue: 0 })
+  const feesByMp: Record<string, FeeAgg> = {}
+  const fees = newFeeAgg()
+  for (const r of sales ?? []) {
+    const mp = (r as any).marketplace as string
+    if (!feesByMp[mp]) feesByMp[mp] = newFeeAgg()
+    for (const agg of [fees, feesByMp[mp]]) {
+      agg.comissao += Number(r.marketplace_commission ?? 0)
+      agg.frete    += Number(r.marketplace_shipping_fee ?? 0)
+      agg.fixa     += Number((r as any).marketplace_fixed_fee ?? 0)
+      agg.ads      += Number(r.ads_cost ?? 0)
+      agg.estorno  += Number((r as any).rebate ?? 0)
+      agg.revenue  += Number(r.gross_price ?? 0) - Number(r.cancellation ?? 0)
+    }
+  }
+  const feeSum = (a: FeeAgg) => a.comissao + a.frete + a.fixa + a.ads - a.estorno
+  const feesTotal = feeSum(fees)
 
   // ── Margem por produto (período próprio via ?days=) ──
   const { data: marginSales } = await db.from('sales')
-    .select(`product_id, gross_price, cancellation, quantity, uf_destino, ads_cost,
+    .select(`product_id, marketplace, gross_price, cancellation, quantity, uf_destino, ads_cost,
       marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, rebate,
       sale_taxes(icms, icms_difal, pis, cofins), sale_costs(total_cost, margin_value),
       products(id, name, sku)`)
@@ -153,14 +153,16 @@ export default async function DashboardPage(
     }
   }
   // ── Vendas por ESTADO (mesmo período do filtro ?days=) ──
-  const ufGlobal = new Map<string, { units: number; revenue: number; mv: number; mg: number }>()
+  const ufGlobal = new Map<string, { units: number; revenue: number; mv: number; mg: number; byMp: Record<string, number> }>()
   for (const s of marginSales ?? []) {
     const uf = s.uf_destino || '??'
-    if (!ufGlobal.has(uf)) ufGlobal.set(uf, { units: 0, revenue: 0, mv: 0, mg: 0 })
+    if (!ufGlobal.has(uf)) ufGlobal.set(uf, { units: 0, revenue: 0, mv: 0, mg: 0, byMp: {} })
     const u = ufGlobal.get(uf)!
     const g = Number(s.gross_price) - Number(s.cancellation ?? 0)
     u.units   += Number(s.quantity)
     u.revenue += g
+    const smp = (s as any).marketplace as string
+    u.byMp[smp] = (u.byMp[smp] ?? 0) + g
     const mvv = (uw(s.sale_costs) as any)?.margin_value
     if (mvv !== null && mvv !== undefined) { u.mv += Number(mvv); u.mg += g }
   }
@@ -172,6 +174,7 @@ export default async function DashboardPage(
       pctRevenue: (u.revenue / ufTotalRevenue) * 100,
       pctUnits: (u.units / ufTotalUnits) * 100,
       marginPct: u.mg > 0 ? (u.mv / u.mg) * 100 : null,
+      byMp: u.byMp,
     }))
     .sort((a, b) => b.revenue - a.revenue)
 
@@ -247,16 +250,17 @@ export default async function DashboardPage(
     byMP[mp].orders++
   }
 
-  // ── Trend (30 dias) ──
+  // ── Trend (30 dias) — todas as séries + totalizadora ──
   const days = eachDayOfInterval({ start: subDays(now, 29), end: now })
   const trendData = days.map(day => {
     const dateStr = format(day, 'dd/MM')
     const dayStr = format(day, 'yyyy-MM-dd')
-    const row: any = { date: dateStr }
-    for (const mp of ['mercado_livre', 'shopee', 'amazon']) {
+    const row: any = { date: dateStr, total: 0 }
+    for (const mp of MP_ORDER) {
       row[mp] = (trendSales ?? [])
         .filter(s => s.sale_date === dayStr && s.marketplace === mp)
         .reduce((s, r) => s + Number(r.gross_price), 0)
+      row.total += row[mp]
     }
     return row
   })
@@ -282,10 +286,10 @@ export default async function DashboardPage(
     }
   })
 
-  // ── Bar chart ──
+  // ── Bar chart — todos os canais presentes nas vendas ──
   const barData = Object.entries(byMP).map(([mp, d]) => {
     const margin = d.marginBase > 0 ? (d.marginValue / d.marginBase) * 100 : 0
-    return { marketplace: MP_LABELS[mp] ?? mp, margem: margin, receita: d.revenue }
+    return { marketplace: mpLabel(mp), margem: margin, receita: d.revenue }
   })
 
   // ── Top produtos ──
@@ -406,7 +410,8 @@ export default async function DashboardPage(
               Margem e Lucro por Dia — Últimos 30 dias
             </div>
             <div className="text-[12px] mt-0.5" style={{ color: 'oklch(0.50 0.025 258)' }}>
-              Barras = lucro do dia (R$) · linha roxa = margem % · só vendas com cálculo completo
+              Totalizado (todos os canais) · barras = lucro do dia (R$) · linha roxa = margem % · só vendas com cálculo completo ·{' '}
+              <b style={{ color: '#16a34a' }}>lucro total do período: {fmtR(grossProfit)}</b>
             </div>
           </div>
           <MarginDailyChart data={marginTrend} avgMargin={grossMargin} />
@@ -420,7 +425,7 @@ export default async function DashboardPage(
               <div className="text-sm font-semibold" style={{ color: 'oklch(0.12 0.04 258)', fontFamily: 'var(--font-sora)' }}>
                 Receita por Dia — Últimos 30 dias
               </div>
-              <div className="text-[12px] mt-0.5" style={{ color: 'oklch(0.50 0.025 258)' }}>Canais: ML · Shopee · Amazon</div>
+              <div className="text-[12px] mt-0.5" style={{ color: 'oklch(0.50 0.025 258)' }}>Todos os canais separados + linha totalizadora tracejada</div>
             </div>
             <RevenueLineChart data={trendData} />
           </div>
@@ -432,7 +437,7 @@ export default async function DashboardPage(
             <div className="text-sm font-semibold mb-1" style={{ color: 'oklch(0.12 0.04 258)', fontFamily: 'var(--font-sora)' }}>
               Margem por Canal
             </div>
-            <div className="text-[12px] mb-4" style={{ color: 'oklch(0.50 0.025 258)' }}>Mês atual</div>
+            <div className="text-[12px] mb-4" style={{ color: 'oklch(0.50 0.025 258)' }}>Últimos 30 dias · todos os canais</div>
             <MarketplaceBarChart data={barData} />
           </div>
         </div>
@@ -475,25 +480,54 @@ export default async function DashboardPage(
               </span>
             )}
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-            {[
-              { label: 'Comissão',    v: fees.comissao, color: '#d97706' },
-              { label: 'Frete',       v: fees.frete,    color: '#d97706' },
-              { label: 'Tarifa fixa', v: fees.fixa,     color: '#d97706' },
-              { label: 'Publicidade', v: fees.ads,      color: '#d97706' },
-              { label: 'Estorno',     v: -fees.estorno, color: '#16a34a' },
-              { label: 'Total',       v: feesTotal,     color: '#0B1023' },
-            ].map(item => (
-              <div key={item.label} className="rounded-xl px-3 py-2.5" style={{ background: 'oklch(0.97 0.008 258)' }}>
-                <div className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#64748B' }}>{item.label}</div>
-                <div className="text-[15px] font-bold" style={{ color: item.color, fontFamily: 'var(--font-geist-mono)' }}>
-                  {item.v < 0 ? `− ${fmtR(Math.abs(item.v))}` : fmtR(item.v)}
-                </div>
-                <div className="text-[11px]" style={{ color: '#64748B' }}>
-                  {totalRevenue > 0 ? `${(Math.abs(item.v) / totalRevenue * 100).toFixed(1)}% do faturamento` : '—'}
-                </div>
-              </div>
-            ))}
+          {/* Tabela: uma linha por marketplace + total */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-[12px]" style={{ borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ color: '#64748B' }}>
+                  {['Canal', 'Comissão', 'Frete', 'Tarifa fixa', 'Publicidade', 'Estorno', 'Total', '% do fat.'].map((h, i) => (
+                    <th key={h} className={`py-2 px-2 text-[10px] font-bold uppercase tracking-widest ${i === 0 ? 'text-left' : 'text-right'}`}
+                        style={{ borderBottom: '1px solid oklch(0.92 0.012 258)' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody style={{ fontFamily: 'var(--font-geist-mono)' }}>
+                {MP_ORDER.filter(mp => feesByMp[mp]).map(mp => {
+                  const f = feesByMp[mp]
+                  return (
+                    <tr key={mp} style={{ borderBottom: '1px solid oklch(0.96 0.008 258)' }}>
+                      <td className="py-2 px-2 font-sans font-semibold" style={{ color: '#0B1023' }}>
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: MP_INFO[mp]?.color }} />
+                          {mpLabel(mp)}
+                        </span>
+                      </td>
+                      <td className="py-2 px-2 text-right" style={{ color: '#d97706' }}>{fmtR(f.comissao)}</td>
+                      <td className="py-2 px-2 text-right" style={{ color: '#d97706' }}>{fmtR(f.frete)}</td>
+                      <td className="py-2 px-2 text-right" style={{ color: '#d97706' }}>{fmtR(f.fixa)}</td>
+                      <td className="py-2 px-2 text-right" style={{ color: '#d97706' }}>{fmtR(f.ads)}</td>
+                      <td className="py-2 px-2 text-right" style={{ color: '#16a34a' }}>{f.estorno > 0 ? `− ${fmtR(f.estorno)}` : '—'}</td>
+                      <td className="py-2 px-2 text-right font-bold" style={{ color: '#0B1023' }}>{fmtR(feeSum(f))}</td>
+                      <td className="py-2 px-2 text-right" style={{ color: '#64748B' }}>
+                        {f.revenue > 0 ? `${(feeSum(f) / f.revenue * 100).toFixed(1)}%` : '—'}
+                      </td>
+                    </tr>
+                  )
+                })}
+                <tr style={{ background: 'oklch(0.97 0.008 258)' }}>
+                  <td className="py-2 px-2 font-sans font-bold" style={{ color: '#0B1023' }}>TOTAL</td>
+                  <td className="py-2 px-2 text-right font-bold" style={{ color: '#d97706' }}>{fmtR(fees.comissao)}</td>
+                  <td className="py-2 px-2 text-right font-bold" style={{ color: '#d97706' }}>{fmtR(fees.frete)}</td>
+                  <td className="py-2 px-2 text-right font-bold" style={{ color: '#d97706' }}>{fmtR(fees.fixa)}</td>
+                  <td className="py-2 px-2 text-right font-bold" style={{ color: '#d97706' }}>{fmtR(fees.ads)}</td>
+                  <td className="py-2 px-2 text-right font-bold" style={{ color: '#16a34a' }}>{fees.estorno > 0 ? `− ${fmtR(fees.estorno)}` : '—'}</td>
+                  <td className="py-2 px-2 text-right font-bold" style={{ color: '#0B1023' }}>{fmtR(feesTotal)}</td>
+                  <td className="py-2 px-2 text-right font-bold" style={{ color: '#64748B' }}>
+                    {totalRevenue > 0 ? `${(feesTotal / totalRevenue * 100).toFixed(1)}%` : '—'}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -505,8 +539,16 @@ export default async function DashboardPage(
           <div className="text-sm font-semibold mb-1" style={{ color: 'oklch(0.12 0.04 258)', fontFamily: 'var(--font-sora)' }}>
             Vendas por Estado — últimos {marginDays} dias
           </div>
-          <div className="text-[12px] mb-4" style={{ color: 'oklch(0.50 0.025 258)' }}>
-            Participação no faturamento, % das unidades e margem média em cada UF de destino
+          <div className="text-[12px] mb-2" style={{ color: 'oklch(0.50 0.025 258)' }}>
+            Participação no faturamento, % das unidades e margem média em cada UF de destino — barras separadas por marketplace
+          </div>
+          <div className="flex items-center gap-3 mb-4 flex-wrap text-[11px]" style={{ color: 'oklch(0.45 0.03 258)' }}>
+            {MP_ORDER.map(mp => (
+              <span key={mp} className="inline-flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: MP_INFO[mp]?.color }} />
+                {mpLabel(mp)}
+              </span>
+            ))}
           </div>
           <div className="space-y-2">
             {ufRows.map(u => (
@@ -514,11 +556,14 @@ export default async function DashboardPage(
                 <span className="w-8 text-[13px] font-bold" style={{ color: u.uf === '??' ? 'oklch(0.60 0.02 258)' : '#125BFF' }}>
                   {u.uf === '??' ? '—' : u.uf}
                 </span>
-                <div className="flex-1 h-4 rounded-full overflow-hidden" style={{ background: 'oklch(0.96 0.010 258)' }}>
-                  <div className="h-full rounded-full" style={{
-                    width: `${Math.max(u.pctRevenue, 1)}%`,
-                    background: 'linear-gradient(90deg, #125BFF, #00D6FF)',
-                  }} />
+                {/* barra empilhada: um segmento por marketplace, na cor da marca */}
+                <div className="flex-1 h-4 rounded-full overflow-hidden flex" style={{ background: 'oklch(0.96 0.010 258)' }}>
+                  {MP_ORDER.filter(mp => (u.byMp[mp] ?? 0) > 0).map(mp => (
+                    <div key={mp} title={`${mpLabel(mp)}: ${fmtR(u.byMp[mp])}`} className="h-full" style={{
+                      width: `${Math.max((u.byMp[mp] / ufTotalRevenue) * 100, 0.6)}%`,
+                      background: MP_INFO[mp]?.color,
+                    }} />
+                  ))}
                 </div>
                 <span className="w-24 text-right text-[12px] font-semibold num" style={{ color: '#0B1023', fontFamily: 'var(--font-geist-mono)' }}>
                   {fmtR(u.revenue)}
@@ -574,9 +619,9 @@ export default async function DashboardPage(
                   >
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: MP_COLORS[mp] ?? 'oklch(0.50 0.025 258)' }} />
+                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: MP_INFO[mp]?.color ?? 'oklch(0.50 0.025 258)' }} />
                         <span className="text-[13px] font-medium" style={{ color: 'oklch(0.20 0.05 258)' }}>
-                          {MP_LABELS[mp] ?? mp}
+                          {mpLabel(mp)}
                         </span>
                         <span className="text-[11px]" style={{ color: 'oklch(0.50 0.025 258)' }}>
                           {d.orders} pedidos
@@ -598,7 +643,7 @@ export default async function DashboardPage(
                     <div className="h-1 rounded-full overflow-hidden" style={{ background: 'oklch(0.93 0.014 258)' }}>
                       <div
                         className="h-full rounded-full transition-all"
-                        style={{ width: `${pct}%`, background: MP_COLORS[mp] ?? '#125BFF' }}
+                        style={{ width: `${pct}%`, background: MP_INFO[mp]?.color ?? '#125BFF' }}
                       />
                     </div>
                   </a>

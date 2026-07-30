@@ -7,12 +7,12 @@ interface DataPoint {
   receita: number
 }
 
-// Oryma — Manual de Marca
-const COLORS: Record<string, string> = {
-  'Mercado Livre': '#125BFF',
-  'Shopee':        '#7B61FF',
-  'Amazon':        '#00D6FF',
-}
+import { MP_INFO } from '@/components/marketplaces'
+
+// Cores de marca de cada canal (fonte única em components/marketplaces.tsx)
+const COLORS: Record<string, string> = Object.fromEntries(
+  Object.values(MP_INFO).map(i => [i.label, i.color])
+)
 
 export function MarketplaceBarChart({ data }: { data: DataPoint[] }) {
   if (!data.length) {

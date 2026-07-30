@@ -262,6 +262,46 @@ export function MarginByProductTable({ rows, days }: { rows: ProductMarginRow[];
             {sorted.length === 0 && (
               <tr><td colSpan={16} className="px-2 py-6 text-center text-[13px]" style={{ color: B.muted }}>Nenhum produto no período/busca.</td></tr>
             )}
+            {/* ── Linha TOTAL (produtos filtrados) ── */}
+            {sorted.length > 0 && (() => {
+              const t = sorted.reduce((a, r) => {
+                a.units += r.units; a.revenue += r.revenue
+                a.icms += r.icms; a.difal += r.difal; a.piscofins += r.piscofins
+                a.taxedRevenue += r.taxedRevenue
+                a.commission += r.commission; a.ads += r.ads
+                a.cost += (r.cmvMedio ?? 0) * r.units
+                if (r.marginPct !== null) { a.mv += (r.marginPct / 100) * r.revenue; a.mb += r.revenue }
+                a.vel += r.velocityDay
+                return a
+              }, { units: 0, revenue: 0, icms: 0, difal: 0, piscofins: 0, taxedRevenue: 0, commission: 0, ads: 0, cost: 0, mv: 0, mb: 0, vel: 0 })
+              const tMargin = t.mb > 0 ? (t.mv / t.mb) * 100 : null
+              const td = 'px-2 py-2.5 text-right text-[13px] font-bold'
+              const mono = { fontFamily: 'var(--font-geist-mono)', color: B.text }
+              return (
+                <tr style={{ background: B.bgSubtle, borderTop: `2px solid ${B.border}` }}>
+                  <td className="px-2 py-2.5 text-[13px] font-bold" style={{ color: B.text }}>TOTAL</td>
+                  <td className={td} style={mono}>{t.units}</td>
+                  <td className={td} style={mono}>{fmtR0(t.revenue)}</td>
+                  <td className={td} style={mono}>{fmtR0(t.icms)}</td>
+                  <td className={td} style={mono}>{t.taxedRevenue > 0 ? pctOf(t.icms, t.taxedRevenue) : '—'}</td>
+                  <td className={td} style={mono}>{fmtR0(t.difal)}</td>
+                  <td className={td} style={mono}>{t.taxedRevenue > 0 ? pctOf(t.difal, t.taxedRevenue) : '—'}</td>
+                  <td className={td} style={mono}>{fmtR0(t.piscofins)}</td>
+                  <td className={td} style={{ color: B.muted }}>—</td>
+                  <td className={td} style={{ color: B.muted }}>—</td>
+                  <td className={td} style={{ ...mono, color: '#d97706' }}>{pctOf(t.commission, t.revenue)}</td>
+                  <td className={td} style={mono}>{t.ads > 0 ? pctOf(t.ads, t.revenue) : '—'}</td>
+                  <td className={td} style={mono}>{t.ads > 0 ? fmtR0(t.ads) : '—'}</td>
+                  <td className={td} style={mono}>{t.units > 0 && t.cost > 0 ? fmtR(t.cost / t.units) : '—'}</td>
+                  <td className={td}>
+                    {tMargin !== null
+                      ? <span className="text-[12px] font-bold px-1.5 py-0.5 rounded-md" style={{ color: marginColor(tMargin), background: 'white' }}>{tMargin.toFixed(1)}%</span>
+                      : '—'}
+                  </td>
+                  <td className={td} style={mono}>{t.vel.toFixed(1)}</td>
+                </tr>
+              )
+            })()}
           </tbody>
         </table>
       </div>

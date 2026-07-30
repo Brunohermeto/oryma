@@ -10,11 +10,11 @@ const B = {
   brand:    '#125BFF',
 }
 
-const CHANNELS: Record<string, { label: string; color: string; bg: string }> = {
-  mercado_livre: { label: 'Mercado Livre', color: '#125BFF', bg: 'oklch(0.94 0.06 258)' },
-  shopee:        { label: 'Shopee',         color: '#7B61FF', bg: 'oklch(0.94 0.08 280)' },
-  amazon:        { label: 'Amazon',          color: '#0097b2', bg: 'oklch(0.94 0.06 204)' },
-}
+import { MP_INFO } from '@/components/marketplaces'
+
+const CHANNELS: Record<string, { label: string; color: string; bg: string }> = Object.fromEntries(
+  Object.entries(MP_INFO).map(([mp, i]) => [mp, { label: i.label, color: i.color, bg: 'oklch(0.96 0.010 258)' }])
+)
 
 const FULFILLMENT: Record<string, string> = {
   galpao: 'Galpão', full_ml: 'Full ML', fba_amazon: 'FBA',
@@ -222,7 +222,7 @@ export function LiveSalesFeed() {
   }, [days, fetchSales])
 
   // Agrupa por canal
-  const byChannel: Record<string, Sale[]> = { mercado_livre: [], shopee: [], amazon: [] }
+  const byChannel: Record<string, Sale[]> = { mercado_livre: [], magalu: [], amazon: [], shopee: [] }
   for (const s of sales) {
     if (byChannel[s.marketplace]) byChannel[s.marketplace].push(s)
   }
