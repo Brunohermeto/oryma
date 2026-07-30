@@ -8,7 +8,7 @@ import { BlingSyncButton } from '@/components/configuracoes/BlingSyncButton'
 import { MarketplaceSyncButton } from '@/components/configuracoes/MarketplaceSyncButton'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { getCredential, isTokenExpired } from '@/lib/integrations/credentials'
-import { Clock, CheckCircle2, AlertCircle, WifiOff, Hourglass } from 'lucide-react'
+import { Clock, CheckCircle2, AlertCircle, WifiOff } from 'lucide-react'
 
 const B = {
   border:   'oklch(0.88 0.016 258)',
@@ -169,21 +169,15 @@ export default async function ConfiguracoesPage({
           type="manual_amazon"
         />
 
-        {/* Magalu — integração ainda não construída */}
-        <div className="bg-white rounded-xl p-5 flex items-center justify-between" style={{ border: `1px solid ${B.border}`, opacity: 0.7 }}>
-          <div>
-            <div className="font-semibold text-[15px]" style={{ color: B.text, fontFamily: 'var(--font-sora)' }}>
-              Magalu
-            </div>
-            <p className="text-[13px]" style={{ color: B.muted }}>
-              Pedidos e comissões — integração em desenvolvimento
-            </p>
-          </div>
-          <span className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-full"
-            style={{ background: B.bgSubtle, color: B.muted }}>
-            <Hourglass size={12} /> Em breve
-          </span>
-        </div>
+        <ConfigCard
+          id="magalu"
+          name="Magalu"
+          description="Pedidos, comissões e repasses — conexão OAuth com renovação automática"
+          guide="https://developers.magalu.com"
+          credential={credMap['magalu']}
+          connectUrl="/api/integrations/magalu/authorize"
+          type="oauth"
+        />
 
         <ConfigCard
           id="bling"
