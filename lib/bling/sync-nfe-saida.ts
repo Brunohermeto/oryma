@@ -48,8 +48,8 @@ function extractStr(xml: string, tag: string): string | null {
 
 function parseInfoAdicionais(xml: string): { canal: string | null; numeroPedido: string | null } {
   const infCpl = extractStr(xml, 'infCpl') ?? ''
-  const canalMatch = infCpl.match(/Canal:\s*(Mercado Livre|Shopee|Amazon)/i)
-  const canal = canalMatch?.[1]?.toLowerCase().replace('mercado livre', 'mercado_livre') ?? null
+  const canalMatch = infCpl.match(/Canal:\s*(Mercado Livre|Shopee|Amazon|Magalu|Magazine Luiza)/i)
+  const canal = canalMatch?.[1]?.toLowerCase().replace('mercado livre', 'mercado_livre').replace('magazine luiza', 'magalu') ?? null
   const pedidoMatch = infCpl.match(/Numero Pedido Loja:\s*([^\s]+)/i)
   const numeroPedido = pedidoMatch?.[1] ?? null
   return { canal, numeroPedido }
@@ -78,6 +78,26 @@ export async function syncNFeSaida(startDate: string, endDate: string, maxItems 
   // Carrega chaves já vinculadas (para skip imediato)
   const { data: linkedData } = await db.from('sales').select('nfe_saida_key').not('nfe_saida_key', 'is', null)
   const linkedChaves = new Set((linkedData ?? []).map(s => s.nfe_saida_key as string))
+
+  // Vendas que JÁ têm a chave da NF vinda da API do marketplace (ex: Magalu)
+  // mas ainda estão sem impostos → baixar o XML direto pela chave, sem heurística
+  const { data: keyedSales } = await db.from('sales')
+    .select('id, nfe_saida_key')
+    .not('nfe_saida_key', 'is', null)
+    .eq('marketplace', 'magalu')
+  const keyedIds = (keyedSales ?? []).map(s => s.id)
+  const taxedIds = new Set<string>()
+  for (let i = 0; i < keyedIds.length; i += 200) {
+    const { data: taxed } = await db.from('sale_taxes').select('sale_id').in('sale_id', keyedIds.slice(i, i + 200))
+    for (const t of taxed ?? []) taxedIds.add(t.sale_id as string)
+  }
+  const chaveDirectMap = new Map<string, string[]>()
+  for (const s of keyedSales ?? []) {
+    if (taxedIds.has(s.id)) continue
+    const chave = s.nfe_saida_key as string
+    if (!chaveDirectMap.has(chave)) chaveDirectMap.set(chave, [])
+    chaveDirectMap.get(chave)!.push(s.id)
+  }
 
   // Carrega TODAS as vendas sem NF-e (paginado — sem esse fix só pega 1000 de ~3270)
   const unmatchedSales: Array<{ id: string; external_order_id: string; sale_date: string; gross_price: number }> = []
@@ -151,8 +171,9 @@ export async function syncNFeSaida(startDate: string, endDate: string, maxItems 
 
     for (const nfe of list.data) {
       if (!isSerieValida(nfe.serie)) continue
-      // Skip imediato se chave já conhecida (sem baixar XML)
-      if (nfe.chaveAcesso && linkedChaves.has(nfe.chaveAcesso)) continue
+      // Skip imediato se chave já conhecida (sem baixar XML) — exceto se a venda
+      // vinculada ainda está sem impostos (chave veio da API do marketplace)
+      if (nfe.chaveAcesso && linkedChaves.has(nfe.chaveAcesso) && !chaveDirectMap.has(nfe.chaveAcesso)) continue
 
       if (processed >= maxItems) break
       processed++
@@ -165,7 +186,25 @@ export async function syncNFeSaida(startDate: string, endDate: string, maxItems 
         if (!xml) continue
 
         const chave = nfe.chaveAcesso ?? xml.match(/<chNFe>([^<]+)<\/chNFe>/)?.[1] ?? null
-        if (!chave || linkedChaves.has(chave)) continue
+        if (!chave) continue
+
+        // Match direto por chave (venda já sabe qual é a sua NF)
+        if (chaveDirectMap.has(chave)) {
+          matches.push({
+            saleIds: chaveDirectMap.get(chave)!,
+            orderKey: `chave_${chave}`,
+            chave,
+            freteTot: extractTag(xml, 'vFrete'),
+            pis: extractTag(xml, 'vPIS'), cofins: extractTag(xml, 'vCOFINS'),
+            icms: extractTag(xml, 'vICMS'),
+            difal: extractTag(xml, 'vICMSUFDest') + extractTag(xml, 'vICMSUFRemet'),
+            ipi: extractTag(xml, 'vIPI'),
+            totalNfeValue: extractTag(xml, 'vNF'),
+          })
+          chaveDirectMap.delete(chave)
+          continue
+        }
+        if (linkedChaves.has(chave)) continue
 
         // Impostos
         const pis    = extractTag(xml, 'vPIS')
