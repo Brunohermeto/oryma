@@ -60,9 +60,9 @@ export async function syncAmazon(startDate: string, endDate: string): Promise<nu
   while (true) {
     // CreatedBefore não pode estar no futuro (Amazon exige ≥2 min no passado)
     const before = Math.min(new Date(`${endDate}T23:59:59Z`).getTime(), Date.now() - 5 * 60_000)
+    // 'Delivered' não existe na SP-API — filtramos cancelado/pendente no loop
     const params = new URLSearchParams({
       MarketplaceIds: marketplaceId,
-      OrderStatuses: 'Shipped,Delivered',
       CreatedAfter: `${startDate}T00:00:00Z`,
       CreatedBefore: new Date(before).toISOString().replace(/\.\d{3}Z$/, 'Z'),
       MaxResultsPerPage: '100',
@@ -72,6 +72,7 @@ export async function syncAmazon(startDate: string, endDate: string): Promise<nu
     const ordersRes = await amazonRequest<AmazonOrdersResponse>(`/orders/v0/orders?${params}`)
 
     for (const order of ordersRes.payload?.Orders ?? []) {
+      if (order.OrderStatus === 'Canceled' || order.OrderStatus === 'Pending') continue
       const fulfillmentType = order.FulfillmentChannel === 'AFN' ? 'fba_amazon' : 'galpao'
 
       const itemsRes = await amazonRequest<AmazonOrderItemsResponse>(
