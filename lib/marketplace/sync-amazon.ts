@@ -82,7 +82,9 @@ export async function syncAmazon(startDate: string, endDate: string): Promise<nu
       for (const item of itemsRes.payload?.OrderItems ?? []) {
         // SKUs da Amazon têm sufixo _FBA (ex: RAGA002-C_FBA) — normalizar p/ casar com o cadastro
         const sku = item.SellerSKU.replace(/_FBA$/i, '')
-        const grossPrice = parseFloat(item.ItemPrice?.Amount ?? '0') * item.QuantityOrdered
+        // ItemPrice já é o TOTAL da linha (não multiplicar por qty) e vem SEM o
+        // imposto — o bruto real (= NF) é ItemPrice + ItemTax
+        const grossPrice = parseFloat(item.ItemPrice?.Amount ?? '0') + parseFloat(item.ItemTax?.Amount ?? '0')
         const { data: product } = await db.from('products').select('id').eq('sku', sku).single()
 
         await db.from('sales').upsert({
