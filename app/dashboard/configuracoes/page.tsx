@@ -153,10 +153,11 @@ export default async function ConfiguracoesPage({
         <ConfigCard
           id="shopee"
           name="Shopee"
-          description="Pedidos, comissões e ADS"
+          description="Pedidos, comissões e ADS — conexão OAuth com renovação automática"
           guide="https://open.shopee.com"
           credential={credMap['shopee']}
-          type="manual_shopee"
+          connectUrl="/api/integrations/shopee/authorize"
+          type="oauth"
         />
 
         <ConfigCard
