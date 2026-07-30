@@ -66,6 +66,7 @@ export async function POST(request: NextRequest) {
       parcelas: Array.isArray(p.parcelas) && p.parcelas.length ? p.parcelas : null,
       notes: p.notes || null,
       done: !!p.done,
+      compromissado: p.compromissado !== false,
       updated_at: new Date().toISOString(),
     }
     let planId = p.id as string | undefined

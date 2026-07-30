@@ -40,6 +40,7 @@ export interface ImportPlan {
   parcelas: Parcela[] | null  // null = herda do perfil
   notes: string | null
   done: boolean
+  compromissado?: boolean   // false = pedido PREVISTO (em estudo, ainda não fechado)
 }
 
 export interface PlanDates {

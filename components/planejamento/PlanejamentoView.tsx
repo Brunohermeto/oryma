@@ -77,7 +77,7 @@ export function PlanejamentoView({ profiles, plans, items, ruptura, products, pr
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 flex-wrap">
-        {([['ruptura', 'Projeção de ruptura'], ['pedidos', `Pedidos (${plans.filter(p => !p.done).length} em curso)`], ['caixa', 'Fluxo de caixa'], ['perfis', `Perfis de produto (${profiles.length})`]] as const).map(([k, label]) => (
+        {([['ruptura', 'Projeção de ruptura'], ['pedidos', `Pedidos (${plans.filter(p => !p.done).length} em curso)`], ['caixa', 'Fluxo de pagamentos'], ['perfis', `Perfis de produto (${profiles.length})`]] as const).map(([k, label]) => (
           <button key={k} onClick={() => setTab(k)}
             className="text-[12px] font-semibold px-3 py-1.5 rounded-full cursor-pointer"
             style={{ background: tab === k ? B.brand : 'white', color: tab === k ? 'white' : B.muted, border: `1px solid ${tab === k ? B.brand : B.border}` }}>
@@ -266,6 +266,13 @@ function PedidosPanel({ plans, items, profiles, profById, products, hoje, onSave
             </Campo>
             <Campo label="Containers"><input className="inp" type="number" value={editing.containers ?? 1} onChange={e => setEditing({ ...editing, containers: Number(e.target.value) })} /></Campo>
             <Campo label="Data do pedido (D0)"><input className="inp" type="date" value={editing.order_date ?? ''} onChange={e => setEditing({ ...editing, order_date: e.target.value })} /></Campo>
+            <Campo label="Situação do pedido">
+              <select className="inp" value={editing.compromissado === false ? 'previsto' : 'compromissado'}
+                      onChange={e => setEditing({ ...editing, compromissado: e.target.value === 'compromissado' })}>
+                <option value="compromissado">Compromissado (fechado)</option>
+                <option value="previsto">Previsto (em estudo)</option>
+              </select>
+            </Campo>
             <Campo label="Valor fornecedor (R$)"><input className="inp" type="number" step="0.01" value={editing.valor_fornecedor ?? 0} onChange={e => setEditing({ ...editing, valor_fornecedor: Number(e.target.value) })} /></Campo>
             <Campo label="Impostos + frete (R$)"><input className="inp" type="number" step="0.01" value={editing.valor_imposto_frete ?? 0} onChange={e => setEditing({ ...editing, valor_imposto_frete: Number(e.target.value) })} /></Campo>
             <Campo label="Embarque REAL (se houver)"><input className="inp" type="date" value={editing.embarque_real ?? ''} onChange={e => setEditing({ ...editing, embarque_real: e.target.value || null })} /></Campo>
@@ -321,6 +328,15 @@ function PedidosPanel({ plans, items, profiles, profById, products, hoje, onSave
                 {pl.invoice} · {prof.root_sku} · {pl.containers} container{pl.containers > 1 ? 's' : ''}
               </span>
               <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: sc.bg, color: sc.color }}>{dates.status}</span>
+              {pl.compromissado === false ? (
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'white', color: '#d97706', border: '1.5px dashed #d97706' }}>
+                  PREVISTO
+                </span>
+              ) : (
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ background: 'oklch(0.94 0.06 258)', color: '#125BFF' }}>
+                  compromissado
+                </span>
+              )}
               {aPagar > 0 && !pl.done && (
                 <span className="text-[12px] font-semibold" style={{ color: '#d97706' }}>a pagar: {fmtR(aPagar)}</span>
               )}
@@ -400,86 +416,147 @@ function CaixaPanel({ plans, profById, projecao, hoje }: {
   projecao: ProjecaoMes[]
   hoje: string
 }) {
-  // Todos os pagamentos dos pedidos não concluídos, resolvidos em datas
-  const lancamentos: Array<{ invoice: string; label: string; date: string; amount: number; pago: boolean }> = []
+  // Pagamentos em aberto de cada pedido não concluído, resolvidos em datas
+  interface Linha {
+    invoice: string; root: string; status: string; compromissado: boolean
+    total: number; porMes: Map<string, number>
+    detalhes: Array<{ date: string; label: string; amount: number }>
+  }
+  const linhas: Linha[] = []
   for (const pl of plans) {
     if (pl.done) continue
     const prof = profById.get(pl.profile_id ?? '')
     if (!prof) continue
     const dates = resolvePlanDates(pl, prof, hoje)
-    for (const p of resolvePagamentos(pl, prof, dates)) {
-      lancamentos.push({ invoice: pl.invoice, label: p.label, date: p.date, amount: p.amount, pago: p.date < hoje })
+    const abertos = resolvePagamentos(pl, prof, dates).filter(p => p.date >= hoje)
+    if (!abertos.length) continue
+    const porMes = new Map<string, number>()
+    for (const p of abertos) {
+      const m = p.date.slice(0, 7)
+      porMes.set(m, (porMes.get(m) ?? 0) + p.amount)
     }
+    linhas.push({
+      invoice: pl.invoice, root: prof.root_sku, status: dates.status,
+      compromissado: pl.compromissado !== false,
+      total: abertos.reduce((s, p) => s + p.amount, 0),
+      porMes, detalhes: abertos,
+    })
   }
-  const aVencer = lancamentos.filter(l => !l.pago)
-  const totalAberto = aVencer.reduce((s, l) => s + l.amount, 0)
+  linhas.sort((a, b) => (a.detalhes[0]?.date ?? '') < (b.detalhes[0]?.date ?? '') ? -1 : 1)
 
-  // Agrupa por mês (passado em aberto entra como "vencido")
-  const byMonth = new Map<string, typeof lancamentos>()
-  for (const l of aVencer) {
-    const m = l.date.slice(0, 7)
+  const mesesSet = new Set<string>()
+  for (const l of linhas) for (const m of l.porMes.keys()) mesesSet.add(m)
+  const mesesCols = [...mesesSet].sort()
+  const byMonth = new Map<string, Array<{ amount: number }>>()
+  for (const l of linhas) for (const [m, v] of l.porMes) {
     if (!byMonth.has(m)) byMonth.set(m, [])
-    byMonth.get(m)!.push(l)
+    byMonth.get(m)!.push({ amount: v })
   }
-  const meses = [...byMonth.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))
+  const totalComp = linhas.filter(l => l.compromissado).reduce((s, l) => s + l.total, 0)
+  const totalPrev = linhas.filter(l => !l.compromissado).reduce((s, l) => s + l.total, 0)
   const fmtMes = (m: string) => {
     const nomes = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
-    return `${nomes[Number(m.slice(5, 7)) - 1]}/${m.slice(0, 4)}`
+    return `${nomes[Number(m.slice(5, 7)) - 1]}/${m.slice(2, 4)}`
   }
-  const maxMes = Math.max(...meses.map(([, ls]) => ls.reduce((s, l) => s + l.amount, 0)), 1)
+  const fmtRk = (v: number) => v >= 1000 ? `${(v / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}k` : v.toFixed(0)
 
   return (
     <div className="space-y-3">
       <div className="bg-white rounded-2xl p-5" style={{ border: `1px solid ${B.border}` }}>
         <div className="flex items-center gap-3 flex-wrap mb-1">
           <span className="font-semibold text-sm" style={{ color: B.text, fontFamily: 'var(--font-sora)' }}>
-            Desencaixe das importações em curso
+            Fluxo de Pagamentos — Importação
           </span>
-          <span className="text-[13px] font-bold px-2.5 py-1 rounded-full" style={{ background: 'oklch(0.96 0.04 25)', color: '#dc2626' }}>
-            total em aberto: {fmtR(totalAberto)}
+          <span className="text-[12px] font-bold px-2.5 py-1 rounded-full" style={{ background: 'oklch(0.94 0.06 258)', color: '#125BFF' }}>
+            compromissado: {fmtR(totalComp)}
           </span>
-        </div>
-        <div className="text-[12px] mb-4" style={{ color: B.muted }}>
-          Parcelas e impostos de todos os pedidos não concluídos, nas datas resolvidas pela linha do tempo
-          (parcela com data passada é considerada paga e sai daqui). Mudou uma data no pedido → o caixa move junto.
-        </div>
-        <div className="space-y-2">
-          {meses.map(([mes, ls]) => {
-            const total = ls.reduce((s, l) => s + l.amount, 0)
-            const vencido = mes < hoje.slice(0, 7)
-            return (
-              <details key={mes} className="rounded-lg" style={{ background: B.bgSubtle }}>
-                <summary className="cursor-pointer select-none flex items-center gap-3 px-3 py-2.5">
-                  <span className="w-20 text-[13px] font-bold" style={{ color: vencido ? '#dc2626' : B.text }}>
-                    {vencido ? `${fmtMes(mes)} ⚠` : fmtMes(mes)}
-                  </span>
-                  <div className="flex-1 h-3.5 rounded-full overflow-hidden" style={{ background: 'white' }}>
-                    <div className="h-full rounded-full" style={{ width: `${Math.max((total / maxMes) * 100, 2)}%`, background: vencido ? '#dc2626' : 'linear-gradient(90deg, #125BFF, #7B61FF)' }} />
-                  </div>
-                  <span className="w-32 text-right text-[13px] font-bold" style={{ color: vencido ? '#dc2626' : B.text, fontFamily: 'var(--font-geist-mono)' }}>
-                    {fmtR(total)}
-                  </span>
-                  <span className="text-[11px]" style={{ color: B.muted }}>{ls.length} parcela{ls.length > 1 ? 's' : ''}</span>
-                </summary>
-                <div className="px-3 pb-3 space-y-1">
-                  {ls.sort((a, b) => (a.date < b.date ? -1 : 1)).map((l, i) => (
-                    <div key={i} className="flex items-center gap-3 text-[12px] bg-white rounded-md px-2.5 py-1.5">
-                      <span className="w-16" style={{ color: B.muted, fontFamily: 'var(--font-geist-mono)' }}>{fmtD(l.date)}</span>
-                      <span className="font-medium" style={{ color: B.text }}>{l.invoice}</span>
-                      <span style={{ color: B.muted }}>{l.label}</span>
-                      <span className="ml-auto font-semibold" style={{ color: B.text, fontFamily: 'var(--font-geist-mono)' }}>{fmtR(l.amount)}</span>
-                    </div>
-                  ))}
-                </div>
-              </details>
-            )
-          })}
-          {meses.length === 0 && (
-            <div className="text-[13px] py-4 text-center" style={{ color: B.muted }}>
-              Nenhum pagamento em aberto nos pedidos em curso.
-            </div>
+          {totalPrev > 0 && (
+            <span className="text-[12px] font-bold px-2.5 py-1 rounded-full" style={{ background: 'white', color: '#d97706', border: '1.5px dashed #d97706' }}>
+              previsto: {fmtR(totalPrev)}
+            </span>
           )}
         </div>
+        <div className="text-[12px] mb-4" style={{ color: B.muted }}>
+          Pedidos nas linhas, meses nas colunas — como a planilha. Valores em R$ mil; passe o mouse na célula para o detalhe.
+          Linhas âmbar tracejadas = pedidos <b>previstos</b> (em estudo). Parcela com data passada é considerada paga e sai daqui.
+        </div>
+        <div className="overflow-x-auto">
+          <table className="text-sm" style={{ borderCollapse: 'collapse', minWidth: '100%' }}>
+            <thead>
+              <tr style={{ borderBottom: `2px solid ${B.border}` }}>
+                <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide sticky left-0 bg-white" style={{ color: B.muted }}>Pedido</th>
+                <th className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wide" style={{ color: B.muted }}>Status</th>
+                <th className="px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: B.muted }}>A pagar</th>
+                {mesesCols.map(m => (
+                  <th key={m} className="px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap" style={{ color: B.muted }}>{fmtMes(m)}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {linhas.map(l => {
+                const sc = STATUS_COLORS[l.status] ?? { bg: B.bgSubtle, color: B.muted }
+                return (
+                  <tr key={l.invoice} style={{
+                    borderBottom: `1px solid ${B.bgSubtle}`,
+                    background: l.compromissado ? undefined : 'oklch(0.98 0.03 70)',
+                  }}>
+                    <td className="px-3 py-2 sticky left-0" style={{ background: l.compromissado ? 'white' : 'oklch(0.98 0.03 70)' }}>
+                      <div className="flex items-center gap-2">
+                        <div>
+                          <div className="text-[13px] font-semibold" style={{ color: B.text }}>{l.invoice}</div>
+                          <div className="text-[11px]" style={{ color: B.muted }}>{l.root}</div>
+                        </div>
+                        {!l.compromissado && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: 'white', color: '#d97706', border: '1px dashed #d97706' }}>
+                            PREVISTO
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-2 py-2">
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap" style={{ background: sc.bg, color: sc.color }}>{l.status}</span>
+                    </td>
+                    <td className="px-2 py-2 text-right text-[13px] font-bold" style={{ color: '#dc2626', fontFamily: 'var(--font-geist-mono)' }}>
+                      {fmtRk(l.total)}
+                    </td>
+                    {mesesCols.map(m => {
+                      const v = l.porMes.get(m)
+                      const det = l.detalhes.filter(d => d.date.slice(0, 7) === m).map(d => `${fmtD(d.date)} ${d.label}: ${fmtR(d.amount)}`).join('\n')
+                      return (
+                        <td key={m} title={det || undefined}
+                            className="px-2 py-2 text-right text-[13px]"
+                            style={{ fontFamily: 'var(--font-geist-mono)', color: v ? B.text : 'oklch(0.85 0.01 258)', fontWeight: v ? 600 : 400 }}>
+                          {v ? fmtRk(v) : '·'}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                )
+              })}
+              {/* Totais */}
+              <tr style={{ borderTop: `2px solid ${B.border}`, background: B.bgSubtle }}>
+                <td className="px-3 py-2 text-[12px] font-bold sticky left-0" style={{ color: B.text, background: B.bgSubtle }}>TOTAL</td>
+                <td />
+                <td className="px-2 py-2 text-right text-[13px] font-bold" style={{ color: '#dc2626', fontFamily: 'var(--font-geist-mono)' }}>
+                  {fmtRk(totalComp + totalPrev)}
+                </td>
+                {mesesCols.map(m => {
+                  const t = (byMonth.get(m) ?? []).reduce((s, x) => s + x.amount, 0)
+                  return (
+                    <td key={m} className="px-2 py-2 text-right text-[13px] font-bold" style={{ color: B.text, fontFamily: 'var(--font-geist-mono)' }}>
+                      {t ? fmtRk(t) : '·'}
+                    </td>
+                  )
+                })}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        {linhas.length === 0 && (
+          <div className="text-[13px] py-4 text-center" style={{ color: B.muted }}>
+            Nenhum pagamento em aberto nos pedidos em curso.
+          </div>
+        )}
       </div>
 
       {/* ── Etapa 3: caixa líquido projetado (entradas − saídas) ── */}
