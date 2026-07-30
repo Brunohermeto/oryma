@@ -36,6 +36,13 @@ export async function GET(request: NextRequest) {
       ML_CLIENT_SECRET:     maskSecret(process.env.ML_CLIENT_SECRET),
       ML_REDIRECT_URI:      process.env.ML_REDIRECT_URI ?? '❌ NÃO DEFINIDA',
       NEXT_PUBLIC_APP_URL:  process.env.NEXT_PUBLIC_APP_URL ?? '❌ NÃO DEFINIDA (usando fallback https://www.oryma.com.br)',
+      AMAZON_CLIENT_ID:     maskSecret(process.env.AMAZON_CLIENT_ID),
+      AMAZON_CLIENT_SECRET: maskSecret(process.env.AMAZON_CLIENT_SECRET),
+      MAGALU_CLIENT_ID:     maskSecret(process.env.MAGALU_CLIENT_ID),
+      MAGALU_CLIENT_SECRET: maskSecret(process.env.MAGALU_CLIENT_SECRET),
+      SHOPEE_PARTNER_ID:    maskSecret(process.env.SHOPEE_PARTNER_ID),
+      SHOPEE_PARTNER_KEY:   maskSecret(process.env.SHOPEE_PARTNER_KEY),
+      DEMO_PASSWORD:        maskSecret(process.env.DEMO_PASSWORD),
     },
     saved_credentials: {
       bling: credMap['bling']
