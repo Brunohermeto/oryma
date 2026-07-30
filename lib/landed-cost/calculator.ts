@@ -144,11 +144,14 @@ export async function recalculateCmp(productId: string, _effectiveDate?: string)
     byDate.set(d, cur)
   }
 
-  // Regrava a linha do tempo dessas datas (solta referências antes de deletar)
-  const dates = [...byDate.keys()]
+  // Regrava a linha do tempo COMPLETA: apaga TODO custo não-manual do produto
+  // (manual = total_stock_qty 1). Limpar só as datas com lote deixava camadas
+  // fantasmas de recálculos antigos (era da média ponderada) vencendo a
+  // vigência — caso MOVE DUO 2026-07-30: fantasma de 09/03 escondia a NF.
   const { data: olds } = await db
     .from('cmp_costs').select('id')
-    .eq('product_id', productId).in('effective_date', dates)
+    .eq('product_id', productId)
+    .neq('total_stock_qty', 1)
   if (olds?.length) {
     const oldIds = olds.map(o => o.id)
     await db.from('sale_costs').update({ cmp_cost_id: null }).in('cmp_cost_id', oldIds)
