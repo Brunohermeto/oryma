@@ -31,6 +31,12 @@ interface FinancialEventsResponse {
           PromotionList?: Array<{ PromotionAmount?: { CurrencyAmount?: number } }>
         }>
       }>
+      RefundEventList?: Array<{
+        ShipmentItemAdjustmentList?: Array<{
+          SellerSKU?: string
+          ItemChargeAdjustmentList?: Array<{ ChargeType?: string; ChargeAmount?: { CurrencyAmount?: number } }>
+        }>
+      }>
     }
   }
 }
@@ -47,14 +53,15 @@ export async function POST(request: NextRequest) {
   const db = createSupabaseServiceClient()
   const since = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10)
 
+  // Fila: vendas do período — sem taxas ainda OU todas (p/ capturar devoluções tardias).
+  // O painel da Amazon é líquido de devoluções; gravamos devolução em cancellation.
   const { data: sales } = await db.from('sales')
-    .select('id, external_order_id')
+    .select('id, external_order_id, marketplace_commission, cancellation')
     .eq('marketplace', 'amazon')
-    .eq('marketplace_commission', 0)
     .gte('sale_date', since)
 
   // agrupa por pedido: external_order_id = amz_{orderId}_{SellerSKU cru}
-  const byOrder = new Map<string, Array<{ id: string; external_order_id: string }>>()
+  const byOrder = new Map<string, Array<{ id: string; external_order_id: string; marketplace_commission: number; cancellation: number }>>()
   for (const s of sales ?? []) {
     const orderId = s.external_order_id.split('_')[1]
     if (!byOrder.has(orderId)) byOrder.set(orderId, [])
@@ -63,7 +70,10 @@ export async function POST(request: NextRequest) {
 
   let processed = 0
   let updated = 0
-  for (const [orderId, rows] of byOrder) {
+  // pedidos ainda sem comissão têm prioridade na fatia; o resto entra p/ devoluções
+  const queue = [...byOrder.entries()].sort((a, b) =>
+    Number(b[1].some(r => !Number(r.marketplace_commission))) - Number(a[1].some(r => !Number(r.marketplace_commission))))
+  for (const [orderId, rows] of queue) {
     if (processed >= limit) break
     processed++
     await sleep(600) // Finances API: ~0.5 req/s
@@ -76,7 +86,7 @@ export async function POST(request: NextRequest) {
     for (const ship of ev.payload?.FinancialEvents?.ShipmentEventList ?? []) {
       for (const item of ship.ShipmentItemList ?? []) {
         const row = rows.find(r => r.external_order_id === `amz_${orderId}_${item.SellerSKU}`)
-        if (!row) continue
+        if (!row || Number(row.marketplace_commission) > 0) continue
 
         const charge = (t: string) => item.ItemChargeList?.find(c => c.ChargeType === t)?.ChargeAmount?.CurrencyAmount ?? 0
         const fees = item.ItemFeeList ?? []
@@ -98,6 +108,24 @@ export async function POST(request: NextRequest) {
         }).eq('id', row.id)
         updated++
       }
+    }
+
+    // Devoluções: painel da Amazon é líquido de devoluções — abatemos em cancellation
+    const refundBySku = new Map<string, number>()
+    for (const refund of ev.payload?.FinancialEvents?.RefundEventList ?? []) {
+      for (const item of refund.ShipmentItemAdjustmentList ?? []) {
+        const val = (item.ItemChargeAdjustmentList ?? [])
+          .filter(c => c.ChargeType === 'Principal' || c.ChargeType === 'Tax')
+          .reduce((s, c) => s + Math.abs(c.ChargeAmount?.CurrencyAmount ?? 0), 0)
+        if (!item.SellerSKU || val <= 0) continue
+        refundBySku.set(item.SellerSKU, (refundBySku.get(item.SellerSKU) ?? 0) + val)
+      }
+    }
+    for (const [rawSku, val] of refundBySku) {
+      const row = rows.find(r => r.external_order_id === `amz_${orderId}_${rawSku}`)
+      if (!row || Math.abs(Number(row.cancellation) - val) < 0.01) continue
+      await db.from('sales').update({ cancellation: Math.round(val * 100) / 100 }).eq('id', row.id)
+      updated++
     }
   }
 
