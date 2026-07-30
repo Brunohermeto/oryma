@@ -9,6 +9,7 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Ship, Plus, Pencil, Trash2, AlertTriangle, RefreshCw } from 'lucide-react'
+import { FluxoGeralMatriz, type FluxoGeralData } from './FluxoGeralMatriz'
 import {
   resolvePlanDates, resolvePagamentos, STATUS_COLORS,
   type ImportPlan, type ImportProfile, type Parcela, type PagamentoExtra,
@@ -45,7 +46,7 @@ function parseParcelas(txt: string): Parcela[] {
 const parcelasToText = (ps: Parcela[] | null | undefined) =>
   (ps ?? []).map(p => `${Math.round(p.pct * 100)}% ${p.ancora}${p.offset ? `+${p.offset}` : ''}`).join(' · ')
 
-export function PlanejamentoView({ profiles, plans, items, ruptura, products, projecao, estoqueTempo, hoje }: {
+export function PlanejamentoView({ profiles, plans, items, ruptura, products, projecao, estoqueTempo, fluxoGeral, hoje }: {
   profiles: ImportProfile[]
   plans: (ImportPlan & { id: string })[]
   items: PlanItem[]
@@ -53,6 +54,7 @@ export function PlanejamentoView({ profiles, plans, items, ruptura, products, pr
   products: ProductOption[]
   projecao: ProjecaoMes[]
   estoqueTempo: EstoqueTempoRow[]
+  fluxoGeral: FluxoGeralData
   hoje: string
 }) {
   const router = useRouter()
@@ -92,7 +94,7 @@ export function PlanejamentoView({ profiles, plans, items, ruptura, products, pr
 
       {tab === 'ruptura' && <RupturaPanel rows={ruptura} hoje={hoje} />}
       {tab === 'pedidos' && <PedidosPanel plans={plans} items={items} profiles={profiles} profById={profById} products={products} hoje={hoje} onSave={post} />}
-      {tab === 'caixa' && <CaixaPanel plans={plans} profById={profById} projecao={projecao} estoqueTempo={estoqueTempo} hoje={hoje} />}
+      {tab === 'caixa' && <CaixaPanel plans={plans} profById={profById} fluxoGeral={fluxoGeral} hoje={hoje} />}
       {tab === 'perfis' && <PerfisPanel profiles={profiles} onSave={post} />}
     </div>
   )
@@ -463,11 +465,10 @@ function PedidosPanel({ plans, items, profiles, profById, products, hoje, onSave
 }
 
 /* ── Fluxo de caixa (Etapa 2): desencaixe mensal consolidado ─────────── */
-function CaixaPanel({ plans, profById, projecao, estoqueTempo, hoje }: {
+function CaixaPanel({ plans, profById, fluxoGeral, hoje }: {
   plans: (ImportPlan & { id: string })[]
   profById: Map<string, ImportProfile>
-  projecao: ProjecaoMes[]
-  estoqueTempo: EstoqueTempoRow[]
+  fluxoGeral: FluxoGeralData
   hoje: string
 }) {
   // Pagamentos em aberto de cada pedido não concluído, resolvidos em datas
@@ -613,134 +614,11 @@ function CaixaPanel({ plans, profById, projecao, estoqueTempo, hoje }: {
         )}
       </div>
 
-      {/* ── Matriz de estoque projetado por tempo (como a planilha) ── */}
-      <div className="bg-white rounded-2xl p-5" style={{ border: `1px solid ${B.border}` }}>
-        <div className="font-semibold text-sm mb-1" style={{ color: B.text, fontFamily: 'var(--font-sora)' }}>
-          Estoque projetado por produto — fim de cada mês
-        </div>
-        <div className="text-[12px] mb-4" style={{ color: B.muted }}>
-          Saldo simulado dia a dia: estoque atual − velocidade real de venda + chegadas dos pedidos (com itens).
-          Célula vermelha = ruptura naquele mês; âmbar = menos de 30 dias de cobertura.
-        </div>
-        {(() => {
-          const mesesEst = [...new Set(estoqueTempo.flatMap(r => Object.keys(r.meses)))].sort().slice(0, 12)
-          const fmtMesE = (m: string) => {
-            const nomes = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
-            return `${nomes[Number(m.slice(5, 7)) - 1]}/${m.slice(2, 4)}`
-          }
-          return (
-            <div className="overflow-x-auto">
-              <table className="text-sm" style={{ borderCollapse: 'collapse', minWidth: '100%' }}>
-                <thead>
-                  <tr style={{ borderBottom: `2px solid ${B.border}` }}>
-                    <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide sticky left-0 bg-white" style={{ color: B.muted }}>Produto</th>
-                    <th className="px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: B.muted }}>Vel/dia</th>
-                    {mesesEst.map(m => (
-                      <th key={m} className="px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap" style={{ color: B.muted }}>{fmtMesE(m)}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {estoqueTempo.map(r => (
-                    <tr key={r.sku} style={{ borderBottom: `1px solid ${B.bgSubtle}` }}>
-                      <td className="px-3 py-2 sticky left-0 bg-white">
-                        <div className="text-[13px] font-medium" style={{ color: B.text }}>{r.sku}</div>
-                        <div className="text-[11px] truncate max-w-[200px]" style={{ color: B.muted }}>{r.name}</div>
-                      </td>
-                      <td className="px-2 py-2 text-right text-[12px]" style={{ color: B.muted, fontFamily: 'var(--font-geist-mono)' }}>{r.vel.toFixed(1)}</td>
-                      {mesesEst.map(m => {
-                        const s = r.meses[m]
-                        const cobertura30 = r.vel * 30
-                        const bg = s === undefined ? undefined
-                          : s <= 0 ? 'oklch(0.94 0.06 25)'
-                          : s < cobertura30 ? 'oklch(0.97 0.06 70)'
-                          : undefined
-                        const cor = s === undefined ? 'oklch(0.85 0.01 258)'
-                          : s <= 0 ? '#dc2626'
-                          : s < cobertura30 ? '#92400e' : B.text
-                        return (
-                          <td key={m} className="px-2 py-2 text-right text-[13px]"
-                              style={{ fontFamily: 'var(--font-geist-mono)', background: bg, color: cor, fontWeight: s !== undefined && s <= 0 ? 700 : 500 }}>
-                            {s === undefined ? '·' : s.toLocaleString('pt-BR')}
-                          </td>
-                        )
-                      })}
-                    </tr>
-                  ))}
-                  {estoqueTempo.length === 0 && (
-                    <tr><td colSpan={2 + mesesEst.length} className="px-3 py-6 text-center text-[13px]" style={{ color: B.muted }}>Sem produtos com giro nas famílias importadas.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )
-        })()}
-      </div>
-
-      {/* ── Etapa 3: caixa líquido projetado (entradas − saídas) ── */}
-      <div className="bg-white rounded-2xl p-5" style={{ border: `1px solid ${B.border}` }}>
-        <div className="font-semibold text-sm mb-1" style={{ color: B.text, fontFamily: 'var(--font-sora)' }}>
-          Caixa líquido projetado — próximos 12 meses
-        </div>
-        <div className="text-[12px] mb-4" style={{ color: B.muted }}>
-          Entradas = faturamento projetado das famílias importadas (velocidade real × preço médio 60d,
-          <b> parando quando o estoque acaba e retomando na chegada do pedido</b>). Saídas = parcelas das importações.
-          Lucro projetado usa a margem real média de cada produto.
-        </div>
-        {(() => {
-          const saidasPorMes = new Map<string, number>()
-          for (const [m, ls] of byMonth) saidasPorMes.set(m, ls.reduce((s, l) => s + l.amount, 0))
-          const todosMeses = [...new Set([...projecao.map(p => p.mes), ...saidasPorMes.keys()])]
-            .filter(m => m >= hoje.slice(0, 7)).sort().slice(0, 12)
-          let acumulado = 0
-          const fmtMes2 = (m: string) => {
-            const nomes = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
-            return `${nomes[Number(m.slice(5, 7)) - 1]}/${m.slice(2, 4)}`
-          }
-          return (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr style={{ borderBottom: `1px solid ${B.border}` }}>
-                    {['Mês', 'Entradas (faturamento)', 'Lucro projetado', 'Saídas (importações)', 'Líquido do mês', 'Acumulado'].map((h, i) => (
-                      <th key={h} className={`px-3 py-2 text-[11px] font-semibold uppercase tracking-wide ${i === 0 ? 'text-left' : 'text-right'}`} style={{ color: B.muted }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {todosMeses.map(m => {
-                    const pr = projecao.find(p => p.mes === m)
-                    const entrada = pr?.receita ?? 0
-                    const lucro   = pr?.lucro ?? 0
-                    const saida   = saidasPorMes.get(m) ?? 0
-                    const liquido = lucro - saida
-                    acumulado += liquido
-                    return (
-                      <tr key={m} style={{ borderBottom: `1px solid ${B.bgSubtle}` }}>
-                        <td className="px-3 py-2 text-[13px] font-semibold" style={{ color: B.text }}>{fmtMes2(m)}</td>
-                        <td className="px-3 py-2 text-right" style={{ color: B.text, fontFamily: 'var(--font-geist-mono)' }}>{fmtR(entrada)}</td>
-                        <td className="px-3 py-2 text-right" style={{ color: '#16a34a', fontFamily: 'var(--font-geist-mono)' }}>{fmtR(lucro)}</td>
-                        <td className="px-3 py-2 text-right" style={{ color: '#dc2626', fontFamily: 'var(--font-geist-mono)' }}>{saida > 0 ? `(${fmtR(saida)})` : '—'}</td>
-                        <td className="px-3 py-2 text-right font-semibold" style={{ color: liquido >= 0 ? '#16a34a' : '#dc2626', fontFamily: 'var(--font-geist-mono)' }}>
-                          {liquido >= 0 ? fmtR(liquido) : `(${fmtR(Math.abs(liquido))})`}
-                        </td>
-                        <td className="px-3 py-2 text-right font-bold" style={{ color: acumulado >= 0 ? B.text : '#dc2626', fontFamily: 'var(--font-geist-mono)' }}>
-                          {acumulado >= 0 ? fmtR(acumulado) : `(${fmtR(Math.abs(acumulado))})`}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-              <div className="text-[11px] mt-3" style={{ color: B.muted }}>
-                Nota: o "líquido" compara o LUCRO projetado das vendas (não o faturamento, que inclui custos já pagos)
-                com o desencaixe das importações — é a visão de geração de caixa. Pedidos sem itens preenchidos não
-                geram reposição na projeção.
-              </div>
-            </div>
-          )
-        })()}
-      </div>
+      {/* ── Fluxo Geral (formato da planilha): blocos empilhados ── */}
+      <FluxoGeralMatriz
+        data={fluxoGeral}
+        pagamentosMes={Object.fromEntries([...byMonth.entries()].map(([m, ls]) => [m, ls.reduce((s2, l) => s2 + l.amount, 0)]))}
+      />
     </div>
   )
 }

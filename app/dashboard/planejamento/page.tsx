@@ -4,6 +4,7 @@ export const preferredRegion = 'gru1'
 import { TopBar } from '@/components/layout/TopBar'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { PlanejamentoView, type RupturaRow, type ProductOption, type ProjecaoMes } from '@/components/planejamento/PlanejamentoView'
+import type { FluxoGeralData } from '@/components/planejamento/FluxoGeralMatriz'
 import { resolvePlanDates, type ImportPlan, type ImportProfile } from '@/lib/import-planning/engine'
 import { format, subDays } from 'date-fns'
 
@@ -170,6 +171,65 @@ export default async function PlanejamentoPage() {
     .sort((a, b) => (a[0] < b[0] ? -1 : 1)).slice(0, 12)
     .map(([mes, v]) => ({ mes, receita: Math.round(v.receita), lucro: Math.round(v.lucro) }))
 
+  // ── Fluxo Geral (formato da planilha): 24 meses, blocos empilhados ──
+  const [{ data: salesPlan }, { data: prodParams }, { data: cashCfgRows }, { data: cashMonths }, { data: cmpAll }] = await Promise.all([
+    db.from('import_sales_plan').select('product_id, mes, qty').limit(5000),
+    db.from('import_product_params').select('product_id, preco_venda'),
+    db.from('import_cash_config').select('*').eq('id', 1),
+    db.from('import_cash_months').select('*'),
+    db.from('cmp_costs').select('product_id, cmp_value, effective_date, calculated_at')
+      .order('effective_date', { ascending: false }).order('calculated_at', { ascending: false }).limit(3000),
+  ])
+  const cmpVigente = new Map<string, number>()
+  for (const c of cmpAll ?? []) if (!cmpVigente.has(c.product_id)) cmpVigente.set(c.product_id, Number(c.cmp_value))
+  const planoBy = new Map<string, Record<string, number>>()
+  for (const sp of salesPlan ?? []) {
+    if (!planoBy.has(sp.product_id)) planoBy.set(sp.product_id, {})
+    planoBy.get(sp.product_id)![sp.mes] = Number(sp.qty)
+  }
+  const paramBy = new Map((prodParams ?? []).map(p => [p.product_id, p.preco_venda ? Number(p.preco_venda) : null]))
+
+  const mesesFG: string[] = []
+  {
+    const d = new Date(); d.setDate(1)
+    for (let i = 0; i < 24; i++) {
+      mesesFG.push(format(d, 'yyyy-MM'))
+      d.setMonth(d.getMonth() + 1)
+    }
+  }
+  const fgRows: FluxoGeralData['rows'] = []
+  for (const p of familyProducts) {
+    const sold = soldBy.get(p.id) ?? 0
+    const vel = sold > 0 ? sold / activeDays(datesBy.get(p.id) ?? []) : 0
+    const agg = priceAgg.get(p.id)
+    const entradas: Record<string, number> = {}
+    for (const a of arrivalsByProduct.get(p.id) ?? []) {
+      const m = a.date.slice(0, 7)
+      entradas[m] = (entradas[m] ?? 0) + a.qty
+    }
+    const plano = planoBy.get(p.id) ?? {}
+    if (vel <= 0 && !Object.keys(entradas).length && !Object.keys(plano).length) continue
+    fgRows.push({
+      productId: p.id, sku: p.sku, name: p.name,
+      estoqueAtual: Number(p.stock_quantity ?? 0) + Number((p as any).stock_full ?? 0),
+      velReal: Math.round(vel * 100) / 100,
+      cmp: cmpVigente.get(p.id) ?? 0,
+      precoReal: agg && agg.qty > 0 ? Math.round((agg.gross / agg.qty) * 100) / 100 : 0,
+      precoParam: paramBy.get(p.id) ?? null,
+      marginPct: agg && agg.mvGross > 0 ? Math.round((agg.mv / agg.mvGross) * 1000) / 10 : 0,
+      entradas, plano,
+    })
+  }
+  fgRows.sort((a, b) => (a.sku < b.sku ? -1 : 1))
+  const cashCfg = (cashCfgRows ?? [])[0] ?? { saldo_inicial: 0, difal_pct: 0 }
+  const fluxoGeral: FluxoGeralData = {
+    meses: mesesFG,
+    rows: fgRows,
+    saldoInicial: Number(cashCfg.saldo_inicial ?? 0),
+    difalPct: Number(cashCfg.difal_pct ?? 0),
+    cashMonths: Object.fromEntries((cashMonths ?? []).map(m => [m.mes, { divida: Number(m.divida), retirada: Number(m.retirada) }])),
+  }
+
   return (
     <>
       <TopBar
@@ -185,6 +245,7 @@ export default async function PlanejamentoPage() {
           products={productOptions}
           projecao={projecao}
           estoqueTempo={estoqueTempo}
+          fluxoGeral={fluxoGeral}
           hoje={hoje}
         />
       </div>

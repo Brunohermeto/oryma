@@ -104,5 +104,49 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true })
   }
 
+  // Plano de vendas mensal por produto (célula a célula, upsert em lote)
+  if (body.action === 'save_sales_plan') {
+    const entries = (Array.isArray(body.entries) ? body.entries : [])
+      .filter((e: any) => e.product_id && /^\d{4}-\d{2}$/.test(e.mes ?? ''))
+    for (const e of entries) {
+      const row = { product_id: e.product_id, mes: e.mes, qty: Math.max(0, Number(e.qty ?? 0)) }
+      const { error } = await db.from('import_sales_plan').upsert(row, { onConflict: 'product_id,mes' })
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+    return NextResponse.json({ ok: true, salvos: entries.length })
+  }
+
+  // Preço de venda planejado por produto (null = usar preço médio real)
+  if (body.action === 'save_price') {
+    const { error } = await db.from('import_product_params').upsert({
+      product_id: body.product_id,
+      preco_venda: body.preco_venda ? Number(body.preco_venda) : null,
+    }, { onConflict: 'product_id' })
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true })
+  }
+
+  // Config do caixa (saldo inicial, % DIFAL) e linhas mensais (dívida/retirada)
+  if (body.action === 'save_cash_config') {
+    const { error } = await db.from('import_cash_config').upsert({
+      id: 1,
+      saldo_inicial: Number(body.saldo_inicial ?? 0),
+      difal_pct: Number(body.difal_pct ?? 0),
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'id' })
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true })
+  }
+  if (body.action === 'save_cash_month') {
+    if (!/^\d{4}-\d{2}$/.test(body.mes ?? '')) return NextResponse.json({ error: 'mes inválido' }, { status: 400 })
+    const { error } = await db.from('import_cash_months').upsert({
+      mes: body.mes,
+      divida: Number(body.divida ?? 0),
+      retirada: Number(body.retirada ?? 0),
+    }, { onConflict: 'mes' })
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true })
+  }
+
   return NextResponse.json({ error: 'action inválida' }, { status: 400 })
 }
