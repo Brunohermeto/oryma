@@ -80,7 +80,8 @@ export async function syncAmazon(startDate: string, endDate: string): Promise<nu
       )
 
       for (const item of itemsRes.payload?.OrderItems ?? []) {
-        const sku = item.SellerSKU
+        // SKUs da Amazon têm sufixo _FBA (ex: RAGA002-C_FBA) — normalizar p/ casar com o cadastro
+        const sku = item.SellerSKU.replace(/_FBA$/i, '')
         const grossPrice = parseFloat(item.ItemPrice?.Amount ?? '0') * item.QuantityOrdered
         const { data: product } = await db.from('products').select('id').eq('sku', sku).single()
 
