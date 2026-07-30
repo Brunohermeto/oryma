@@ -22,8 +22,9 @@ export async function POST(request: NextRequest) {
   const queryDays = request.nextUrl.searchParams.get('days')
   const isCron    = !!request.headers.get('x-cron-secret')
   const days      = queryDays ? Number(queryDays) : 1
-  const startDate = format(subDays(now, days), 'yyyy-MM-dd')
-  const endDate   = format(now, 'yyyy-MM-dd')
+  // Janela explícita (?from&to) para backfill histórico fatiado sem estourar os 60s
+  const startDate = request.nextUrl.searchParams.get('from') ?? format(subDays(now, days), 'yyyy-MM-dd')
+  const endDate   = request.nextUrl.searchParams.get('to')   ?? format(now, 'yyyy-MM-dd')
 
   // Cria log de sync
   const { data: log } = await db.from('sync_logs').insert({
