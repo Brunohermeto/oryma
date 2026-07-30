@@ -183,8 +183,12 @@ export async function syncMercadoLivre(
   const sellerId = await getMercadoLivreSellerId()
   if (!sellerId) throw new Error('Seller ID do Mercado Livre não encontrado — reconecte via OAuth')
 
-  const { data: allProducts } = await db.from('products').select('id, sku')
-  const productMap = Object.fromEntries((allProducts ?? []).map(p => [p.sku, p.id]))
+  // Produtos arquivados (duplicados/mortos) ficam FORA do vínculo por SKU —
+  // senão uma venda religa num cadastro duplicado com custo errado
+  const { data: allProducts } = await db.from('products').select('id, sku, archived')
+  const productMap = Object.fromEntries(
+    (allProducts ?? []).filter(p => !(p as any).archived).map(p => [p.sku, p.id])
+  )
 
   while (true) {
     const response = await mlGet<MLOrdersResponse>('/orders/search', {
