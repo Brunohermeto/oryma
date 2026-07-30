@@ -28,7 +28,11 @@ interface MagaluOrderItem {
 interface MagaluDelivery {
   items?: MagaluOrderItem[]
   amounts?: MagaluItemAmounts
-  shipping?: { recipient?: { address?: { state?: string } } }
+  shipping?: {
+    recipient?: { address?: { state?: string } }
+    logistic_network?: { id?: string }
+  }
+  invoices?: Array<{ key?: string; status?: { id?: string } }>
 }
 interface MagaluOrder {
   code: string
@@ -116,7 +120,13 @@ export async function syncMagalu(startDate: string, endDate: string): Promise<nu
       if (SKIP_STATUS.has(order.status)) continue
 
       const items = (order.deliveries ?? []).flatMap(d =>
-        (d.items ?? []).map(it => ({ it, uf: d.shipping?.recipient?.address?.state?.toUpperCase() ?? null })))
+        (d.items ?? []).map(it => ({
+          it,
+          uf: d.shipping?.recipient?.address?.state?.toUpperCase() ?? null,
+          // "fulfillment" = estoque no CD da Magalu (NF emitida pela Magalu); "direta" = nosso galpão (NF do Bling)
+          fulfillment: d.shipping?.logistic_network?.id === 'fulfillment' ? 'full_magalu' : 'galpao',
+          nfeKey: d.invoices?.find(i => i.status?.id === 'approved')?.key ?? null,
+        })))
       if (!items.length) continue
 
       // parcela fixa = comissão do pedido − Σ comissões dos itens, rateada pelo valor
@@ -124,7 +134,7 @@ export async function syncMagalu(startDate: string, endDate: string): Promise<nu
       const fixedFeeTotal = Math.max(0, (order.amounts?.commission?.total ?? 0) - itemCommissionSum)
       const itemsTotal = items.reduce((s, { it }) => s + (it.amounts?.total ?? 0), 0)
 
-      for (const { it, uf } of items) {
+      for (const { it, uf, fulfillment, nfeKey } of items) {
         const { productId, sku } = await resolveProduct(it.info?.sku ?? '')
         const itemTotal = it.amounts?.total ?? 0
         const freight = it.amounts?.freight?.total ?? 0
@@ -133,7 +143,8 @@ export async function syncMagalu(startDate: string, endDate: string): Promise<nu
         await db.from('sales').upsert({
           external_order_id: `magalu_${order.code}_${it.info?.sku ?? ''}`,
           marketplace: 'magalu',
-          fulfillment_type: 'galpao',
+          fulfillment_type: fulfillment,
+          nfe_saida_key: nfeKey,
           product_id: productId,
           sku,
           sale_date: day,
