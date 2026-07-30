@@ -58,11 +58,13 @@ export async function syncAmazon(startDate: string, endDate: string): Promise<nu
   let synced = 0
 
   while (true) {
+    // CreatedBefore não pode estar no futuro (Amazon exige ≥2 min no passado)
+    const before = Math.min(new Date(`${endDate}T23:59:59Z`).getTime(), Date.now() - 5 * 60_000)
     const params = new URLSearchParams({
       MarketplaceIds: marketplaceId,
       OrderStatuses: 'Shipped,Delivered',
       CreatedAfter: `${startDate}T00:00:00Z`,
-      CreatedBefore: `${endDate}T23:59:59Z`,
+      CreatedBefore: new Date(before).toISOString().replace(/\.\d{3}Z$/, 'Z'),
       MaxResultsPerPage: '100',
     })
     if (nextToken) params.set('NextToken', nextToken)
