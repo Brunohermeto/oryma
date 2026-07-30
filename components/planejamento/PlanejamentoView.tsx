@@ -290,16 +290,16 @@ function PedidosPanel({ plans, items, profiles, profById, products, hoje, onSave
               <div className="ml-auto flex items-center gap-1.5">
                 {!pl.embarque_real && !pl.done && (
                   <button onClick={() => marcarData(pl, 'embarque_real', `Embarque do pedido ${pl.invoice}`)}
-                    className="text-[11px] font-semibold px-2.5 py-1 rounded-lg cursor-pointer"
-                    style={{ background: 'oklch(0.94 0.08 204)', color: '#0097b2', border: 'none' }}>
-                    ✓ Embarcou
+                    className="text-[11px] font-medium px-2.5 py-1 rounded-lg cursor-pointer"
+                    style={{ background: 'white', color: '#0097b2', border: '1px dashed #0097b2' }}>
+                    registrar embarque…
                   </button>
                 )}
-                {pl.embarque_real && !pl.galpao_real && !pl.done && (
+                {!pl.galpao_real && !pl.done && (
                   <button onClick={() => marcarData(pl, 'galpao_real', `Chegada no galpão do pedido ${pl.invoice}`)}
-                    className="text-[11px] font-semibold px-2.5 py-1 rounded-lg cursor-pointer"
-                    style={{ background: 'oklch(0.94 0.10 145)', color: '#15803d', border: 'none' }}>
-                    ✓ Chegou no galpão
+                    className="text-[11px] font-medium px-2.5 py-1 rounded-lg cursor-pointer"
+                    style={{ background: 'white', color: '#15803d', border: '1px dashed #15803d' }}>
+                    registrar chegada no galpão…
                   </button>
                 )}
                 <button onClick={() => openEdit(pl)} className="p-1.5 rounded-lg cursor-pointer" style={{ background: B.bgSubtle, border: 'none' }}>

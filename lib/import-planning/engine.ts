@@ -77,7 +77,8 @@ export function resolvePlanDates(plan: ImportPlan, profile: ImportProfile, hoje:
 
   let status: string
   if (plan.done || (plan.galpao_real && plan.galpao_real <= hoje)) status = 'No galpão'
-  else if (hoje >= dg) status = 'No galpão'
+  // Projeção vencida NÃO vira "No galpão" sozinha — chegada exige confirmação
+  else if (hoje >= dg) status = 'Chegada prevista — confirmar'
   else if (hoje >= d2) status = 'Transporte terrestre'
   else if (hoje >= d1) status = 'Trânsito marítimo'
   else if (hoje >= fimProducao) status = 'Aguardando embarque'
@@ -107,9 +108,10 @@ export function resolvePagamentos(plan: ImportPlan, profile: ImportProfile, date
 }
 
 export const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
-  'Em produção':          { bg: 'oklch(0.96 0.08 70)',  color: '#92400e' },
-  'Aguardando embarque':  { bg: 'oklch(0.94 0.06 258)', color: '#125BFF' },
-  'Trânsito marítimo':    { bg: 'oklch(0.94 0.08 204)', color: '#0097b2' },
-  'Transporte terrestre': { bg: 'oklch(0.94 0.08 280)', color: '#7B61FF' },
-  'No galpão':            { bg: 'oklch(0.94 0.10 145)', color: '#15803d' },
+  'Em produção':                  { bg: 'oklch(0.96 0.08 70)',  color: '#92400e' },
+  'Aguardando embarque':          { bg: 'oklch(0.94 0.06 258)', color: '#125BFF' },
+  'Trânsito marítimo':            { bg: 'oklch(0.94 0.08 204)', color: '#0097b2' },
+  'Transporte terrestre':         { bg: 'oklch(0.94 0.08 280)', color: '#7B61FF' },
+  'Chegada prevista — confirmar': { bg: 'oklch(0.96 0.08 70)',  color: '#92400e' },
+  'No galpão':                    { bg: 'oklch(0.94 0.10 145)', color: '#15803d' },
 }
