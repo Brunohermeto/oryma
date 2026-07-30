@@ -3,6 +3,7 @@ import { waitUntil } from '@vercel/functions'
 import { syncMercadoLivre } from '@/lib/marketplace/sync-ml'
 import { syncShopee } from '@/lib/marketplace/sync-shopee'
 import { syncAmazon } from '@/lib/marketplace/sync-amazon'
+import { syncMagalu } from '@/lib/marketplace/sync-magalu'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { brazilToday, brazilDaysAgo } from '@/lib/utils/brazil-time'
 
@@ -50,6 +51,7 @@ export async function POST(request: NextRequest) {
     mercado_livre: mlSync,
     shopee:        syncShopee,
     amazon:        syncAmazon,
+    magalu:        syncMagalu,
   }
 
   const syncWork = async () => {
