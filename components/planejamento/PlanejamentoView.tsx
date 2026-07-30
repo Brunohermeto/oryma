@@ -188,7 +188,7 @@ function PedidosPanel({ plans, items, profiles, profById, products, hoje, onSave
   const visiveis = plans.filter(p => showDone || !p.done)
 
   // Ação rápida: marcar data real (embarque/galpão) — preserva os itens atuais
-  async function marcarData(pl: ImportPlan & { id: string }, campo: 'embarque_real' | 'galpao_real', label: string) {
+  async function marcarData(pl: ImportPlan & { id: string }, campo: 'embarque_real' | 'santos_real' | 'galpao_real', label: string) {
     const data = window.prompt(`${label} — confirme a data (AAAA-MM-DD):`, hoje)
     if (!data || !/^\d{4}-\d{2}-\d{2}$/.test(data)) return
     await onSave({
@@ -295,8 +295,15 @@ function PedidosPanel({ plans, items, profiles, profById, products, hoje, onSave
                     registrar embarque…
                   </button>
                 )}
+                {!pl.santos_real && !pl.done && (
+                  <button onClick={() => marcarData(pl, 'santos_real', `Chegada no PORTO (Santos) do pedido ${pl.invoice} — libera o pagamento de impostos/frete sobre a carga`)}
+                    className="text-[11px] font-medium px-2.5 py-1 rounded-lg cursor-pointer"
+                    style={{ background: 'white', color: '#7B61FF', border: '1px dashed #7B61FF' }}>
+                    registrar chegada no porto…
+                  </button>
+                )}
                 {!pl.galpao_real && !pl.done && (
-                  <button onClick={() => marcarData(pl, 'galpao_real', `Chegada no galpão do pedido ${pl.invoice}`)}
+                  <button onClick={() => marcarData(pl, 'galpao_real', `Chegada no GALPÃO do pedido ${pl.invoice} — estoque disponível`)}
                     className="text-[11px] font-medium px-2.5 py-1 rounded-lg cursor-pointer"
                     style={{ background: 'white', color: '#15803d', border: '1px dashed #15803d' }}>
                     registrar chegada no galpão…
