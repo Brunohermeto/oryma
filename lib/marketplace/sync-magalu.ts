@@ -26,6 +26,7 @@ interface MagaluOrderItem {
   info?: { sku?: string; name?: string }
 }
 interface MagaluDelivery {
+  id?: string
   items?: MagaluOrderItem[]
   amounts?: MagaluItemAmounts
   shipping?: {
@@ -105,6 +106,28 @@ export async function syncMagalu(startDate: string, endDate: string): Promise<nu
   const cents = (v?: number) => Math.round(v ?? 0) / 100
   let synced = 0
 
+  // Impostos do fulfillment: a NF (série 6, emitida pela Magalu) vem com XML
+  // completo em /seller/v1/deliveries/{id}/invoices — extrai uma vez por entrega
+  const xmlTag = (xml: string, tag: string) =>
+    parseFloat(xml.match(new RegExp(`<${tag}>([^<]+)</${tag}>`))?.[1] ?? '0')
+  const invoiceTaxCache = new Map<string, { pis: number; cofins: number; icms: number; difal: number; ipi: number } | null>()
+  const getFullInvoiceTaxes = async (deliveryId: string, chave: string) => {
+    if (invoiceTaxCache.has(chave)) return invoiceTaxCache.get(chave)
+    let taxes: { pis: number; cofins: number; icms: number; difal: number; ipi: number } | null = null
+    try {
+      const res = await magaluGet<{ results?: Array<{ key?: string; xml?: string }> }>(`/seller/v1/deliveries/${deliveryId}/invoices`)
+      const xml = (res.results ?? []).find(i => i.key === chave)?.xml
+      if (xml) {
+        taxes = {
+          pis: xmlTag(xml, 'vPIS'), cofins: xmlTag(xml, 'vCOFINS'), icms: xmlTag(xml, 'vICMS'),
+          difal: xmlTag(xml, 'vICMSUFDest') + xmlTag(xml, 'vICMSUFRemet'), ipi: xmlTag(xml, 'vIPI'),
+        }
+      }
+    } catch { /* NF ainda não disponível — fica para o próximo ciclo */ }
+    invoiceTaxCache.set(chave, taxes)
+    return taxes
+  }
+
   // Sem filtro de data documentado: pagina do mais recente para trás até passar do início
   outer: for (let offset = 0; offset < 4000; offset += 50) {
     const res = await magaluGet<MagaluOrdersResponse>('/seller/v1/orders', {
@@ -126,6 +149,8 @@ export async function syncMagalu(startDate: string, endDate: string): Promise<nu
           // "fulfillment" = estoque no CD da Magalu (NF emitida pela Magalu); "direta" = nosso galpão (NF do Bling)
           fulfillment: d.shipping?.logistic_network?.id === 'fulfillment' ? 'full_magalu' : 'galpao',
           nfeKey: d.invoices?.find(i => i.status?.id === 'approved')?.key ?? null,
+          deliveryId: d.id ?? null,
+          deliveryTotal: d.amounts?.total ?? 0,
         })))
       if (!items.length) continue
 
@@ -134,13 +159,13 @@ export async function syncMagalu(startDate: string, endDate: string): Promise<nu
       const fixedFeeTotal = Math.max(0, (order.amounts?.commission?.total ?? 0) - itemCommissionSum)
       const itemsTotal = items.reduce((s, { it }) => s + (it.amounts?.total ?? 0), 0)
 
-      for (const { it, uf, fulfillment, nfeKey } of items) {
+      for (const { it, uf, fulfillment, nfeKey, deliveryId, deliveryTotal } of items) {
         const { productId, sku } = await resolveProduct(it.info?.sku ?? '')
         const itemTotal = it.amounts?.total ?? 0
         const freight = it.amounts?.freight?.total ?? 0
         const share = itemsTotal > 0 ? itemTotal / itemsTotal : 1
 
-        await db.from('sales').upsert({
+        const { data: savedSale } = await db.from('sales').upsert({
           external_order_id: `magalu_${order.code}_${it.info?.sku ?? ''}`,
           marketplace: 'magalu',
           fulfillment_type: fulfillment,
@@ -160,7 +185,24 @@ export async function syncMagalu(startDate: string, endDate: string): Promise<nu
           cancellation: 0,
           uf_destino: uf,
           synced_at: new Date().toISOString(),
-        }, { onConflict: 'external_order_id' })
+        }, { onConflict: 'external_order_id' }).select('id').single()
+
+        // Fulfillment: impostos direto do XML da NF da Magalu (galpão fica com o Bling)
+        if (fulfillment === 'full_magalu' && nfeKey && deliveryId && savedSale?.id) {
+          const taxes = await getFullInvoiceTaxes(deliveryId, nfeKey)
+          if (taxes) {
+            const taxShare = deliveryTotal > 0 ? itemTotal / deliveryTotal : 1
+            await db.from('sale_taxes').upsert({
+              sale_id: savedSale.id,
+              nfe_key: nfeKey,
+              pis: taxes.pis * taxShare,
+              cofins: taxes.cofins * taxShare,
+              icms: taxes.icms * taxShare,
+              icms_difal: taxes.difal * taxShare,
+              ipi: taxes.ipi * taxShare,
+            }, { onConflict: 'sale_id' })
+          }
+        }
 
         synced++
       }
