@@ -24,7 +24,29 @@ export async function POST(request: NextRequest) {
   }
 
   const db = createSupabaseServiceClient()
-  const { entries } = await request.json() as { entries: CmpEntry[] }
+  const body = await request.json()
+
+  // Voltar ao custo da NF: remove TODOS os lançamentos manuais do produto
+  // (marcador: total_stock_qty = 1), destrava e recalcula
+  if (body.remove_manual_product_id) {
+    const pid = String(body.remove_manual_product_id)
+    const { data: manuais } = await db.from('cmp_costs')
+      .select('id').eq('product_id', pid).eq('total_stock_qty', 1)
+    for (const m of manuais ?? []) {
+      await db.from('sale_costs').update({ cmp_cost_id: null }).eq('cmp_cost_id', m.id)
+      await db.from('cmp_costs').delete().eq('id', m.id)
+    }
+    await db.from('products').update({ cost_locked: false }).eq('id', pid)
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/api/landed-cost/relink`, {
+        method: 'POST',
+        headers: { Cookie: `mi_auth=${process.env.APP_PASSWORD}` },
+      })
+    } catch { /* não bloqueia */ }
+    return NextResponse.json({ ok: true, removidos: (manuais ?? []).length, message: 'Custo manual removido — o custo da NF reassumiu e as margens foram recalculadas.' })
+  }
+
+  const { entries } = body as { entries: CmpEntry[] }
 
   if (!entries?.length) {
     return NextResponse.json({ error: 'Nenhum valor enviado' }, { status: 400 })

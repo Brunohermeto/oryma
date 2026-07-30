@@ -237,9 +237,31 @@ export function SkuCostTable({ rows }: { rows: SkuCostRow[] }) {
                 </td>
                 <td className="px-2 py-2.5 text-right">
                   {editing !== r.productId && (
-                    <button onClick={() => startEdit(r)} className="p-1.5 rounded-lg cursor-pointer" title="Editar custo manualmente" style={{ background: B.bgSubtle, border: 'none' }}>
-                      <Pencil size={13} style={{ color: B.brand }} />
-                    </button>
+                    <div className="flex items-center gap-1.5 justify-end">
+                      {r.source === 'manual' && (
+                        <button
+                          onClick={async () => {
+                            if (!window.confirm(`Remover o custo manual de ${r.sku} e voltar ao custo da NF de entrada?\n(O cadeado também será destravado e as margens recalculadas.)`)) return
+                            setMsg('Removendo custo manual e recalculando…')
+                            const res = await fetch('/api/cmp/manual', {
+                              method: 'POST', headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ remove_manual_product_id: r.productId }),
+                            })
+                            const d = await res.json()
+                            setMsg(res.ok ? `✓ ${d.message}` : `Erro: ${d.error}`)
+                            router.refresh()
+                          }}
+                          className="text-[11px] font-medium px-2 py-1 rounded-lg cursor-pointer whitespace-nowrap"
+                          title="Remove o custo manual — o custo da NF de entrada reassume"
+                          style={{ background: 'white', color: '#d97706', border: '1px dashed #d97706' }}
+                        >
+                          voltar à NF
+                        </button>
+                      )}
+                      <button onClick={() => startEdit(r)} className="p-1.5 rounded-lg cursor-pointer" title="Editar custo manualmente" style={{ background: B.bgSubtle, border: 'none' }}>
+                        <Pencil size={13} style={{ color: B.brand }} />
+                      </button>
+                    </div>
                   )}
                 </td>
               </tr>
