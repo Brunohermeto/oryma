@@ -356,24 +356,28 @@ export default async function DashboardPage(
               label: 'Faturamento (30d)', href: `/dashboard/vendas?from=${start}&to=${end}`,
               value: fmtR(totalRevenue), color: '#125BFF',
               delta: prevRevenue > 0 ? revenueChange : null, deltaFmt: (d: number) => `${d > 0 ? '+' : ''}${d.toFixed(1)}%`,
+              perMp: (mp: string) => fmtR(byMP[mp].revenue),
             },
             {
               label: 'Lucro Real (30d)', href: '/dashboard/dre',
               value: fmtR(grossProfit), color: grossProfit >= 0 ? '#16a34a' : '#dc2626',
               delta: prevProfit !== 0 ? ((grossProfit - prevProfit) / Math.abs(prevProfit)) * 100 : null,
               deltaFmt: (d: number) => `${d > 0 ? '+' : ''}${d.toFixed(0)}%`,
+              perMp: (mp: string) => fmtR(byMP[mp].marginValue),
             },
             {
               label: 'Margem Real', href: '/dashboard/dre',
               value: fmtPct(grossMargin), color: marginColor(grossMargin),
               delta: prevMargin !== null ? grossMargin - prevMargin : null,
               deltaFmt: (d: number) => `${d > 0 ? '+' : ''}${d.toFixed(1)}pp`,
+              perMp: (mp: string) => byMP[mp].marginBase > 0 ? fmtPct((byMP[mp].marginValue / byMP[mp].marginBase) * 100) : '—',
             },
             {
               label: 'Pedidos', href: `/dashboard/vendas?from=${start}&to=${end}`,
               value: String(totalOrders), color: '#0B1023',
               delta: prevOrders > 0 ? ((totalOrders - prevOrders) / prevOrders) * 100 : null,
               deltaFmt: (d: number) => `${d > 0 ? '+' : ''}${d.toFixed(0)}%`,
+              perMp: (mp: string) => String(byMP[mp].orders),
             },
           ].map(k => (
             <a key={k.label} href={k.href} className="block rounded-2xl px-5 py-4 bg-white" style={{
@@ -394,22 +398,20 @@ export default async function DashboardPage(
                   <span className="text-[11px]" style={{ color: '#94a3b8' }}>vs 30d anteriores</span>
                 </div>
               )}
-              {/* Faturamento aberto por marketplace + total */}
-              {k.label.startsWith('Faturamento') && (
-                <div className="mt-3 pt-2 space-y-1" style={{ borderTop: '1px solid oklch(0.94 0.01 258)' }}>
-                  {MP_ORDER.filter(mp => byMP[mp]?.revenue > 0).map(mp => (
-                    <div key={mp} className="flex items-center justify-between text-[11px]">
-                      <span className="inline-flex items-center gap-1.5" style={{ color: '#64748B' }}>
-                        <span className="w-2 h-2 rounded-sm inline-block" style={{ background: MP_INFO[mp]?.color }} />
-                        {mpLabel(mp)}
-                      </span>
-                      <span className="font-semibold" style={{ color: '#0B1023', fontFamily: 'var(--font-geist-mono)' }}>
-                        {fmtR(byMP[mp].revenue)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
+              {/* Totalizador aberto por marketplace */}
+              <div className="mt-3 pt-2 space-y-1" style={{ borderTop: '1px solid oklch(0.94 0.01 258)' }}>
+                {MP_ORDER.filter(mp => byMP[mp]?.revenue > 0).map(mp => (
+                  <div key={mp} className="flex items-center justify-between text-[11px]">
+                    <span className="inline-flex items-center gap-1.5" style={{ color: '#64748B' }}>
+                      <span className="w-2 h-2 rounded-sm inline-block" style={{ background: MP_INFO[mp]?.color }} />
+                      {mpLabel(mp)}
+                    </span>
+                    <span className="font-semibold" style={{ color: '#0B1023', fontFamily: 'var(--font-geist-mono)' }}>
+                      {k.perMp(mp)}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </a>
           ))}
         </div>
