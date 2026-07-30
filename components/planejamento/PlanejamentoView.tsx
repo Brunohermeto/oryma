@@ -52,7 +52,7 @@ export function PlanejamentoView({ profiles, plans, items, ruptura, products, ho
   hoje: string
 }) {
   const router = useRouter()
-  const [tab, setTab] = useState<'ruptura' | 'pedidos' | 'perfis'>(ruptura.some(r => (r.gapDias ?? 1) < 0 || (!r.proximaChegada && r.diasAteRuptura < 60)) ? 'ruptura' : 'pedidos')
+  const [tab, setTab] = useState<'ruptura' | 'pedidos' | 'caixa' | 'perfis'>(ruptura.some(r => (r.gapDias ?? 1) < 0 || (!r.proximaChegada && r.diasAteRuptura < 60)) ? 'ruptura' : 'pedidos')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const profById = useMemo(() => new Map(profiles.map(p => [p.id, p])), [profiles])
@@ -75,7 +75,7 @@ export function PlanejamentoView({ profiles, plans, items, ruptura, products, ho
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 flex-wrap">
-        {([['ruptura', 'Projeção de ruptura'], ['pedidos', `Pedidos (${plans.filter(p => !p.done).length} em curso)`], ['perfis', `Perfis de produto (${profiles.length})`]] as const).map(([k, label]) => (
+        {([['ruptura', 'Projeção de ruptura'], ['pedidos', `Pedidos (${plans.filter(p => !p.done).length} em curso)`], ['caixa', 'Fluxo de caixa'], ['perfis', `Perfis de produto (${profiles.length})`]] as const).map(([k, label]) => (
           <button key={k} onClick={() => setTab(k)}
             className="text-[12px] font-semibold px-3 py-1.5 rounded-full cursor-pointer"
             style={{ background: tab === k ? B.brand : 'white', color: tab === k ? 'white' : B.muted, border: `1px solid ${tab === k ? B.brand : B.border}` }}>
@@ -86,46 +86,86 @@ export function PlanejamentoView({ profiles, plans, items, ruptura, products, ho
         {msg && <span className="text-[12px]" style={{ color: msg.startsWith('Erro') ? '#dc2626' : '#16a34a' }}>{msg}</span>}
       </div>
 
-      {tab === 'ruptura' && <RupturaPanel rows={ruptura} />}
+      {tab === 'ruptura' && <RupturaPanel rows={ruptura} hoje={hoje} />}
       {tab === 'pedidos' && <PedidosPanel plans={plans} items={items} profiles={profiles} profById={profById} products={products} hoje={hoje} onSave={post} />}
+      {tab === 'caixa' && <CaixaPanel plans={plans} profById={profById} hoje={hoje} />}
       {tab === 'perfis' && <PerfisPanel profiles={profiles} onSave={post} />}
     </div>
   )
 }
 
 /* ── Ruptura ─────────────────────────────────────────────────────────── */
-function RupturaPanel({ rows }: { rows: RupturaRow[] }) {
+function RupturaPanel({ rows, hoje }: { rows: RupturaRow[]; hoje: string }) {
+  // Simulador: velocidade editável por produto — recalcula a linha na hora.
+  // Só na tela (recarregar volta à velocidade real).
+  const [velSim, setVelSim] = useState<Record<string, number>>({})
+  const addDays = (iso: string, days: number) => {
+    const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + days)
+    return d.toISOString().slice(0, 10)
+  }
+  const temSim = Object.keys(velSim).length > 0
   return (
     <div className="bg-white rounded-2xl p-5" style={{ border: `1px solid ${B.border}` }}>
-      <div className="text-[12px] mb-3" style={{ color: B.muted }}>
-        Estoque real (galpão + Full) ÷ velocidade real de venda → data prevista de ruptura, contra a próxima chegada dos pedidos em curso.
+      <div className="flex items-center gap-3 mb-3 flex-wrap">
+        <span className="text-[12px]" style={{ color: B.muted }}>
+          Estoque real (galpão + Full) ÷ velocidade de venda → data prevista de ruptura, contra a próxima chegada.
+          A <b>Vel/dia é editável</b> — digite outro valor para simular cenários.
+        </span>
+        {temSim && (
+          <button onClick={() => setVelSim({})} className="text-[11px] font-semibold px-2.5 py-1 rounded-full cursor-pointer"
+                  style={{ background: 'oklch(0.96 0.08 70)', color: '#92400e', border: 'none' }}>
+            simulação ativa — restaurar velocidade real
+          </button>
+        )}
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr style={{ borderBottom: `1px solid ${B.border}` }}>
-              {['Produto', 'Estoque', 'Vel/dia', 'Rompe em', 'Data ruptura', 'Próxima chegada', 'Situação'].map((h, i) => (
+              {['Produto', 'Estoque', 'Vel/dia (editável)', 'Rompe em', 'Data ruptura', 'Próxima chegada', 'Situação'].map((h, i) => (
                 <th key={h} className={`px-3 py-2 text-[11px] font-semibold uppercase tracking-wide ${i === 0 ? 'text-left' : 'text-right'}`} style={{ color: B.muted }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {rows.map(r => {
+            {rows.map(r0 => {
+              const vel = velSim[r0.sku] ?? r0.velocityDay
+              const simulado = velSim[r0.sku] !== undefined && Math.abs(vel - r0.velocityDay) > 0.001
+              const dias = vel > 0 ? Math.floor(r0.stock / vel) : 9999
+              const dataRuptura = addDays(hoje, dias)
+              const gap = r0.proximaChegada
+                ? Math.round((new Date(r0.proximaChegada.date).getTime() - new Date(dataRuptura).getTime()) / 86400000)
+                : null
+              const r = { ...r0, velocityDay: vel, diasAteRuptura: dias, dataRuptura, gapDias: gap }
               const semCobertura = !r.proximaChegada
               const furo = r.gapDias !== null && r.gapDias > 0
               const cor = semCobertura && r.diasAteRuptura < 90 ? '#dc2626' : furo ? '#dc2626' : '#16a34a'
               return (
-                <tr key={r.sku} style={{ borderBottom: `1px solid ${B.bgSubtle}` }}>
+                <tr key={r.sku} style={{ borderBottom: `1px solid ${B.bgSubtle}`, background: simulado ? 'oklch(0.98 0.03 70)' : undefined }}>
                   <td className="px-3 py-2">
                     <div className="text-[13px] font-medium" style={{ color: B.text }}>{r.sku}</div>
                     <div className="text-[11px] truncate max-w-[240px]" style={{ color: B.muted }}>{r.name}</div>
                   </td>
                   <td className="px-3 py-2 text-right" style={{ fontFamily: 'var(--font-geist-mono)' }}>{r.stock}</td>
-                  <td className="px-3 py-2 text-right" style={{ fontFamily: 'var(--font-geist-mono)' }}>{r.velocityDay.toFixed(1)}</td>
-                  <td className="px-3 py-2 text-right font-semibold" style={{ color: r.diasAteRuptura < 30 ? '#dc2626' : r.diasAteRuptura < 60 ? '#d97706' : B.text, fontFamily: 'var(--font-geist-mono)' }}>
-                    {r.diasAteRuptura}d
+                  <td className="px-3 py-2 text-right">
+                    <input
+                      type="number" step="0.1" min="0"
+                      value={velSim[r.sku] ?? r0.velocityDay}
+                      onChange={e => setVelSim({ ...velSim, [r.sku]: Number(e.target.value) })}
+                      className="w-16 text-right text-[13px] px-1.5 py-0.5 rounded-md outline-none"
+                      style={{
+                        border: `1px solid ${simulado ? '#d97706' : B.border}`,
+                        color: simulado ? '#92400e' : B.text,
+                        fontFamily: 'var(--font-geist-mono)',
+                        background: 'white',
+                      }}
+                    />
+                    {simulado && <div className="text-[10px]" style={{ color: B.muted }}>real: {r0.velocityDay.toFixed(1)}</div>}
                   </td>
-                  <td className="px-3 py-2 text-right text-[12px]" style={{ color: B.muted }}>{fmtD(r.dataRuptura)}</td>
+                  <td className="px-3 py-2 text-right font-semibold" style={{ color: r.diasAteRuptura < 30 ? '#dc2626' : r.diasAteRuptura < 60 ? '#d97706' : B.text, fontFamily: 'var(--font-geist-mono)' }}>
+                    {r.diasAteRuptura >= 9999 ? '—' : `${r.diasAteRuptura}d`}
+                  </td>
+                  <td className="px-3 py-2 text-right text-[12px]" style={{ color: B.muted }}>{r.diasAteRuptura >= 9999 ? '—' : fmtD(r.dataRuptura)}</td>
                   <td className="px-3 py-2 text-right text-[12px]" style={{ color: B.muted }}>
                     {r.proximaChegada
                       ? `${fmtD(r.proximaChegada.date)} (+${r.proximaChegada.qty} un · ${r.proximaChegada.invoice})`
@@ -347,6 +387,97 @@ function PedidosPanel({ plans, items, profiles, profById, products, hoje, onSave
         </div>
       )}
       <style>{`.inp{border:1px solid ${B.border};border-radius:8px;padding:6px 8px;font-size:13px;color:${B.text};background:white;outline:none}`}</style>
+    </div>
+  )
+}
+
+/* ── Fluxo de caixa (Etapa 2): desencaixe mensal consolidado ─────────── */
+function CaixaPanel({ plans, profById, hoje }: {
+  plans: (ImportPlan & { id: string })[]
+  profById: Map<string, ImportProfile>
+  hoje: string
+}) {
+  // Todos os pagamentos dos pedidos não concluídos, resolvidos em datas
+  const lancamentos: Array<{ invoice: string; label: string; date: string; amount: number; pago: boolean }> = []
+  for (const pl of plans) {
+    if (pl.done) continue
+    const prof = profById.get(pl.profile_id ?? '')
+    if (!prof) continue
+    const dates = resolvePlanDates(pl, prof, hoje)
+    for (const p of resolvePagamentos(pl, prof, dates)) {
+      lancamentos.push({ invoice: pl.invoice, label: p.label, date: p.date, amount: p.amount, pago: p.date < hoje })
+    }
+  }
+  const aVencer = lancamentos.filter(l => !l.pago)
+  const totalAberto = aVencer.reduce((s, l) => s + l.amount, 0)
+
+  // Agrupa por mês (passado em aberto entra como "vencido")
+  const byMonth = new Map<string, typeof lancamentos>()
+  for (const l of aVencer) {
+    const m = l.date.slice(0, 7)
+    if (!byMonth.has(m)) byMonth.set(m, [])
+    byMonth.get(m)!.push(l)
+  }
+  const meses = [...byMonth.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))
+  const fmtMes = (m: string) => {
+    const nomes = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+    return `${nomes[Number(m.slice(5, 7)) - 1]}/${m.slice(0, 4)}`
+  }
+  const maxMes = Math.max(...meses.map(([, ls]) => ls.reduce((s, l) => s + l.amount, 0)), 1)
+
+  return (
+    <div className="space-y-3">
+      <div className="bg-white rounded-2xl p-5" style={{ border: `1px solid ${B.border}` }}>
+        <div className="flex items-center gap-3 flex-wrap mb-1">
+          <span className="font-semibold text-sm" style={{ color: B.text, fontFamily: 'var(--font-sora)' }}>
+            Desencaixe das importações em curso
+          </span>
+          <span className="text-[13px] font-bold px-2.5 py-1 rounded-full" style={{ background: 'oklch(0.96 0.04 25)', color: '#dc2626' }}>
+            total em aberto: {fmtR(totalAberto)}
+          </span>
+        </div>
+        <div className="text-[12px] mb-4" style={{ color: B.muted }}>
+          Parcelas e impostos de todos os pedidos não concluídos, nas datas resolvidas pela linha do tempo
+          (parcela com data passada é considerada paga e sai daqui). Mudou uma data no pedido → o caixa move junto.
+        </div>
+        <div className="space-y-2">
+          {meses.map(([mes, ls]) => {
+            const total = ls.reduce((s, l) => s + l.amount, 0)
+            const vencido = mes < hoje.slice(0, 7)
+            return (
+              <details key={mes} className="rounded-lg" style={{ background: B.bgSubtle }}>
+                <summary className="cursor-pointer select-none flex items-center gap-3 px-3 py-2.5">
+                  <span className="w-20 text-[13px] font-bold" style={{ color: vencido ? '#dc2626' : B.text }}>
+                    {vencido ? `${fmtMes(mes)} ⚠` : fmtMes(mes)}
+                  </span>
+                  <div className="flex-1 h-3.5 rounded-full overflow-hidden" style={{ background: 'white' }}>
+                    <div className="h-full rounded-full" style={{ width: `${Math.max((total / maxMes) * 100, 2)}%`, background: vencido ? '#dc2626' : 'linear-gradient(90deg, #125BFF, #7B61FF)' }} />
+                  </div>
+                  <span className="w-32 text-right text-[13px] font-bold" style={{ color: vencido ? '#dc2626' : B.text, fontFamily: 'var(--font-geist-mono)' }}>
+                    {fmtR(total)}
+                  </span>
+                  <span className="text-[11px]" style={{ color: B.muted }}>{ls.length} parcela{ls.length > 1 ? 's' : ''}</span>
+                </summary>
+                <div className="px-3 pb-3 space-y-1">
+                  {ls.sort((a, b) => (a.date < b.date ? -1 : 1)).map((l, i) => (
+                    <div key={i} className="flex items-center gap-3 text-[12px] bg-white rounded-md px-2.5 py-1.5">
+                      <span className="w-16" style={{ color: B.muted, fontFamily: 'var(--font-geist-mono)' }}>{fmtD(l.date)}</span>
+                      <span className="font-medium" style={{ color: B.text }}>{l.invoice}</span>
+                      <span style={{ color: B.muted }}>{l.label}</span>
+                      <span className="ml-auto font-semibold" style={{ color: B.text, fontFamily: 'var(--font-geist-mono)' }}>{fmtR(l.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )
+          })}
+          {meses.length === 0 && (
+            <div className="text-[13px] py-4 text-center" style={{ color: B.muted }}>
+              Nenhum pagamento em aberto nos pedidos em curso.
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
