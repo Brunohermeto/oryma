@@ -1,7 +1,11 @@
+import { cookies } from 'next/headers'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { OrymaIntelligence } from '@/components/ai/OrymaIntelligence'
+import { DemoBlur } from '@/components/layout/DemoBlur'
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const isDemo = !!process.env.DEMO_PASSWORD &&
+    (await cookies()).get('mi_auth')?.value === process.env.DEMO_PASSWORD
   return (
     <div className="flex min-h-screen" style={{
       background: `
@@ -15,6 +19,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {children}
       </main>
       <OrymaIntelligence />
+      {isDemo && <DemoBlur />}
     </div>
   )
 }

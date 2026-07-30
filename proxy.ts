@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export function proxy(request: NextRequest) {
-  const isLoggedIn = request.cookies.get('mi_auth')?.value === process.env.APP_PASSWORD
+  const cookie = request.cookies.get('mi_auth')?.value
+  const isLoggedIn = !!cookie &&
+    (cookie === process.env.APP_PASSWORD ||
+     (!!process.env.DEMO_PASSWORD && cookie === process.env.DEMO_PASSWORD))
   const isLoginPage = request.nextUrl.pathname === '/login'
   const path = request.nextUrl.pathname
   // Rotas públicas: auth, OAuth callbacks/webhooks (ML/Bling não têm cookie)
