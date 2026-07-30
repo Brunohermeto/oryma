@@ -117,7 +117,9 @@ export async function syncMagalu(startDate: string, endDate: string): Promise<nu
     try {
       const res = await magaluGet<{ results?: Array<{ key?: string; xml?: string }> }>(`/seller/v1/deliveries/${deliveryId}/invoices`)
       const xml = (res.results ?? []).find(i => i.key === chave)?.xml
-      if (xml) {
+      // só NF de VENDA — retorno simbólico/remessa não é venda (regra do Bruno)
+      const natOp = xml?.match(/<natOp>([^<]+)<\/natOp>/)?.[1] ?? ''
+      if (xml && /venda/i.test(natOp)) {
         taxes = {
           pis: xmlTag(xml, 'vPIS'), cofins: xmlTag(xml, 'vCOFINS'), icms: xmlTag(xml, 'vICMS'),
           difal: xmlTag(xml, 'vICMSUFDest') + xmlTag(xml, 'vICMSUFRemet'), ipi: xmlTag(xml, 'vIPI'),
