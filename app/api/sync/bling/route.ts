@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
   // ─────────────────────────────────────────────────────────────────────────────
   try {
     // Manual: 10 NF-e (~4.5s) | Cron: 30 (skip de chaves vinculadas = muito rápido)
-    const maxNFe = isCron ? 30 : 40
+    const maxNFe = Number(request.nextUrl.searchParams.get('max') ?? (isCron ? 30 : 40))
     const saida = await syncNFeSaida(startDate, endDate, maxNFe)
 
     let entrada = 0
