@@ -107,7 +107,7 @@ except Exception as e:
 # ── 3b. NF-e por CHAVE (Magalu galpao: a venda ja sabe a chave da NF via API;
 #        o casador extrai os impostos do XML do Bling sem heuristica) ──
 try:
-    r = post("/api/sync/bling?days=3", timeout=170)
+    r = post("/api/sync/bling?days=3&max=15", timeout=170)
     print(f"3b. bling por chave: {json.dumps(r, ensure_ascii=False)[:100]}", flush=True)
 except Exception as e:
     print(f"3b. bling por chave: ERRO {str(e)[:70]}", flush=True)
