@@ -42,15 +42,18 @@ export async function POST(request: NextRequest) {
   const cutoff = brazilDaysAgo(days)
   const db     = createSupabaseServiceClient()
 
-  // 1. Período: ?period=YYYY-MM-01 (backfill) ou o período aberto (default)
-  let key = request.nextUrl.searchParams.get('period')
-  if (!key) {
+  // 1. Períodos: ?period=YYYY-MM-01 (backfill) ou os DOIS últimos (default).
+  //    Na virada do mês o ML abre o período novo, mas os Ads dos últimos dias
+  //    do mês anterior ficam no período velho — olhar só 1 zerava os Ads.
+  const explicitPeriod = request.nextUrl.searchParams.get('period')
+  let keys: string[] = explicitPeriod ? [explicitPeriod] : []
+  if (!keys.length) {
     const periods = await mlGet<{ results?: Array<{ key?: string }> }>(
-      '/billing/integration/monthly/periods?group=ML&document_type=BILL&limit=1'
+      '/billing/integration/monthly/periods?group=ML&document_type=BILL&limit=2'
     )
-    key = periods.results?.[0]?.key ?? null
+    keys = (periods.results ?? []).map(p => p.key).filter((k): k is string => !!k)
   }
-  if (!key) return NextResponse.json({ ok: false, error: 'Nenhum período de billing encontrado' }, { status: 500 })
+  if (!keys.length) return NextResponse.json({ ok: false, error: 'Nenhum período de billing encontrado' }, { status: 500 })
 
   // 2. Detalhes do período (paginação por from_id)
   const rebateByOrder = new Map<string, number>()
@@ -58,8 +61,9 @@ export async function POST(request: NextRequest) {
   // Tarifas por pedido: CV* = comissão | CXD* = frete | resto = tarifa fixa/Full
   const chargesByOrder = new Map<string, { commission: number; shipping: number; fixed: number }>()
   const seen = new Set<number>()
-  let offset = 0
 
+  for (const key of keys) {
+  let offset = 0
   for (let page = 0; page < 8; page++) {
     // Paginação por offset — o last_id do ML volta 0 e quebraria o cursor
     const body = await mlGet<{ results?: BillingDetail[] }>(
@@ -101,6 +105,7 @@ export async function POST(request: NextRequest) {
     if (results.length < 1000) break
     offset += results.length
   }
+  }
 
   // 3. Comissão/tarifa fixa/estorno/frete NÃO são gravados aqui: o extrato por
   //    período traz o CVVFN LÍQUIDO (sem o sale_fee.gross) e o CFFE CHEIO
@@ -124,7 +129,7 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({
-    ok: true, period: key,
+    ok: true, period: keys.join(','),
     tariff_orders: chargesByOrder.size, tariff_sales_updated: tariffSales,
     rebate_orders: rebateByOrder.size, rebate_sales_updated: rebateSales,
     ads_days: padsByDay.size, ads_sales_updated: adsSales,
