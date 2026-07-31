@@ -104,13 +104,17 @@ try:
 except Exception as e:
     print(f"3. bling saida: ERRO {str(e)[:70]}", flush=True)
 
-# ── 3b. NF-e por CHAVE (Magalu galpao: a venda ja sabe a chave da NF via API;
-#        o casador extrai os impostos do XML do Bling sem heuristica) ──
-try:
-    r = post("/api/sync/bling?days=3&max=15", timeout=170)
-    print(f"3b. bling por chave: {json.dumps(r, ensure_ascii=False)[:100]}", flush=True)
-except Exception as e:
-    print(f"3b. bling por chave: ERRO {str(e)[:70]}", flush=True)
+# ── 3b. impostos por CHAVE (Magalu galpao: XML direto por /nfe/documento/{chave},
+#        rota leve e fatiada — a antiga /api/sync/bling estourava timeout) ──
+for _ in range(4):
+    try:
+        r = post("/api/sync/nfe-taxes?days=7&limit=20", timeout=170)
+        print(f"3b. impostos por chave: {json.dumps(r, ensure_ascii=False)[:100]}", flush=True)
+        if r.get("remaining", 0) <= 0: break
+    except Exception as e:
+        print(f"3b. impostos por chave: ERRO {str(e)[:70]}", flush=True)
+        break
+    time.sleep(2)
 
 # ── 4. NF-e ENTRADA Bling (compras novas → custo) ──
 try:
