@@ -55,64 +55,45 @@ export async function POST(request: NextRequest) {
   }
   if (!keys.length) return NextResponse.json({ ok: false, error: 'Nenhum período de billing encontrado' }, { status: 500 })
 
-  // 2. Detalhes do período (paginação por from_id)
-  const rebateByOrder = new Map<string, number>()
-  const padsByDay     = new Map<string, number>()
-  // Tarifas por pedido: CV* = comissão | CXD* = frete | resto = tarifa fixa/Full
-  const chargesByOrder = new Map<string, { commission: number; shipping: number; fixed: number }>()
+  // 2. Só os Ads (PADS) importam aqui — comissão/estorno/frete têm dono único
+  //    (/api/sync/ml/tariffs; o extrato por período traz CVVFN líquido e CFFE
+  //    cheio, gravar daqui desfaria os valores corretos). Lê de trás pra frente
+  //    e para ao passar da janela — assim 2 períodos cabem nos 60s.
+  const padsByDay = new Map<string, number>()
   const seen = new Set<number>()
 
   for (const key of keys) {
-  let offset = 0
-  for (let page = 0; page < 8; page++) {
-    // Paginação por offset — o last_id do ML volta 0 e quebraria o cursor
-    const body = await mlGet<{ results?: BillingDetail[] }>(
-      `/billing/integration/periods/key/${key}/group/ML/details?document_type=BILL&limit=1000&sort_by=ID&order_by=ASC&offset=${offset}`
-    )
-    const results = body.results ?? []
-    if (!results.length) break
+    let offset = 0
+    for (let page = 0; page < 8; page++) {
+      const body = await mlGet<{ results?: BillingDetail[] }>(
+        `/billing/integration/periods/key/${key}/group/ML/details?document_type=BILL&limit=1000&sort_by=ID&order_by=DESC&offset=${offset}`
+      )
+      const results = body.results ?? []
+      if (!results.length) break
 
-    for (const r of results) {
-      const ci = r.charge_info ?? {}
-      if (ci.detail_id == null || seen.has(ci.detail_id)) continue
-      seen.add(ci.detail_id)
-      const amount = Number(ci.detail_amount ?? 0)
-      const order  = r.sales_info?.[0]?.order_id
-
-      const st = ci.detail_sub_type ?? ''
-      if (ci.detail_type === 'BONUS' && order) {
-        if (st === 'BFONPN') continue  // estorno do repasse de parcelamento — fora
-        const k = String(order)
-        rebateByOrder.set(k, (rebateByOrder.get(k) ?? 0) + amount)
-      } else if (st === 'PADS') {
+      let allOlder = true
+      for (const r of results) {
+        const ci = r.charge_info ?? {}
+        if (ci.detail_id == null || seen.has(ci.detail_id)) continue
+        seen.add(ci.detail_id)
         const day = (ci.creation_date_time ?? '').slice(0, 10)
+        if (day >= cutoff) allOlder = false
+        if ((ci.detail_sub_type ?? '') !== 'PADS') continue
         // Só rateia dias FECHADOS — o dia corrente concentraria o custo
         // inteiro nas poucas vendas que já entraram
         if (day >= cutoff && day < brazilToday()) {
-          padsByDay.set(day, (padsByDay.get(day) ?? 0) + amount)
+          padsByDay.set(day, (padsByDay.get(day) ?? 0) + Number(ci.detail_amount ?? 0))
         }
-      } else if (ci.detail_type === 'CHARGE' && order) {
-        // CFONPN = repasse do acréscimo do comprador; CDIFAL = já vem da NF-e
-        if (st === 'CFONPN' || st === 'CDIFAL') continue
-        const k = String(order)
-        const cur = chargesByOrder.get(k) ?? { commission: 0, shipping: 0, fixed: 0 }
-        if (st.startsWith('CV')) cur.commission += amount
-        else if (st.startsWith('CXD') || st.startsWith('CFF')) cur.shipping += amount
-        else cur.fixed += amount
-        chargesByOrder.set(k, cur)
       }
+      if (allOlder || results.length < 1000) break
+      offset += results.length
     }
-    if (results.length < 1000) break
-    offset += results.length
-  }
   }
 
-  // 3. Comissão/tarifa fixa/estorno/frete NÃO são gravados aqui: o extrato por
-  //    período traz o CVVFN LÍQUIDO (sem o sale_fee.gross) e o CFFE CHEIO
-  //    (com a parte do cliente) — gravar daqui desfazia os valores corretos.
-  //    Dono único dessas colunas: /api/sync/ml/tariffs (order/details + sale_fee).
   const tariffSales = 0
   const rebateSales = 0
+  const chargesByOrder = new Map<string, never>()
+  const rebateByOrder = new Map<string, never>()
 
   // 4. Ads: custo do dia rateado entre as vendas ML do dia
   let adsSales = 0
