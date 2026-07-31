@@ -137,7 +137,7 @@ except Exception as e:
 
 # ── 8b. taxas reais Amazon (Finances API; eventos atrasam dias — retenta ate sair) ──
 try:
-    r = post("/api/sync/amazon/fees?days=30&limit=15", timeout=170)
+    r = post("/api/sync/amazon/fees?days=30&limit=40", timeout=170)
     print(f"8b. amazon fees: {json.dumps(r, ensure_ascii=False)[:110]}", flush=True)
 except Exception as e:
     print(f"8b. amazon fees: ERRO {str(e)[:70]}", flush=True)
