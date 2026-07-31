@@ -160,17 +160,21 @@ export async function syncNFeSaida(startDate: string, endDate: string, maxItems 
 
   while (true) {
     // retries=1: máximo 1 segundo de espera em rate limit (não 7s com retries=3)
+    // ATENÇÃO: os params corretos do Bling v3 são dataEmissaoInicial/Final —
+    // "Inicio/Fim" eram IGNORADOS e a rota listava o histórico inteiro (timeout crônico)
     const list = await blingGet<BlingNFeSaidaList>('/nfe', {
       pagina: String(page),
       limite: '100',
-      dataEmissaoInicio: startDate,
-      dataEmissaoFim: endDate,
+      dataEmissaoInicial: startDate,
+      dataEmissaoFinal: endDate,
     }, 1)
 
     if (!list.data?.length) break
 
     for (const nfe of list.data) {
-      if (!isSerieValida(nfe.serie)) continue
+      // a lista não traz `serie` — vem embutida na chave (posições 22-25)
+      const serieFromChave = nfe.chaveAcesso ? nfe.chaveAcesso.slice(22, 25) : nfe.serie
+      if (!isSerieValida(serieFromChave)) continue
       // Skip imediato se chave já conhecida (sem baixar XML) — exceto se a venda
       // vinculada ainda está sem impostos (chave veio da API do marketplace)
       if (nfe.chaveAcesso && linkedChaves.has(nfe.chaveAcesso) && !chaveDirectMap.has(nfe.chaveAcesso)) continue
