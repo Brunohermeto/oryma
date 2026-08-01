@@ -146,6 +146,15 @@ try:
 except Exception as e:
     print(f"8b. amazon fees: ERRO {str(e)[:70]}", flush=True)
 
+# ── 8d-pre. taxas de servico Amazon (postagem MFN exata por venda + VIGIA armazenagem) ──
+try:
+    r = post("/api/sync/amazon/service-fees?days=14", timeout=170)
+    print(f"8d. amazon service-fees: {json.dumps(r, ensure_ascii=False)[:120]}", flush=True)
+    if r.get("storage_fee_total", 0) > 0:
+        print(f"!!! ATENCAO: Amazon COMECOU A COBRAR ARMAZENAGEM FBA: R$ {r['storage_fee_total']} — construir rateio por venda!", flush=True)
+except Exception as e:
+    print(f"8d. amazon service-fees: ERRO {str(e)[:70]}", flush=True)
+
 # ── 8c. repasse Magalu (reembolso de promocao coparticipada + frete do seller) ──
 try:
     r = post("/api/sync/magalu/finance?days=14", timeout=170)
