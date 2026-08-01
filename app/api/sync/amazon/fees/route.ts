@@ -56,9 +56,10 @@ export async function POST(request: NextRequest) {
   // Fila: vendas do período — sem taxas ainda OU todas (p/ capturar devoluções tardias).
   // O painel da Amazon é líquido de devoluções; gravamos devolução em cancellation.
   const { data: sales } = await db.from('sales')
-    .select('id, external_order_id, marketplace_commission, cancellation')
+    .select('id, external_order_id, marketplace_commission, cancellation, sale_date')
     .eq('marketplace', 'amazon')
     .gte('sale_date', since)
+    .order('sale_date', { ascending: true })
 
   // agrupa por pedido: external_order_id = amz_{orderId}_{SellerSKU cru}
   const byOrder = new Map<string, Array<{ id: string; external_order_id: string; marketplace_commission: number; cancellation: number }>>()
@@ -70,7 +71,8 @@ export async function POST(request: NextRequest) {
 
   let processed = 0
   let updated = 0
-  // pedidos ainda sem comissão têm prioridade na fatia; o resto entra p/ devoluções
+  // prioridade: sem comissão primeiro e, entre eles, venda mais ANTIGA primeiro
+  // (mais provável de já ter eventos publicados — evita re-verificar sempre os mesmos)
   const queue = [...byOrder.entries()].sort((a, b) =>
     Number(b[1].some(r => !Number(r.marketplace_commission))) - Number(a[1].some(r => !Number(r.marketplace_commission))))
   for (const [orderId, rows] of queue) {
