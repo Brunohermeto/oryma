@@ -100,9 +100,7 @@ export default async function DashboardPage(
   const uw = (v: unknown) => !v ? null : Array.isArray(v) ? (v as any[])[0] ?? null : v
 
   // ── Comparativo do ANO corrente (paginado — PostgREST máx. 1000/página) ──
-  // Começa em MAIO: antes disso só o ML está no banco (Magalu/Amazon entraram
-  // com histórico a partir de mai/26) e os totais de jan-abr sairiam falsos.
-  const yearStart = '2026-05-01'
+  const yearStart = format(now, 'yyyy-01-01')
   const yearSales: Array<{ marketplace: string; gross_price: number; cancellation: number; sale_date: string; sale_costs: unknown }> = []
   for (let page = 0; page < 20; page++) {
     const { data: chunk } = await db.from('sales')
@@ -510,7 +508,7 @@ export default async function DashboardPage(
               Comparativo do Ano — {now.getFullYear()}
             </div>
             <div className="text-[12px] mt-0.5" style={{ color: 'oklch(0.50 0.025 258)' }}>
-              Desde mai/26 (início do histórico completo dos 3 canais) · faturamento mensal empilhado por marketplace · linha roxa = margem real % · nº de pedidos sob cada mês
+              Faturamento mensal empilhado por marketplace · linha roxa = margem real % · nº de pedidos sob cada mês
             </div>
           </div>
           {/* Acumulado do ano até o momento, por canal */}
