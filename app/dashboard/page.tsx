@@ -136,6 +136,13 @@ export default async function DashboardPage(
       amazon: a.byMp.amazon ?? 0, shopee: a.byMp.shopee ?? 0,
     }
   })
+  // acumulado do ano por canal (até o momento)
+  const yearTotalByMp: Record<string, number> = {}
+  let yearTotal = 0
+  for (const a of yearAgg.values()) {
+    yearTotal += a.total
+    for (const [mp, v] of Object.entries(a.byMp)) yearTotalByMp[mp] = (yearTotalByMp[mp] ?? 0) + v
+  }
 
   // ── Taxas pagas no período — por marketplace + total ──
   type FeeAgg = { comissao: number; frete: number; fixa: number; ads: number; estorno: number; revenue: number }
@@ -505,6 +512,20 @@ export default async function DashboardPage(
             <div className="text-[12px] mt-0.5" style={{ color: 'oklch(0.50 0.025 258)' }}>
               Desde mai/26 (início do histórico completo dos 3 canais) · faturamento mensal empilhado por marketplace · linha roxa = margem real % · nº de pedidos sob cada mês
             </div>
+          </div>
+          {/* Acumulado do ano até o momento, por canal */}
+          <div className="flex items-center gap-2 flex-wrap mb-3">
+            <span className="text-[12px] font-bold px-3 py-1.5 rounded-lg" style={{ background: '#0B1023', color: 'white', fontFamily: 'var(--font-geist-mono)' }}>
+              Ano: {fmtR(yearTotal)}
+            </span>
+            {MP_ORDER.filter(mp => (yearTotalByMp[mp] ?? 0) > 0).map(mp => (
+              <span key={mp} className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg"
+                    style={{ background: 'oklch(0.97 0.008 258)', color: '#0B1023' }}>
+                <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: MP_INFO[mp]?.color }} />
+                {mpLabel(mp)}: <span style={{ fontFamily: 'var(--font-geist-mono)' }}>{fmtR(yearTotalByMp[mp])}</span>
+                <span style={{ color: 'oklch(0.50 0.025 258)' }}>({yearTotal > 0 ? (100 * yearTotalByMp[mp] / yearTotal).toFixed(0) : 0}%)</span>
+              </span>
+            ))}
           </div>
           <YearlyChart data={yearData} />
         </div>
