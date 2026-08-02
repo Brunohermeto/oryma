@@ -11,6 +11,7 @@ import { FeeAuditPanel } from '@/components/dashboard/FeeAuditPanel'
 import { RunAuditButton } from '@/components/dashboard/RunAuditButton'
 import { LiveSalesFeed } from '@/components/dashboard/LiveSalesFeed'
 import { MarginByProductTable, type ProductMarginRow } from '@/components/dashboard/MarginByProductTable'
+import { YearlyChart, type YearMonthPoint } from '@/components/charts/YearlyChart'
 
 export const dynamic = 'force-dynamic'
 export const preferredRegion = 'gru1'
@@ -97,6 +98,42 @@ export default async function DashboardPage(
 
   // Supabase retorna relações como objeto único OU array — trata ambos
   const uw = (v: unknown) => !v ? null : Array.isArray(v) ? (v as any[])[0] ?? null : v
+
+  // ── Comparativo do ANO corrente (paginado — PostgREST máx. 1000/página) ──
+  const yearStart = format(now, 'yyyy-01-01')
+  const yearSales: Array<{ marketplace: string; gross_price: number; cancellation: number; sale_date: string; sale_costs: unknown }> = []
+  for (let page = 0; page < 20; page++) {
+    const { data: chunk } = await db.from('sales')
+      .select('marketplace, gross_price, cancellation, sale_date, sale_costs(margin_value)')
+      .gte('sale_date', yearStart)
+      .order('sale_date', { ascending: true })
+      .range(page * 1000, page * 1000 + 999)
+    if (!chunk?.length) break
+    yearSales.push(...(chunk as any))
+    if (chunk.length < 1000) break
+  }
+  const MESES_PT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+  const yearAgg = new Map<number, { byMp: Record<string, number>; total: number; mv: number; mb: number; pedidos: number }>()
+  for (const s of yearSales) {
+    const m = Number(s.sale_date.slice(5, 7)) - 1
+    if (!yearAgg.has(m)) yearAgg.set(m, { byMp: {}, total: 0, mv: 0, mb: 0, pedidos: 0 })
+    const a = yearAgg.get(m)!
+    const g = Number(s.gross_price) - Number(s.cancellation ?? 0)
+    a.byMp[s.marketplace] = (a.byMp[s.marketplace] ?? 0) + g
+    a.total += g
+    a.pedidos++
+    const mvv = (uw(s.sale_costs) as any)?.margin_value
+    if (mvv !== null && mvv !== undefined) { a.mv += Number(mvv); a.mb += g }
+  }
+  const yearData: YearMonthPoint[] = [...yearAgg.keys()].sort((a, b) => a - b).map(m => {
+    const a = yearAgg.get(m)!
+    return {
+      mes: MESES_PT[m], total: a.total, pedidos: a.pedidos,
+      margem: a.mb > 0 ? Math.round((a.mv / a.mb) * 1000) / 10 : null,
+      mercado_livre: a.byMp.mercado_livre ?? 0, magalu: a.byMp.magalu ?? 0,
+      amazon: a.byMp.amazon ?? 0, shopee: a.byMp.shopee ?? 0,
+    }
+  })
 
   // ── Taxas pagas no período — por marketplace + total ──
   type FeeAgg = { comissao: number; frete: number; fixa: number; ads: number; estorno: number; revenue: number }
@@ -457,6 +494,18 @@ export default async function DashboardPage(
           Gráficos — receita, margem e canais
         </summary>
         <div className="space-y-4">
+        {/* ── Comparativo do ano ── */}
+        <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid rgba(15,23,42,0.07)', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}>
+          <div className="mb-2">
+            <div className="text-sm font-semibold" style={{ color: 'oklch(0.12 0.04 258)', fontFamily: 'var(--font-sora)' }}>
+              Comparativo do Ano — {now.getFullYear()}
+            </div>
+            <div className="text-[12px] mt-0.5" style={{ color: 'oklch(0.50 0.025 258)' }}>
+              Faturamento mensal empilhado por marketplace · linha roxa = margem real % do mês · nº de pedidos sob cada mês
+            </div>
+          </div>
+          <YearlyChart data={yearData} />
+        </div>
         <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid rgba(15,23,42,0.07)', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}>
           <div className="mb-4">
             <div className="text-sm font-semibold" style={{ color: 'oklch(0.12 0.04 258)', fontFamily: 'var(--font-sora)' }}>
