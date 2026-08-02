@@ -21,18 +21,35 @@ function fmtPct(v: number) { return `${v.toFixed(1)}%` }
 import { MP_INFO, MP_ORDER, mpLabel } from '@/components/marketplaces'
 
 export default async function DashboardPage(
-  { searchParams }: { searchParams: Promise<{ days?: string }> }
+  { searchParams }: { searchParams: Promise<{ days?: string; mes?: string }> }
 ) {
   const sp = await searchParams
-  const marginDays = [7, 30, 90].includes(Number(sp.days)) ? Number(sp.days) : 30
   const db = createSupabaseServiceClient()
   const now = new Date()
-  // Usa últimos 30 dias como período principal (mais relevante que "mês atual")
-  const start = format(subDays(now, 29), 'yyyy-MM-dd')
-  const end = format(now, 'yyyy-MM-dd')
-  const prevStart = format(subDays(now, 59), 'yyyy-MM-dd')
-  const prevEnd = format(subDays(now, 30), 'yyyy-MM-dd')
-  const last30Start = start
+
+  // ── Período = MÊS (vigente por padrão, ou ?mes=YYYY-MM) ──
+  const mesAtual = format(now, 'yyyy-MM')
+  const mes = /^\d{4}-\d{2}$/.test(sp.mes ?? '') ? sp.mes! : mesAtual
+  const monthDate = new Date(`${mes}-01T12:00:00`)
+  const isCurrentMonth = mes === mesAtual
+  const monthEndDate = isCurrentMonth ? now : endOfMonth(monthDate)
+  const start = `${mes}-01`
+  const end = format(monthEndDate, 'yyyy-MM-dd')
+  const daysElapsed = Number(end.slice(8, 10))  // dias corridos do mês exibido
+  const marginDays = daysElapsed
+  // comparação: mês anterior, MESMO número de dias corridos
+  const prevMonthDate = subMonths(monthDate, 1)
+  const prevStart = format(prevMonthDate, 'yyyy-MM-01')
+  const prevEndCap = endOfMonth(prevMonthDate)
+  const prevEndTarget = new Date(prevMonthDate.getTime() + (daysElapsed - 1) * 864e5)
+  const prevEnd = format(prevEndTarget < prevEndCap ? prevEndTarget : prevEndCap, 'yyyy-MM-dd')
+  const mesLabel = monthDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).replace(' de ', '/')
+  const mesCurto = monthDate.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')
+  // seletor: últimos 6 meses
+  const mesesOpcoes = Array.from({ length: 6 }, (_, i) => {
+    const d = subMonths(now, i)
+    return { key: format(d, 'yyyy-MM'), label: d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace('. de ', '/').replace('.', '') }
+  })
 
   const { data: sales } = await db
     .from('sales')
@@ -55,7 +72,7 @@ export default async function DashboardPage(
   const { data: trendSales } = await db
     .from('sales')
     .select('marketplace, gross_price, sale_date')
-    .gte('sale_date', last30Start)
+    .gte('sale_date', start)
     .lte('sale_date', format(now, 'yyyy-MM-dd'))
 
   const { count: pendingNFe } = await db
@@ -107,7 +124,8 @@ export default async function DashboardPage(
       marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, rebate,
       sale_taxes(icms, icms_difal, pis, cofins), sale_costs(total_cost, margin_value),
       products(id, name, sku)`)
-    .gte('sale_date', format(subDays(now, marginDays - 1), 'yyyy-MM-dd'))
+    .gte('sale_date', start)
+    .lte('sale_date', end)
     .not('product_id', 'is', null)
     .limit(5000)
 
@@ -251,7 +269,7 @@ export default async function DashboardPage(
   }
 
   // ── Trend (30 dias) — todas as séries + totalizadora ──
-  const days = eachDayOfInterval({ start: subDays(now, 29), end: now })
+  const days = eachDayOfInterval({ start: monthDate, end: monthEndDate })
   const trendData = days.map(day => {
     const dateStr = format(day, 'dd/MM')
     const dayStr = format(day, 'yyyy-MM-dd')
@@ -308,7 +326,7 @@ export default async function DashboardPage(
     .sort((a, b) => b.revenue - a.revenue)
     .slice(0, 5)
 
-  const currentMonth = 'Últimos 30 dias'
+  
 
   // Margin color helper
   function marginColor(m: number) {
@@ -349,17 +367,34 @@ export default async function DashboardPage(
           )}
         </div>
 
+        {/* ── Seletor de mês ── */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[11px] font-bold uppercase tracking-widest mr-1" style={{ color: 'oklch(0.55 0.03 258)' }}>Mês:</span>
+          {mesesOpcoes.map(m => (
+            <a key={m.key} href={`/dashboard?mes=${m.key}`}
+               className="text-[12px] font-semibold px-3 py-1 rounded-full"
+               style={mes === m.key
+                 ? { background: '#125BFF', color: 'white', textDecoration: 'none' }
+                 : { background: 'oklch(0.96 0.010 258)', color: 'oklch(0.50 0.025 258)', textDecoration: 'none' }}>
+              {m.label}
+            </a>
+          ))}
+          {!isCurrentMonth && (
+            <span className="text-[11px]" style={{ color: 'oklch(0.50 0.025 258)' }}>· mês completo (1 a {end.slice(8, 10)})</span>
+          )}
+        </div>
+
         {/* ── KPIs gigantes com comparação vs período anterior ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
             {
-              label: 'Faturamento (30d)', href: `/dashboard/vendas?from=${start}&to=${end}`,
+              label: `Faturamento (${mesCurto})`, href: `/dashboard/vendas?from=${start}&to=${end}`,
               value: fmtR(totalRevenue), color: '#125BFF',
               delta: prevRevenue > 0 ? revenueChange : null, deltaFmt: (d: number) => `${d > 0 ? '+' : ''}${d.toFixed(1)}%`,
               perMp: (mp: string) => fmtR(byMP[mp].revenue),
             },
             {
-              label: 'Lucro Real (30d)', href: '/dashboard/dre',
+              label: `Lucro Real (${mesCurto})`, href: '/dashboard/dre',
               value: fmtR(grossProfit), color: grossProfit >= 0 ? '#16a34a' : '#dc2626',
               delta: prevProfit !== 0 ? ((grossProfit - prevProfit) / Math.abs(prevProfit)) * 100 : null,
               deltaFmt: (d: number) => `${d > 0 ? '+' : ''}${d.toFixed(0)}%`,
@@ -395,7 +430,7 @@ export default async function DashboardPage(
                   <span className="text-[12px] font-semibold" style={{ color: k.delta > 0 ? '#16a34a' : '#dc2626' }}>
                     {k.deltaFmt(k.delta)}
                   </span>
-                  <span className="text-[11px]" style={{ color: '#94a3b8' }}>vs 30d anteriores</span>
+                  <span className="text-[11px]" style={{ color: '#94a3b8' }}>vs mês anterior</span>
                 </div>
               )}
               {/* Totalizador aberto por marketplace */}
@@ -425,7 +460,7 @@ export default async function DashboardPage(
         <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid rgba(15,23,42,0.07)', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}>
           <div className="mb-4">
             <div className="text-sm font-semibold" style={{ color: 'oklch(0.12 0.04 258)', fontFamily: 'var(--font-sora)' }}>
-              Margem e Lucro por Dia — Últimos 30 dias
+              Margem e Lucro por Dia — {mesLabel}
             </div>
             <div className="text-[12px] mt-0.5" style={{ color: 'oklch(0.50 0.025 258)' }}>
               Totalizado (todos os canais) · barras = lucro do dia (R$) · linha roxa = margem % · só vendas com cálculo completo ·{' '}
@@ -441,7 +476,7 @@ export default async function DashboardPage(
           >
             <div className="mb-4">
               <div className="text-sm font-semibold" style={{ color: 'oklch(0.12 0.04 258)', fontFamily: 'var(--font-sora)' }}>
-                Receita por Dia — Últimos 30 dias
+                Receita por Dia — {mesLabel}
               </div>
               <div className="text-[12px] mt-0.5" style={{ color: 'oklch(0.50 0.025 258)' }}>Todos os canais separados + linha totalizadora tracejada</div>
             </div>
@@ -455,7 +490,7 @@ export default async function DashboardPage(
             <div className="text-sm font-semibold mb-1" style={{ color: 'oklch(0.12 0.04 258)', fontFamily: 'var(--font-sora)' }}>
               Margem por Canal
             </div>
-            <div className="text-[12px] mb-4" style={{ color: 'oklch(0.50 0.025 258)' }}>Últimos 30 dias · todos os canais</div>
+            <div className="text-[12px] mb-4" style={{ color: 'oklch(0.50 0.025 258)' }}>{mesLabel} · todos os canais</div>
             <MarketplaceBarChart data={barData} />
           </div>
         </div>
@@ -490,11 +525,11 @@ export default async function DashboardPage(
         <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid rgba(15,23,42,0.07)', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}>
           <div className="flex items-center gap-2 mb-4 flex-wrap">
             <span className="text-sm font-semibold" style={{ color: 'oklch(0.12 0.04 258)', fontFamily: 'var(--font-sora)' }}>
-              Taxas pagas ao marketplace — últimos 30 dias
+              Taxas pagas ao marketplace — {mesLabel}
             </span>
             {prevFees > 0 && Math.abs(feesTotal - prevFees) / prevFees >= 0.005 && (
               <span className="text-[12px] font-semibold" style={{ color: feesTotal > prevFees ? '#dc2626' : '#16a34a' }}>
-                {feesTotal > prevFees ? '▲' : '▼'} {(Math.abs(feesTotal - prevFees) / prevFees * 100).toFixed(1)}% vs 30d anteriores
+                {feesTotal > prevFees ? '▲' : '▼'} {(Math.abs(feesTotal - prevFees) / prevFees * 100).toFixed(1)}% vs mês anterior
               </span>
             )}
           </div>
@@ -550,12 +585,12 @@ export default async function DashboardPage(
         </div>
 
         {/* ── Margem por produto ── */}
-        <MarginByProductTable rows={marginRows} days={marginDays} />
+        <MarginByProductTable rows={marginRows} days={marginDays} periodLabel={mesLabel} />
 
         {/* ── Vendas por estado (mesmo período do filtro) ── */}
         <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid rgba(15,23,42,0.07)', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}>
           <div className="text-sm font-semibold mb-1" style={{ color: 'oklch(0.12 0.04 258)', fontFamily: 'var(--font-sora)' }}>
-            Vendas por Estado — últimos {marginDays} dias
+            Vendas por Estado — {mesLabel}
           </div>
           <div className="text-[12px] mb-2" style={{ color: 'oklch(0.50 0.025 258)' }}>
             Participação no faturamento, % das unidades e margem média em cada UF de destino — barras separadas por marketplace

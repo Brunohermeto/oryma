@@ -54,7 +54,7 @@ function marginColor(m: number) {
 type SortKey = 'name' | 'units' | 'revenue' | 'icms' | 'icmsPct' | 'difal' | 'difalPct'
   | 'piscofins' | 'freteMedio' | 'estornoMedio' | 'commissionPct' | 'adsPct' | 'ads' | 'cmvMedio' | 'marginPct' | 'velocityDay'
 
-export function MarginByProductTable({ rows, days }: { rows: ProductMarginRow[]; days: number }) {
+export function MarginByProductTable({ rows, days, periodLabel }: { rows: ProductMarginRow[]; days: number; periodLabel?: string }) {
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('revenue')
   const [sortDir, setSortDir] = useState<1 | -1>(-1)
@@ -125,7 +125,11 @@ export function MarginByProductTable({ rows, days }: { rows: ProductMarginRow[];
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {[7, 30, 90].map(d => (
+          {periodLabel ? (
+            <span className="text-[12px] font-semibold px-2.5 py-1 rounded-full" style={{ background: B.brand, color: 'white' }}>
+              {periodLabel}
+            </span>
+          ) : [7, 30, 90].map(d => (
             <Link
               key={d}
               href={`/dashboard?days=${d}`}
