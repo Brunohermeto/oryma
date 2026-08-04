@@ -1,5 +1,6 @@
 import { TopBar } from '@/components/layout/TopBar'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { isReturned } from '@/lib/sales/returned'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 
 export const dynamic = 'force-dynamic'
@@ -118,11 +119,14 @@ export default async function TributarioPage({
   const totalCreditoICMS = creditoICMSImp + creditoICMSEntradas
   const saldoICMS   = debitoICMS - totalCreditoICMS
 
-  const { data: sales } = await db
+  const { data: salesRaw } = await db
     .from('sales')
     .select('gross_price, marketplace_commission, marketplace_shipping_fee, ads_cost, cancellation, sale_costs(total_cost)')
     .gte('sale_date', start)
     .lte('sale_date', end)
+
+  // Devolvida não entra em faturamento nem em custo (valor estornado)
+  const sales = (salesRaw ?? []).filter(s => !isReturned(s))
 
   const { data: expenses } = await db
     .from('operational_expenses')

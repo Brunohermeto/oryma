@@ -13,6 +13,7 @@ const B = {
 }
 
 import { MarketplaceBadge, mpLabel } from '@/components/marketplaces'
+import { isReturned } from '@/lib/sales/returned'
 
 const FULFILLMENT_LABELS: Record<string, string> = {
   galpao: 'Galpão', full_ml: 'Full ML', fba_amazon: 'FBA', full_magalu: 'Full Magalu',
@@ -515,20 +516,28 @@ export function SalesTable({ sales }: { sales: SaleRow[] }) {
             : null
           const marginPct     = cost?.margin_pct !== null && cost?.margin_pct !== undefined ? Number(cost.margin_pct) : null
 
+          // Devolvida: fica listada para controle, mas fora de todos os totais
+          const devolvida     = isReturned(sale)
+
           // Indicador de completude dos dados
           const commissionPct = faturamento > 0 ? commission / faturamento : 0
           const rowIssues: string[] = []
-          if (sale.marketplace === 'mercado_livre') {
-            if (commission === 0 && rebate === 0) rowIssues.push('Tarifas: extrato do ML ainda não lançou (1-2 dias)')
-            if (fretePago === 0) rowIssues.push('Frete do vendedor: ainda não capturado')
+          // Em venda devolvida, dado faltando não é problema — não alertar
+          if (!devolvida) {
+            if (sale.marketplace === 'mercado_livre') {
+              if (commission === 0 && rebate === 0) rowIssues.push('Tarifas: extrato do ML ainda não lançou (1-2 dias)')
+              if (fretePago === 0) rowIssues.push('Frete do vendedor: ainda não capturado')
+            }
+            if (!taxes) rowIssues.push('Impostos: NF-e ainda não emitida/vinculada')
+            if (!cost) rowIssues.push('CMV: produto sem custo cadastrado')
           }
-          if (!taxes) rowIssues.push('Impostos: NF-e ainda não emitida/vinculada')
-          if (!cost) rowIssues.push('CMV: produto sem custo cadastrado')
 
           const rowQuality = rowIssues.length === 0 ? 'ok'
             : rowIssues.some(i => i.startsWith('Comissão') && commission === 0) || !cost ? 'incompleto'
             : 'parcial'
-          const qualityDot = rowQuality === 'ok'
+          const qualityDot = devolvida
+            ? { color: B.muted, title: 'Venda devolvida — fora do faturamento e da margem' }
+            : rowQuality === 'ok'
             ? { color: '#16a34a', title: 'Dados completos' }
             : rowQuality === 'parcial'
             ? { color: '#d97706', title: `Dados parciais:\n${rowIssues.join('\n')}` }
@@ -553,7 +562,18 @@ export function SalesTable({ sales }: { sales: SaleRow[] }) {
                 </td>
                 <td className="px-4 py-2.5 text-xs whitespace-nowrap" style={{ color: B.muted }}>{sale.sale_date}</td>
                 <td className="px-4 py-2.5">
-                  <div className="font-medium text-xs leading-tight" style={{ color: B.text }}>{product?.name ?? '—'}</div>
+                  <div className="font-medium text-xs leading-tight" style={{ color: B.text }}>
+                    {product?.name ?? '—'}
+                    {devolvida && (
+                      <span
+                        className="ml-2 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                        style={{ background: 'oklch(0.94 0.030 25)', color: '#dc2626' }}
+                        title="Estornada pelo marketplace — fora do faturamento, da margem e da contagem de pedidos"
+                      >
+                        Devolvida
+                      </span>
+                    )}
+                  </div>
                   <div className="text-xs" style={{ color: B.muted }}>
                     {sale.sku} · {FULFILLMENT_LABELS[sale.fulfillment_type] ?? sale.fulfillment_type}
                     {sale.uf_destino && (

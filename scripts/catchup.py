@@ -140,8 +140,11 @@ except Exception as e:
     print(f"8. billing: ERRO {str(e)[:70]}", flush=True)
 
 # ── 8b. taxas reais Amazon (Finances API; eventos atrasam dias — retenta ate sair) ──
+# janela 90d (nao 30): ha pedidos que a Amazon so publica depois de 30 dias; com a
+# janela curta eles saiam da fila e ficavam sem comissao para sempre. A fila ja
+# prioriza os sem comissao, entao a janela maior nao deixa a rota mais lenta.
 try:
-    r = post("/api/sync/amazon/fees?days=30&limit=40", timeout=170)
+    r = post("/api/sync/amazon/fees?days=90&limit=40", timeout=170)
     print(f"8b. amazon fees: {json.dumps(r, ensure_ascii=False)[:110]}", flush=True)
 except Exception as e:
     print(f"8b. amazon fees: ERRO {str(e)[:70]}", flush=True)

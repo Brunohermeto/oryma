@@ -1,4 +1,5 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { isReturned } from '@/lib/sales/returned'
 
 /**
  * Recalculates unit costs for all items in an import order,
@@ -325,12 +326,15 @@ export async function applyCmpToSale(saleId: string): Promise<void> {
   const importCredit = (await getImportCreditAtDate(sale.product_id, sale.sale_date)) * qty
 
   // Sem NF-e ainda (impostos ausentes) → margem NULL ("em cálculo"),
-  // não um número inflado com custos que ainda não chegaram
+  // não um número inflado com custos que ainda não chegaram.
+  // Venda DEVOLVIDA também fica sem margem (mesma regra do relink): dinheiro
+  // estornado, mercadoria de volta ao estoque, tarifas estornadas pelo canal.
   const hasTaxes    = !!t
-  const marginValue = hasTaxes ? netRevenue - totalCost + importCredit : null
+  const contaMargem = hasTaxes && !isReturned(sale as any)
+  const marginValue = contaMargem ? netRevenue - totalCost + importCredit : null
   // Margem % sobre o faturamento bruto (definição do Bruno)
   const gross       = Number(sale.gross_price)
-  const marginPct   = hasTaxes && gross > 0 ? (netRevenue - totalCost + importCredit) / gross : null
+  const marginPct   = contaMargem && gross > 0 ? (netRevenue - totalCost + importCredit) / gross : null
 
   await db.from('sale_costs').upsert({
     sale_id:           saleId,

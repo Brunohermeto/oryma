@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { brazilDaysAgo, brazilToday } from '@/lib/utils/brazil-time'
+import { isReturned } from '@/lib/sales/returned'
 
 export const dynamic         = 'force-dynamic'
 export const maxDuration     = 60
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
   const d = (n: number) => brazilDaysAgo(n)
 
   const { data: sales } = await db.from('sales')
-    .select(`id, sku, sale_date, gross_price, quantity, product_id, nfe_saida_key, uf_destino,
+    .select(`id, sku, sale_date, gross_price, cancellation, quantity, product_id, nfe_saida_key, uf_destino,
       marketplace, fulfillment_type, marketplace_commission, marketplace_shipping_fee,
       marketplace_fixed_fee, rebate,
       sale_taxes(icms, icms_difal, pis, cofins, total_taxes),
@@ -55,6 +56,9 @@ export async function POST(request: NextRequest) {
   for (const s of sales ?? []) {
     const g = Number(s.gross_price ?? 0)
     if (g <= 0) continue
+    // Venda devolvida sai das contas: margem negativa, tarifa e NF faltando são
+    // esperados nela — alertar só geraria ruído permanente no painel
+    if (isReturned(s)) continue
     const t = Array.isArray(s.sale_taxes) ? s.sale_taxes[0] : s.sale_taxes
     const c = Array.isArray(s.sale_costs) ? s.sale_costs[0] : s.sale_costs
     const nf = s.nfe_saida_key && s.nfe_saida_key.length === 44

@@ -4,6 +4,7 @@ import { startOfMonth, endOfMonth } from 'date-fns'
 import { toBrazilDate } from '@/lib/utils/brazil-time'
 import { SalesFilters } from '@/components/vendas/SalesFilters'
 import { SalesTable } from '@/components/vendas/SalesTable'
+import { isReturned } from '@/lib/sales/returned'
 
 export const dynamic = 'force-dynamic'
 export const preferredRegion = 'gru1'
@@ -70,7 +71,10 @@ export default async function VendasPage({
     return (Array.isArray(v) ? (v as T[])[0] : v as T) ?? null
   }
 
-  const summary = (sales ?? []).reduce((acc, s) => {
+  // Devolvidas ficam FORA de todos os totais (continuam listadas, com selo)
+  const devolvidas = (sales ?? []).filter(isReturned)
+
+  const summary = (sales ?? []).filter(s => !isReturned(s)).reduce((acc, s) => {
     const taxes = unwrap<{ total_taxes: number }>(s.sale_taxes)
     const cost  = unwrap<{ total_cost: number; margin_pct: number }>(s.sale_costs)
     acc.revenue      += Number(s.gross_price) - Number(s.cancellation) - Number((s as any).discounts ?? 0)
@@ -99,7 +103,7 @@ export default async function VendasPage({
     <>
       <TopBar
         title="Vendas & Margem"
-        subtitle={`${summary.orders} vendas — ${dateFrom} a ${dateTo}`}
+        subtitle={`${summary.orders} vendas${devolvidas.length ? ` (+${devolvidas.length} devolvida${devolvidas.length > 1 ? 's' : ''}, fora dos totais)` : ''} — ${dateFrom} a ${dateTo}`}
       />
       <div className="px-4 md:px-8 pt-4">
         <a href="/dashboard/vendas-ao-vivo" className="text-[12px] font-semibold px-3 py-1.5 rounded-lg inline-block" style={{ background: 'oklch(0.96 0.010 258)', color: '#125BFF' }}>Vendas ao Vivo (tempo real) →</a>

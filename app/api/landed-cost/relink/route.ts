@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { recalculateLandedCost } from '@/lib/landed-cost/calculator'
+import { isReturned } from '@/lib/sales/returned'
 
 export const dynamic         = 'force-dynamic'
 export const maxDuration     = 60
@@ -226,10 +227,14 @@ export async function POST(request: NextRequest) {
     // Crédito de importação das unidades (devolvido à margem — débito da saída entra cheio)
     const importCredit = getCreditForDate(sale.product_id, sale.sale_date) * qty
     const hasTaxes    = !!taxes
-    const marginValue = hasTaxes ? netRevenue - totalCost + importCredit : null
+    // Venda devolvida fica SEM margem (null): dinheiro estornado ao comprador e
+    // mercadoria de volta no estoque — margem calculada aqui seria só prejuízo
+    // fantasma. Null já é ignorado por todos os agregadores de margem.
+    const contaMargem = hasTaxes && !isReturned(sale)
+    const marginValue = contaMargem ? netRevenue - totalCost + importCredit : null
     // Margem % sobre o faturamento bruto (definição do Bruno)
     const gross       = Number(sale.gross_price)
-    const marginPct   = hasTaxes && gross > 0 ? (netRevenue - totalCost + importCredit) / gross : null
+    const marginPct   = contaMargem && gross > 0 ? (netRevenue - totalCost + importCredit) / gross : null
     saleCostRows.push({
       sale_id: sale.id, cmp_cost_id: cmp.id,
       unit_cost_applied: cmp.value, total_cost: totalCost,

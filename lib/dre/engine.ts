@@ -1,4 +1,5 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { isReturned } from '@/lib/sales/returned'
 import type { DRERow } from '@/types'
 import { startOfMonth, endOfMonth, format } from 'date-fns'
 
@@ -90,6 +91,11 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
 
     add(grossRevenue, mp, Number(sale.gross_price))
     add(cancellations, mp, Number(sale.cancellation))
+    // Devolvida: bruto e cancelamento se anulam na receita líquida (a linha de
+    // cancelamentos continua mostrando o volume). Tarifas, impostos e CMV NÃO
+    // entram — o marketplace estornou as tarifas e a mercadoria voltou ao estoque.
+    if (isReturned(sale)) continue
+
     add(discounts, mp, Number(sale.discounts))
     add(commissions, mp, Number(sale.marketplace_commission))
     add(fixedFees, mp, Number((sale as any).marketplace_fixed_fee ?? 0))

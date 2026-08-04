@@ -35,6 +35,7 @@ interface FinancialEventsResponse {
         ShipmentItemAdjustmentList?: Array<{
           SellerSKU?: string
           ItemChargeAdjustmentList?: Array<{ ChargeType?: string; ChargeAmount?: { CurrencyAmount?: number } }>
+          ItemFeeAdjustmentList?: Array<{ FeeType?: string; FeeAmount?: { CurrencyAmount?: number } }>
         }>
       }>
     }
@@ -56,13 +57,13 @@ export async function POST(request: NextRequest) {
   // Fila: vendas do período — sem taxas ainda OU todas (p/ capturar devoluções tardias).
   // O painel da Amazon é líquido de devoluções; gravamos devolução em cancellation.
   const { data: sales } = await db.from('sales')
-    .select('id, external_order_id, marketplace_commission, cancellation, sale_date')
+    .select('id, external_order_id, marketplace_commission, cancellation, rebate, sale_date')
     .eq('marketplace', 'amazon')
     .gte('sale_date', since)
     .order('sale_date', { ascending: true })
 
   // agrupa por pedido: external_order_id = amz_{orderId}_{SellerSKU cru}
-  const byOrder = new Map<string, Array<{ id: string; external_order_id: string; marketplace_commission: number; cancellation: number }>>()
+  const byOrder = new Map<string, Array<{ id: string; external_order_id: string; marketplace_commission: number; cancellation: number; rebate: number }>>()
   for (const s of sales ?? []) {
     const orderId = s.external_order_id.split('_')[1]
     if (!byOrder.has(orderId)) byOrder.set(orderId, [])
@@ -112,21 +113,34 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Devoluções: painel da Amazon é líquido de devoluções — abatemos em cancellation
+    // Devoluções: painel da Amazon é líquido de devoluções — abatemos em cancellation.
+    // Na devolução a Amazon ESTORNA as tarifas (Commission, AmazonForAllFee vêm
+    // POSITIVAS) e cobra a administração do reembolso (RefundCommission vem
+    // NEGATIVA): a soma crua já é o estorno líquido e vai para `rebate`, mantendo
+    // a comissão bruta intacta (regra 1). Sem isso, tarifa devolvida continuava
+    // debitada e a venda aparecia com margem de -97%.
     const refundBySku = new Map<string, number>()
+    const rebateBySku = new Map<string, number>()
     for (const refund of ev.payload?.FinancialEvents?.RefundEventList ?? []) {
       for (const item of refund.ShipmentItemAdjustmentList ?? []) {
+        if (!item.SellerSKU) continue
         const val = (item.ItemChargeAdjustmentList ?? [])
           .filter(c => c.ChargeType === 'Principal' || c.ChargeType === 'Tax')
           .reduce((s, c) => s + Math.abs(c.ChargeAmount?.CurrencyAmount ?? 0), 0)
-        if (!item.SellerSKU || val <= 0) continue
-        refundBySku.set(item.SellerSKU, (refundBySku.get(item.SellerSKU) ?? 0) + val)
+        const feesBack = (item.ItemFeeAdjustmentList ?? [])
+          .reduce((s, f) => s + (f.FeeAmount?.CurrencyAmount ?? 0), 0)
+        if (val > 0)  refundBySku.set(item.SellerSKU, (refundBySku.get(item.SellerSKU) ?? 0) + val)
+        if (feesBack) rebateBySku.set(item.SellerSKU, (rebateBySku.get(item.SellerSKU) ?? 0) + feesBack)
       }
     }
-    for (const [rawSku, val] of refundBySku) {
+    for (const rawSku of new Set([...refundBySku.keys(), ...rebateBySku.keys()])) {
       const row = rows.find(r => r.external_order_id === `amz_${orderId}_${rawSku}`)
-      if (!row || Math.abs(Number(row.cancellation) - val) < 0.01) continue
-      await db.from('sales').update({ cancellation: Math.round(val * 100) / 100 }).eq('id', row.id)
+      if (!row) continue
+      const cancellation = Math.round((refundBySku.get(rawSku) ?? 0) * 100) / 100
+      const rebate       = Math.round((rebateBySku.get(rawSku) ?? 0) * 100) / 100
+      if (Math.abs(Number(row.cancellation) - cancellation) < 0.01
+       && Math.abs(Number(row.rebate ?? 0)  - rebate)       < 0.01) continue
+      await db.from('sales').update({ cancellation, rebate }).eq('id', row.id)
       updated++
     }
   }

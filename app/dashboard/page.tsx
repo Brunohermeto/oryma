@@ -1,5 +1,6 @@
 import { TopBar } from '@/components/layout/TopBar'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { isReturned } from '@/lib/sales/returned'
 import { format, startOfMonth, endOfMonth, subMonths, subDays, eachDayOfInterval } from 'date-fns'
 import { RevenueLineChart } from '@/components/charts/RevenueLineChart'
 import { MarginDailyChart, type MarginDailyPoint } from '@/components/charts/MarginDailyChart'
@@ -52,17 +53,24 @@ export default async function DashboardPage(
     return { key: format(d, 'yyyy-MM'), label: d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace('. de ', '/').replace('.', '') }
   })
 
-  const { data: sales } = await db
+  const { data: salesRaw } = await db
     .from('sales')
     .select('marketplace, gross_price, marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, rebate, ads_cost, cancellation, sale_date, sale_costs(total_cost, margin_value)')
     .gte('sale_date', start)
     .lte('sale_date', end)
 
-  const { data: prevSales } = await db
+  // Devolvidas ficam FORA de todo indicador (faturamento, margem, pedidos,
+  // tarifas): o valor foi estornado ao comprador e a mercadoria voltou ao estoque.
+  const devolvidas = (salesRaw ?? []).filter(isReturned)
+  const sales      = (salesRaw ?? []).filter(s => !isReturned(s))
+
+  const { data: prevSalesRaw } = await db
     .from('sales')
     .select('gross_price, cancellation, marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, rebate, ads_cost, sale_costs(margin_value)')
     .gte('sale_date', prevStart)
     .lte('sale_date', prevEnd)
+
+  const prevSales = (prevSalesRaw ?? []).filter(s => !isReturned(s))
 
   // Alertas abertos (auditoria + vistoria, sem os dispensados) — semáforo de saúde
   const { count: openAlerts } = await db
@@ -70,11 +78,13 @@ export default async function DashboardPage(
     .select('id', { count: 'exact', head: true })
     .is('dismissed_at', null)
 
-  const { data: trendSales } = await db
+  const { data: trendSalesRaw } = await db
     .from('sales')
-    .select('marketplace, gross_price, sale_date')
+    .select('marketplace, gross_price, cancellation, sale_date')
     .gte('sale_date', start)
     .lte('sale_date', format(now, 'yyyy-MM-dd'))
+
+  const trendSales = (trendSalesRaw ?? []).filter(s => !isReturned(s))
 
   const { count: pendingNFe } = await db
     .from('import_orders')
@@ -89,12 +99,14 @@ export default async function DashboardPage(
     .limit(1)
     .single()
 
-  const { data: topProductSales } = await db
+  const { data: topProductSalesRaw } = await db
     .from('sales')
-    .select('product_id, gross_price, marketplace_commission, sale_costs(total_cost, margin_pct), products(name, sku)')
+    .select('product_id, gross_price, cancellation, marketplace_commission, sale_costs(total_cost, margin_pct), products(name, sku)')
     .gte('sale_date', start)
     .lte('sale_date', end)
     .not('sale_costs', 'is', null)
+
+  const topProductSales = (topProductSalesRaw ?? []).filter(s => !isReturned(s))
 
   // Supabase retorna relações como objeto único OU array — trata ambos
   const uw = (v: unknown) => !v ? null : Array.isArray(v) ? (v as any[])[0] ?? null : v
@@ -109,7 +121,7 @@ export default async function DashboardPage(
       .order('sale_date', { ascending: true })
       .range(page * 1000, page * 1000 + 999)
     if (!chunk?.length) break
-    yearSales.push(...(chunk as any))
+    yearSales.push(...(chunk as any[]).filter(s => !isReturned(s)))
     if (chunk.length < 1000) break
   }
   const MESES_PT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
@@ -396,6 +408,7 @@ export default async function DashboardPage(
             color: emCalculo === 0 ? '#15803d' : '#92400e',
           }}>
             {completeSales} vendas completas{emCalculo > 0 ? ` · ${emCalculo} em cálculo` : ' · tudo calculado ✓'}
+            {devolvidas.length > 0 && ` · ${devolvidas.length} devolvida${devolvidas.length > 1 ? 's' : ''} (fora das contas)`}
           </span>
           <a href="#alertas" className="font-semibold px-2.5 py-1 rounded-full" style={{
             background: (openAlerts ?? 0) > 0 ? 'oklch(0.96 0.04 25)' : 'oklch(0.94 0.10 145)',
