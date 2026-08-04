@@ -16,6 +16,8 @@ interface ShopeeOrderDetailResponse {
   response?: {
     order_list: Array<{
       order_sn: string
+      order_status?: string
+      recipient_address?: { state?: string }
       item_list: Array<{
         item_sku: string
         item_name: string
@@ -67,7 +69,6 @@ export async function syncShopee(startDate: string, endDate: string): Promise<nu
       time_range_field: 'create_time',
       time_from: String(fromTs),
       time_to: String(toTs),
-      order_status: 'COMPLETED',
       page_size: '50',
     }
     if (cursor) params.cursor = cursor
@@ -80,9 +81,12 @@ export async function syncShopee(startDate: string, endDate: string): Promise<nu
     const orderSns = orders.map(o => o.order_sn)
     const detailRes = await shopeeGet<ShopeeOrderDetailResponse>('/order/get_order_detail', {
       order_sn_list: orderSns.join(','),
+      response_optional_fields: 'item_list,order_status,recipient_address',
     })
 
+    const SKIP_STATUS = new Set(['CANCELLED', 'UNPAID', 'IN_CANCEL'])
     for (const orderDetail of detailRes.response?.order_list ?? []) {
+      if (SKIP_STATUS.has((orderDetail as any).order_status ?? '')) continue
       // Fetch escrow (financial) data per order
       let escrow: ShopeeEscrowResponse['response'] | undefined
       try {
@@ -94,9 +98,15 @@ export async function syncShopee(startDate: string, endDate: string): Promise<nu
         // proceed without escrow data
       }
 
-      for (const item of orderDetail.item_list ?? []) {
+      // rateio do escrow por item (o escrow é do PEDIDO inteiro)
+      const itemsAll = orderDetail.item_list ?? []
+      const totalItems = itemsAll.reduce((a, it) =>
+        a + (it.model_discounted_price || it.model_original_price) * it.model_quantity_purchased, 0)
+      const uf = (orderDetail as any).recipient_address?.state?.toUpperCase() ?? null
+      for (const item of itemsAll) {
         const sku = item.item_sku
         const grossPrice = (item.model_discounted_price || item.model_original_price) * item.model_quantity_purchased
+        const share = totalItems > 0 ? grossPrice / totalItems : 1 / itemsAll.length
         const productId = productMap[sku] ?? null
 
         const income = escrow?.order_income
@@ -109,12 +119,13 @@ export async function syncShopee(startDate: string, endDate: string): Promise<nu
           sale_date: toBrazilDate(new Date(orders.find(o => o.order_sn === orderDetail.order_sn)!.create_time * 1000)),
           quantity: item.model_quantity_purchased,
           gross_price: grossPrice,
-          shipping_received: income?.buyer_paid_shipping_fee ?? 0,
-          marketplace_commission: (income?.commission_fee ?? 0) + (income?.service_fee ?? 0),
-          marketplace_shipping_fee: income?.final_shipping_fee ?? 0,
-          ads_cost: income?.ads_campaign_cost ?? 0,
-          discounts: income?.voucher_from_seller ?? 0,
+          shipping_received: (income?.buyer_paid_shipping_fee ?? 0) * share,
+          marketplace_commission: ((income?.commission_fee ?? 0) + (income?.service_fee ?? 0)) * share,
+          marketplace_shipping_fee: (income?.final_shipping_fee ?? 0) * share,
+          ads_cost: (income?.ads_campaign_cost ?? 0) * share,
+          discounts: (income?.voucher_from_seller ?? 0) * share,
           cancellation: 0,
+          uf_destino: uf,
           synced_at: new Date().toISOString(),
         }, { onConflict: 'external_order_id' })
 
