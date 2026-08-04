@@ -224,7 +224,9 @@ export async function syncNFeSaida(startDate: string, endDate: string, maxItems 
         // Estratégia 1: numeroPedido numérico do infCpl → "canal_ORDERID"
         const { canal, numeroPedido } = parseInfoAdicionais(xml)
         if (canal && numeroPedido) {
-          const key = canal === 'mercado_livre' ? `ml_${numeroPedido}` : `${canal}_${numeroPedido}`
+          // prefixos REAIS do external_order_id: ml_ / amz_ / shopee_ / magalu_
+          const prefixo = canal === 'mercado_livre' ? 'ml' : canal === 'amazon' ? 'amz' : canal
+          const key = `${prefixo}_${numeroPedido}`
           if (orderSalesMap.has(key)) matchedOrderKey = key
         }
 
