@@ -338,7 +338,23 @@ function PedidosPanel({ plans, items, profiles, profById, products, hoje, onSave
             </button>
           </div>
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: B.muted }}>Itens (SKUs e quantidades)</div>
+            <div className="flex items-center gap-3 mb-1.5">
+              <div className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: B.muted }}>Itens (SKUs e quantidades)</div>
+              {editItems.some(i => Number(i.quantity) > 0) && (
+                <button onClick={() => {
+                  const totalImp = Number(editing.valor_fornecedor ?? 0) + Number(editing.valor_imposto_frete ?? 0)
+                    + editExtras.reduce((s, e) => s + Number(e.valor ?? 0), 0)
+                  const totalQty = editItems.reduce((s, i) => s + Number(i.quantity ?? 0), 0)
+                  if (!totalImp || !totalQty) return
+                  setEditItems(editItems.map(i => ({
+                    ...i, custo_total: Math.round(totalImp * (Number(i.quantity ?? 0) / totalQty) * 100) / 100,
+                  })))
+                }} className="text-[11px] font-semibold px-2.5 py-1 rounded-full cursor-pointer"
+                   style={{ background: 'white', color: B.brand, border: `1px dashed ${B.brand}` }}>
+                  calcular custos (ratear importação por unidade)
+                </button>
+              )}
+            </div>
             {editItems.map((it, idx) => (
               <div key={idx} className="flex items-center gap-2 mb-1.5">
                 <select className="inp flex-1" value={it.product_id ?? ''} onChange={e => {
@@ -352,6 +368,11 @@ function PedidosPanel({ plans, items, profiles, profById, products, hoje, onSave
                 <input className="inp w-24" placeholder="SKU" value={it.sku} onChange={e => { const n = [...editItems]; n[idx] = { ...it, sku: e.target.value }; setEditItems(n) }} />
                 <input className="inp w-24" type="number" placeholder="qtd" value={it.quantity || ''} onChange={e => { const n = [...editItems]; n[idx] = { ...it, quantity: Number(e.target.value) }; setEditItems(n) }} />
                 <input className="inp w-32" type="number" step="0.01" placeholder="custo total R$" title="Custo total deste SKU no pedido (alimenta a planilha de custo do estoque)" value={it.custo_total || ''} onChange={e => { const n = [...editItems]; n[idx] = { ...it, custo_total: Number(e.target.value) }; setEditItems(n) }} />
+                {Number(it.custo_total) > 0 && Number(it.quantity) > 0 && (
+                  <span className="text-[11px] whitespace-nowrap" style={{ color: B.muted, fontFamily: 'var(--font-geist-mono)' }}>
+                    {(Number(it.custo_total) / Number(it.quantity)).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}/un
+                  </span>
+                )}
                 <button onClick={() => setEditItems(editItems.filter((_, i) => i !== idx))} className="p-1 cursor-pointer" style={{ border: 'none', background: 'transparent' }}><Trash2 size={13} style={{ color: '#dc2626' }} /></button>
               </div>
             ))}
