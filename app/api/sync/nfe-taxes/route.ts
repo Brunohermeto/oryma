@@ -49,6 +49,8 @@ export async function POST(request: NextRequest) {
   for (const s of sales ?? []) {
     if (taxed.has(s.id)) continue
     if (s.marketplace === 'magalu' && s.fulfillment_type === 'full_magalu') continue // NF série 6 não está no Bling
+    // Shopee emite pela própria plataforma desde ~10/07 (série 005) — XML não está no Bling
+    if (s.marketplace === 'shopee' && s.nfe_saida_key.slice(22, 25) === '005') continue
     if (!byChave.has(s.nfe_saida_key)) byChave.set(s.nfe_saida_key, [])
     byChave.get(s.nfe_saida_key)!.push({ id: s.id, gross_price: Number(s.gross_price) })
   }
