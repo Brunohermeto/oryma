@@ -493,11 +493,13 @@ function CaixaPanel({ plans, profById, fluxoGeral, hoje }: {
     const ehPrevisto = pl.compromissado === false
     if (pl.done ? !showDone : ehPrevisto ? !showPrev : !showCurso) continue
     const dates = resolvePlanDates(pl, prof, hoje)
-    const abertos = pl.done ? [] : resolvePagamentos(pl, prof, dates).filter(p => p.date >= hoje)
+    const todos = resolvePagamentos(pl, prof, dates)
+    const abertos = pl.done ? [] : todos.filter(p => p.date >= hoje)
+    const passados = todos.filter(p => p.date < hoje)
     const pago = Number(pl.valor_pago ?? 0)
-    if (!abertos.length && !(pl.done && showDone) && pago <= 0) continue
+    if (!abertos.length && !passados.length && !(pl.done && showDone) && pago <= 0) continue
     const porMes = new Map<string, number>()
-    for (const p of abertos) {
+    for (const p of [...passados, ...abertos]) {
       const m = p.date.slice(0, 7)
       porMes.set(m, (porMes.get(m) ?? 0) + p.amount)
     }
@@ -505,7 +507,7 @@ function CaixaPanel({ plans, profById, fluxoGeral, hoje }: {
       invoice: pl.invoice, root: prof.root_sku, status: dates.status,
       compromissado: pl.compromissado !== false, done: !!pl.done,
       total: abertos.reduce((s, p) => s + p.amount, 0), pago,
-      porMes, detalhes: abertos,
+      porMes, detalhes: todos,
     })
   }
   linhas.sort((a, b) => (a.detalhes[0]?.date ?? '') < (b.detalhes[0]?.date ?? '') ? -1 : 1)
@@ -555,7 +557,7 @@ function CaixaPanel({ plans, profById, fluxoGeral, hoje }: {
         </div>
         <div className="text-[12px] mb-4" style={{ color: B.muted }}>
           Pedidos nas linhas, meses nas colunas — como a planilha. Valores em R$ mil; passe o mouse na célula para o detalhe.
-          Linhas âmbar tracejadas = pedidos <b>previstos</b> (em estudo). Parcela com data passada é considerada paga e sai daqui.
+          Células <b>verdes</b> = meses passados (parcelas vencidas, consideradas pagas). Linhas âmbar tracejadas = pedidos <b>previstos</b> (em estudo).
         </div>
         <div className="overflow-x-auto">
           <table className="text-sm" style={{ borderCollapse: 'collapse', minWidth: '100%' }}>
@@ -602,11 +604,12 @@ function CaixaPanel({ plans, profById, fluxoGeral, hoje }: {
                     </td>
                     {mesesCols.map(m => {
                       const v = l.porMes.get(m)
-                      const det = l.detalhes.filter(d => d.date.slice(0, 7) === m).map(d => `${fmtD(d.date)} ${d.label}: ${fmtR(d.amount)}`).join('\n')
+                      const passado = m < hoje.slice(0, 7)
+                      const det = l.detalhes.filter(d => d.date.slice(0, 7) === m).map(d => `${d.date < hoje ? '✓ pago' : '○'} ${fmtD(d.date)} ${d.label}: ${fmtR(d.amount)}`).join('\n')
                       return (
                         <td key={m} title={det || undefined}
                             className="px-2 py-2 text-right text-[13px]"
-                            style={{ fontFamily: 'var(--font-geist-mono)', color: v ? B.text : 'oklch(0.85 0.01 258)', fontWeight: v ? 600 : 400 }}>
+                            style={{ fontFamily: 'var(--font-geist-mono)', color: v ? (passado ? '#15803d' : B.text) : 'oklch(0.85 0.01 258)', fontWeight: v ? 600 : 400, background: passado ? 'oklch(0.97 0.02 145)' : undefined }}>
                           {v ? fmtRk(v) : '·'}
                         </td>
                       )

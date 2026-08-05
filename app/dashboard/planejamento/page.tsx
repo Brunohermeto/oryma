@@ -29,10 +29,10 @@ export default async function PlanejamentoPage() {
   // Velocidade real: 12 meses descontando rupturas (gaps > 14d sem venda)
   const yearAgo = format(subDays(new Date(), 365), 'yyyy-MM-dd')
   const PAGE = 1000
-  const yearSales: Array<{ product_id: string; sale_date: string; quantity: number }> = []
+  const yearSales: Array<{ product_id: string; sale_date: string; quantity: number; gross_price?: number }> = []
   for (let off = 0; ; off += PAGE) {
     const { data } = await db.from('sales')
-      .select('product_id, sale_date, quantity')
+      .select('product_id, sale_date, quantity, gross_price')
       .gte('sale_date', yearAgo).not('product_id', 'is', null)
       .order('sale_date', { ascending: true })
       .range(off, off + PAGE - 1)
@@ -43,10 +43,18 @@ export default async function PlanejamentoPage() {
   const GAP_MAX = 14
   const datesBy = new Map<string, string[]>()
   const soldBy  = new Map<string, number>()
+  // Realizado por produto/mês (unidades e faturamento) para os meses passados
+  const realBy = new Map<string, Record<string, { qty: number; gross: number }>>()
   for (const s of yearSales) {
     soldBy.set(s.product_id, (soldBy.get(s.product_id) ?? 0) + Number(s.quantity ?? 1))
     if (!datesBy.has(s.product_id)) datesBy.set(s.product_id, [])
     datesBy.get(s.product_id)!.push(s.sale_date)
+    const m = s.sale_date.slice(0, 7)
+    if (!realBy.has(s.product_id)) realBy.set(s.product_id, {})
+    const rm = realBy.get(s.product_id)!
+    if (!rm[m]) rm[m] = { qty: 0, gross: 0 }
+    rm[m].qty   += Number(s.quantity ?? 1)
+    rm[m].gross += Number(s.gross_price ?? 0)
   }
   function activeDays(dates: string[]): number {
     if (!dates.length) return 0
@@ -73,9 +81,9 @@ export default async function PlanejamentoPage() {
         custoPlanBy.set(it.product_id, Number(it.custo_total) / Number(it.quantity))
       }
     }
-    if (pl.done) continue
     const dates = resolvePlanDates(pl, prof, hoje)
-    if (dates.dg < hoje) continue
+    // chegadas passadas (realizado) entram na matriz; futuras só de pedidos não concluídos
+    if (pl.done && dates.dg >= hoje) continue
     for (const it of (items ?? []).filter(i => i.plan_id === (pl as any).id)) {
       const key = it.product_id ?? `sku:${it.sku}`
       if (!arrivalsByProduct.has(key)) arrivalsByProduct.set(key, [])
@@ -106,7 +114,7 @@ export default async function PlanejamentoPage() {
     const stock = Number(p.stock_quantity ?? 0) + Number((p as any).stock_full ?? 0) + Number((p as any).stock_fba ?? 0)
     const diasAteRuptura = Math.floor(stock / vel)
     const dataRuptura = format(subDays(new Date(), -diasAteRuptura), 'yyyy-MM-dd')
-    const chegadas = (arrivalsByProduct.get(p.id) ?? []).sort((a, b) => (a.date < b.date ? -1 : 1))
+    const chegadas = (arrivalsByProduct.get(p.id) ?? []).filter(a => a.date >= hoje).sort((a, b) => (a.date < b.date ? -1 : 1))
     const proxima = chegadas[0] ?? null
     const rootDoSku = roots.find(r => p.sku.toUpperCase().startsWith(r))
     ruptura.push({
@@ -154,6 +162,7 @@ export default async function PlanejamentoPage() {
     const marginPct = agg && agg.mvGross > 0 ? agg.mv / agg.mvGross : 0
     const chegadas = new Map<string, number>()
     for (const a of arrivalsByProduct.get(p.id) ?? []) {
+      if (a.date < hoje) continue
       chegadas.set(a.date, (chegadas.get(a.date) ?? 0) + a.qty)
     }
     let avail = Number(p.stock_quantity ?? 0) + Number((p as any).stock_full ?? 0) + Number((p as any).stock_fba ?? 0)
@@ -199,10 +208,13 @@ export default async function PlanejamentoPage() {
   const paramBy = new Map((prodParams ?? []).map(p => [p.product_id, p.preco_venda ? Number(p.preco_venda) : null]))
   const paramFullBy = new Map((prodParams ?? []).map(p => [p.product_id, p]))
 
+  // Linha do tempo: de janeiro do ano corrente (realizado) até 24 meses à frente
+  const mesAtual = format(new Date(), 'yyyy-MM')
   const mesesFG: string[] = []
   {
-    const d = new Date(); d.setDate(1)
-    for (let i = 0; i < 24; i++) {
+    const d = new Date(); d.setDate(1); d.setMonth(0)
+    const fim = new Date(); fim.setDate(1); fim.setMonth(fim.getMonth() + 23)
+    while (d <= fim) {
       mesesFG.push(format(d, 'yyyy-MM'))
       d.setMonth(d.getMonth() + 1)
     }
@@ -242,12 +254,14 @@ export default async function PlanejamentoPage() {
       precoParam: paramBy.get(p.id) ?? null,
       marginPct: agg && agg.mvGross > 0 ? Math.round((agg.mv / agg.mvGross) * 1000) / 10 : 0,
       entradas, entradasPrev, plano,
+      realizado: realBy.get(p.id) ?? {},
     })
   }
   fgRows.sort((a, b) => (a.sku < b.sku ? -1 : 1))
   const cashCfg = (cashCfgRows ?? [])[0] ?? { saldo_inicial: 0, difal_pct: 0, difal_saldo_inicial: 0 }
   const fluxoGeral: FluxoGeralData = {
     meses: mesesFG,
+    mesAtual,
     rows: fgRows,
     saldoInicial: Number(cashCfg.saldo_inicial ?? 0),
     difalPct: Number(cashCfg.difal_pct ?? 0),
