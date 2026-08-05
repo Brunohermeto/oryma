@@ -263,6 +263,7 @@ export default async function PlanejamentoPage() {
     meses: mesesFG,
     mesAtual,
     rows: fgRows,
+    roots,
     saldoInicial: Number(cashCfg.saldo_inicial ?? 0),
     difalPct: Number(cashCfg.difal_pct ?? 0),
     difalSaldoInicial: Number((cashCfg as any).difal_saldo_inicial ?? 0),

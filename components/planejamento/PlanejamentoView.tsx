@@ -512,6 +512,22 @@ function CaixaPanel({ plans, profById, fluxoGeral, hoje }: {
   }
   linhas.sort((a, b) => (a.detalhes[0]?.date ?? '') < (b.detalhes[0]?.date ?? '') ? -1 : 1)
 
+  // Agrupamento por família (SKU raiz) — resumo com expansão por clique
+  const [expandidas, setExpandidas] = useState<Set<string>>(new Set())
+  const famílias = useMemo(() => {
+    const map = new Map<string, { root: string; pedidos: Linha[]; total: number; pago: number; porMes: Map<string, number> }>()
+    for (const l of linhas) {
+      if (!map.has(l.root)) map.set(l.root, { root: l.root, pedidos: [], total: 0, pago: 0, porMes: new Map() })
+      const f = map.get(l.root)!
+      f.pedidos.push(l)
+      f.total += l.total
+      f.pago += l.pago
+      for (const [m, v] of l.porMes) f.porMes.set(m, (f.porMes.get(m) ?? 0) + v)
+    }
+    return [...map.values()].sort((a, b) => (a.root < b.root ? -1 : 1))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plans, showCurso, showPrev, showDone, hoje])
+
   const mesesSet = new Set<string>()
   for (const l of linhas) for (const m of l.porMes.keys()) mesesSet.add(m)
   const mesesCols = [...mesesSet].sort()
@@ -573,48 +589,16 @@ function CaixaPanel({ plans, profById, fluxoGeral, hoje }: {
               </tr>
             </thead>
             <tbody>
-              {linhas.map(l => {
-                const sc = STATUS_COLORS[l.status] ?? { bg: B.bgSubtle, color: B.muted }
+              {famílias.map(f => {
+                const aberta = expandidas.has(f.root)
                 return (
-                  <tr key={l.invoice} style={{
-                    borderBottom: `1px solid ${B.bgSubtle}`,
-                    background: l.compromissado ? undefined : 'oklch(0.98 0.03 70)',
-                  }}>
-                    <td className="px-3 py-2 sticky left-0" style={{ background: l.compromissado ? 'white' : 'oklch(0.98 0.03 70)' }}>
-                      <div className="flex items-center gap-2">
-                        <div>
-                          <div className="text-[13px] font-semibold" style={{ color: B.text }}>{l.invoice}</div>
-                          <div className="text-[11px]" style={{ color: B.muted }}>{l.root}</div>
-                        </div>
-                        {!l.compromissado && (
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: 'white', color: '#d97706', border: '1px dashed #d97706' }}>
-                            PREVISTO
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-2 py-2">
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap" style={{ background: sc.bg, color: sc.color }}>{l.status}</span>
-                    </td>
-                    <td className="px-2 py-2 text-right text-[13px] font-semibold" style={{ color: l.pago > 0 ? '#15803d' : 'oklch(0.85 0.01 258)', fontFamily: 'var(--font-geist-mono)' }}>
-                      {l.pago > 0 ? fmtRk(l.pago) : '·'}
-                    </td>
-                    <td className="px-2 py-2 text-right text-[13px] font-bold" style={{ color: '#dc2626', fontFamily: 'var(--font-geist-mono)' }}>
-                      {fmtRk(l.total)}
-                    </td>
-                    {mesesCols.map(m => {
-                      const v = l.porMes.get(m)
-                      const passado = m < hoje.slice(0, 7)
-                      const det = l.detalhes.filter(d => d.date.slice(0, 7) === m).map(d => `${d.date < hoje ? '✓ pago' : '○'} ${fmtD(d.date)} ${d.label}: ${fmtR(d.amount)}`).join('\n')
-                      return (
-                        <td key={m} title={det || undefined}
-                            className="px-2 py-2 text-right text-[13px]"
-                            style={{ fontFamily: 'var(--font-geist-mono)', color: v ? (passado ? '#15803d' : B.text) : 'oklch(0.85 0.01 258)', fontWeight: v ? 600 : 400, background: passado ? 'oklch(0.97 0.02 145)' : undefined }}>
-                          {v ? fmtRk(v) : '·'}
-                        </td>
-                      )
+                  <FamiliaRows key={f.root} f={f} aberta={aberta}
+                    onToggle={() => setExpandidas(prev => {
+                      const n = new Set(prev)
+                      if (n.has(f.root)) n.delete(f.root); else n.add(f.root)
+                      return n
                     })}
-                  </tr>
+                    mesesCols={mesesCols} hoje={hoje} fmtRk={fmtRk} />
                 )
               })}
               {/* Totais */}
@@ -739,6 +723,89 @@ function PerfisPanel({ profiles, onSave }: { profiles: ImportProfile[]; onSave: 
       </div>
       <style>{`.inp{border:1px solid ${B.border};border-radius:8px;padding:6px 8px;font-size:13px;color:${B.text};background:white;outline:none}`}</style>
     </div>
+  )
+}
+
+/* Linha de família (resumo) + pedidos expandidos no Fluxo de Pagamentos */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function FamiliaRows({ f, aberta, onToggle, mesesCols, hoje, fmtRk }: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  f: any; aberta: boolean; onToggle: () => void
+  mesesCols: string[]; hoje: string; fmtRk: (v: number) => string
+}) {
+  const mesAtual = hoje.slice(0, 7)
+  return (
+    <>
+      <tr onClick={onToggle} className="cursor-pointer" style={{ borderBottom: `1px solid ${B.bgSubtle}` }}>
+        <td className="px-3 py-2 sticky left-0 bg-white">
+          <div className="flex items-center gap-2">
+            <span style={{ color: B.muted, fontSize: 11 }}>{aberta ? '▾' : '▸'}</span>
+            <div>
+              <div className="text-[13px] font-bold" style={{ color: B.text }}>{f.root}</div>
+              <div className="text-[11px]" style={{ color: B.muted }}>{f.pedidos.length} pedido{f.pedidos.length > 1 ? 's' : ''}</div>
+            </div>
+          </div>
+        </td>
+        <td className="px-2 py-2 text-[11px]" style={{ color: B.muted }}>
+          {f.pedidos.filter((p: any) => !p.compromissado).length > 0 && (
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: 'white', color: '#d97706', border: '1px dashed #d97706' }}>
+              {f.pedidos.filter((p: any) => !p.compromissado).length} prev.
+            </span>
+          )}
+        </td>
+        <td className="px-2 py-2 text-right text-[13px] font-bold" style={{ color: f.pago > 0 ? '#15803d' : 'oklch(0.85 0.01 258)', fontFamily: 'var(--font-geist-mono)' }}>
+          {f.pago > 0 ? fmtRk(f.pago) : '·'}
+        </td>
+        <td className="px-2 py-2 text-right text-[13px] font-bold" style={{ color: '#dc2626', fontFamily: 'var(--font-geist-mono)' }}>
+          {fmtRk(f.total)}
+        </td>
+        {mesesCols.map(m => {
+          const v = f.porMes.get(m)
+          const passado = m < mesAtual
+          return (
+            <td key={m} className="px-2 py-2 text-right text-[13px] font-bold"
+                style={{ fontFamily: 'var(--font-geist-mono)', color: v ? (passado ? '#15803d' : B.text) : 'oklch(0.85 0.01 258)', background: passado ? 'oklch(0.97 0.02 145)' : undefined }}>
+              {v ? fmtRk(v) : '·'}
+            </td>
+          )
+        })}
+      </tr>
+      {aberta && f.pedidos.map((l: any) => {
+        const sc = STATUS_COLORS[l.status] ?? { bg: B.bgSubtle, color: B.muted }
+        return (
+          <tr key={l.invoice} style={{ borderBottom: `1px solid ${B.bgSubtle}`, background: l.compromissado ? 'oklch(0.99 0.003 258)' : 'oklch(0.98 0.03 70)' }}>
+            <td className="px-3 py-1.5 sticky left-0 pl-8" style={{ background: l.compromissado ? 'oklch(0.99 0.003 258)' : 'oklch(0.98 0.03 70)' }}>
+              <div className="flex items-center gap-2">
+                <span className="text-[12px] font-medium" style={{ color: B.text }}>{l.invoice}</span>
+                {!l.compromissado && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: 'white', color: '#d97706', border: '1px dashed #d97706' }}>PREV</span>
+                )}
+              </div>
+            </td>
+            <td className="px-2 py-1.5">
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap" style={{ background: sc.bg, color: sc.color }}>{l.status}</span>
+            </td>
+            <td className="px-2 py-1.5 text-right text-[12px]" style={{ color: l.pago > 0 ? '#15803d' : 'oklch(0.85 0.01 258)', fontFamily: 'var(--font-geist-mono)' }}>
+              {l.pago > 0 ? fmtRk(l.pago) : '·'}
+            </td>
+            <td className="px-2 py-1.5 text-right text-[12px] font-semibold" style={{ color: '#dc2626', fontFamily: 'var(--font-geist-mono)' }}>
+              {fmtRk(l.total)}
+            </td>
+            {mesesCols.map(m => {
+              const v = l.porMes.get(m)
+              const passado = m < mesAtual
+              const det = l.detalhes.filter((d: any) => d.date.slice(0, 7) === m).map((d: any) => `${d.date < hoje ? '✓ pago' : '○'} ${fmtD(d.date)} ${d.label}: ${fmtR(d.amount)}`).join('\n')
+              return (
+                <td key={m} title={det || undefined} className="px-2 py-1.5 text-right text-[12px]"
+                    style={{ fontFamily: 'var(--font-geist-mono)', color: v ? (passado ? '#15803d' : B.text) : 'oklch(0.88 0.01 258)', background: passado ? 'oklch(0.97 0.02 145)' : undefined }}>
+                  {v ? fmtRk(v) : '·'}
+                </td>
+              )
+            })}
+          </tr>
+        )
+      })}
+    </>
   )
 }
 

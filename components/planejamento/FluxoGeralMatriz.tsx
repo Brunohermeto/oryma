@@ -7,7 +7,7 @@
  * de estoque (negativo = ruptura) → faturamento → CMV → estoque em R$ →
  * resumo de caixa da empresa (saldo inicial, dívida, retirada, DIFAL).
  */
-import { useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { RefreshCw } from 'lucide-react'
 
@@ -31,6 +31,7 @@ export interface FluxoGeralData {
   difalPct: number
   difalSaldoInicial: number
   cashMonths: Record<string, { divida: number; retirada: number }>
+  roots: string[]                     // SKUs raiz (famílias) para agrupamento
 }
 
 interface Props {
@@ -77,6 +78,21 @@ export function FluxoGeralMatriz({ data, pagamentosMes }: Props) {
   const [cashEdit, setCashEdit] = useState<Record<string, { divida?: number; retirada?: number }>>({})
   const [cfgEdit, setCfgEdit] = useState<{ saldo_inicial?: number; difal_pct?: number; difal_saldo_inicial?: number }>({})
   const [incluirPrev, setIncluirPrev] = useState(true)
+  const [famAbertas, setFamAbertas] = useState<Set<string>>(new Set())
+
+  // Agrupamento por família (SKU raiz) para o bloco de entradas
+  const gruposEntrada = useMemo(() => {
+    const rootDe = (sku: string) => data.roots.find(r => sku.toUpperCase().startsWith(r)) ?? sku
+    const map = new Map<string, { root: string; rows: typeof data.rows }>()
+    for (const r of data.rows) {
+      const temEntrada = Object.keys(r.entradas).length || Object.keys(r.entradasPrev).length
+      if (!temEntrada) continue
+      const root = rootDe(r.sku)
+      if (!map.has(root)) map.set(root, { root, rows: [] })
+      map.get(root)!.rows.push(r)
+    }
+    return [...map.values()].sort((a, b) => (a.root < b.root ? -1 : 1))
+  }, [data.rows, data.roots])
 
   // mês anterior ao mês CORRENTE (editável no bloco 3)
   const mesAnterior = useMemo(() => {
@@ -251,25 +267,43 @@ export function FluxoGeralMatriz({ data, pagamentosMes }: Props) {
           incluir pedidos planejados (em estudo) nos cálculos
         </label>
         <table className="text-[12px]" style={{ borderCollapse: 'collapse', minWidth: '100%' }}>
-          <HeadMeses firstCols={['SKU']} />
+          <HeadMeses firstCols={['Família / SKU']} />
           <tbody>
-            {data.rows.map(r => (
-              <tr key={r.productId} style={{ borderBottom: `1px solid ${B.bgSubtle}` }}>
-                <td className="px-2 py-1.5 sticky left-0 bg-white text-[12px] font-medium whitespace-nowrap" style={{ color: B.text }}>{r.sku}</td>
-                {meses.map(m => {
-                  const firm = r.entradas[m] ?? 0
-                  const prev = incluirPrev ? (r.entradasPrev[m] ?? 0) : 0
-                  return (
-                    <td key={m} className="px-2 py-1.5 text-right whitespace-nowrap" style={{ fontFamily: 'var(--font-geist-mono)' }}>
-                      {firm > 0 && <span style={{ color: '#125BFF', fontWeight: 700 }}>{firm}</span>}
-                      {firm > 0 && prev > 0 && <span style={{ color: B.muted }}> + </span>}
-                      {prev > 0 && <span style={{ color: '#d97706', fontWeight: 700, borderBottom: '1.5px dashed #d97706' }}>{prev}</span>}
-                      {firm === 0 && prev === 0 && <span style={{ color: 'oklch(0.88 0.01 258)' }}>·</span>}
+            {gruposEntrada.map(g => {
+              const aberta = famAbertas.has(g.root)
+              const CellEntrada = ({ firm, prev, indent = false }: { firm: number; prev: number; indent?: boolean }) => (
+                <td className="px-2 py-1.5 text-right whitespace-nowrap" style={{ fontFamily: 'var(--font-geist-mono)', opacity: indent ? 0.85 : 1 }}>
+                  {firm > 0 && <span style={{ color: '#125BFF', fontWeight: 700 }}>{firm}</span>}
+                  {firm > 0 && prev > 0 && <span style={{ color: B.muted }}> + </span>}
+                  {prev > 0 && <span style={{ color: '#d97706', fontWeight: 700, borderBottom: '1.5px dashed #d97706' }}>{prev}</span>}
+                  {firm === 0 && prev === 0 && <span style={{ color: 'oklch(0.88 0.01 258)' }}>·</span>}
+                </td>
+              )
+              return (
+                <React.Fragment key={g.root}>
+                  <tr onClick={() => setFamAbertas(prevS => { const n = new Set(prevS); if (n.has(g.root)) n.delete(g.root); else n.add(g.root); return n })}
+                      className="cursor-pointer" style={{ borderBottom: `1px solid ${B.bgSubtle}` }}>
+                    <td className="px-2 py-1.5 sticky left-0 bg-white text-[12px] font-bold whitespace-nowrap" style={{ color: B.text }}>
+                      <span style={{ color: B.muted, fontSize: 10 }}>{aberta ? '▾ ' : '▸ '}</span>{g.root}
+                      <span className="text-[10px] font-normal ml-1" style={{ color: B.muted }}>({g.rows.length})</span>
                     </td>
-                  )
-                })}
-              </tr>
-            ))}
+                    {meses.map(m => (
+                      <CellEntrada key={m}
+                        firm={g.rows.reduce((s, r) => s + (r.entradas[m] ?? 0), 0)}
+                        prev={incluirPrev ? g.rows.reduce((s, r) => s + (r.entradasPrev[m] ?? 0), 0) : 0} />
+                    ))}
+                  </tr>
+                  {aberta && g.rows.map(r => (
+                    <tr key={r.productId} style={{ borderBottom: `1px solid ${B.bgSubtle}`, background: 'oklch(0.99 0.003 258)' }}>
+                      <td className="px-2 py-1 pl-6 sticky left-0 text-[12px] whitespace-nowrap" style={{ color: B.muted, background: 'oklch(0.99 0.003 258)' }}>{r.sku}</td>
+                      {meses.map(m => (
+                        <CellEntrada key={m} indent firm={r.entradas[m] ?? 0} prev={incluirPrev ? (r.entradasPrev[m] ?? 0) : 0} />
+                      ))}
+                    </tr>
+                  ))}
+                </React.Fragment>
+              )
+            })}
           </tbody>
         </table>
       </Bloco>
