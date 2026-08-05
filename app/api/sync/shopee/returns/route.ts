@@ -33,17 +33,19 @@ export async function POST(request: NextRequest) {
   const db = createSupabaseServiceClient()
   const now = Math.floor(Date.now() / 1000)
 
-  // devoluções com reembolso pago no período
+  // devoluções no período — API limita a janelas de 15 dias
   const returns: ReturnItem[] = []
-  let pageNo = 1
-  for (; pageNo < 20; pageNo++) {
-    const res = await shopeeGet<{ response?: { return: ReturnItem[]; more: boolean } }>('/returns/get_return_list', {
-      page_no: String(pageNo), page_size: '50',
-      create_time_from: String(now - days * 86400), create_time_to: String(now),
-    })
-    const list = res.response?.return ?? []
-    returns.push(...list)
-    if (!res.response?.more) break
+  for (let from = now - days * 86400; from < now; from += 15 * 86400) {
+    const to = Math.min(from + 15 * 86400 - 1, now)
+    for (let pageNo = 1; pageNo < 20; pageNo++) {
+      const res = await shopeeGet<{ response?: { return: ReturnItem[]; more: boolean } }>('/returns/get_return_list', {
+        page_no: String(pageNo), page_size: '50',
+        create_time_from: String(from), create_time_to: String(to),
+      })
+      const list = res.response?.return ?? []
+      returns.push(...list)
+      if (!res.response?.more) break
+    }
   }
 
   let updated = 0
