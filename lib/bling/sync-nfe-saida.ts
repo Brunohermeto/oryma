@@ -1,4 +1,4 @@
-import { blingGet } from '@/lib/integrations/bling'
+import { blingGet, blingGetDocumentoXml } from '@/lib/integrations/bling'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 
 interface BlingNFeSaidaItem {
@@ -184,9 +184,9 @@ export async function syncNFeSaida(startDate: string, endDate: string, maxItems 
 
       try {
         await sleep(200)
-        // retries=0: se der 429, pula este NF-e (será processado na próxima rodada)
-        const xmlRes = await blingGet<{ data: { xml: string } }>(`/nfe/${nfe.id}/xml`, undefined, 0)
-        const xml = xmlRes.data?.xml
+        // endpoint novo (mar/2026): /nfe/documento/{chave} — o antigo /nfe/{id}/xml morreu
+        if (!nfe.chaveAcesso) continue
+        const xml = await blingGetDocumentoXml(nfe.chaveAcesso)
         if (!xml) continue
 
         const chave = nfe.chaveAcesso ?? xml.match(/<chNFe>([^<]+)<\/chNFe>/)?.[1] ?? null

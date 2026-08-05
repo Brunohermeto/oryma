@@ -165,6 +165,13 @@ try:
 except Exception as e:
     print(f"8c. magalu finance: ERRO {str(e)[:70]}", flush=True)
 
+# ── 8e. devoluções Shopee → estorno ──
+try:
+    r = post("/api/sync/shopee/returns?days=30", timeout=170)
+    print(f"8e. shopee returns: {json.dumps(r, ensure_ascii=False)[:110]}", flush=True)
+except Exception as e:
+    print(f"8e. shopee returns: ERRO {str(e)[:70]}", flush=True)
+
 # ── 9. estoque Full ──
 try:
     r = post("/api/sync/ml/stock")
