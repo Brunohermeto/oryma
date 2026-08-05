@@ -515,14 +515,18 @@ function CaixaPanel({ plans, profById, fluxoGeral, hoje }: {
   // Agrupamento por família (SKU raiz) — resumo com expansão por clique
   const [expandidas, setExpandidas] = useState<Set<string>>(new Set())
   const famílias = useMemo(() => {
-    const map = new Map<string, { root: string; pedidos: Linha[]; total: number; pago: number; porMes: Map<string, number> }>()
+    const map = new Map<string, { root: string; pedidos: Linha[]; total: number; pago: number; porMes: Map<string, number>; porMesComp: Map<string, number>; porMesPrev: Map<string, number> }>()
     for (const l of linhas) {
-      if (!map.has(l.root)) map.set(l.root, { root: l.root, pedidos: [], total: 0, pago: 0, porMes: new Map() })
+      if (!map.has(l.root)) map.set(l.root, { root: l.root, pedidos: [], total: 0, pago: 0, porMes: new Map(), porMesComp: new Map(), porMesPrev: new Map() })
       const f = map.get(l.root)!
       f.pedidos.push(l)
       f.total += l.total
       f.pago += l.pago
-      for (const [m, v] of l.porMes) f.porMes.set(m, (f.porMes.get(m) ?? 0) + v)
+      for (const [m, v] of l.porMes) {
+        f.porMes.set(m, (f.porMes.get(m) ?? 0) + v)
+        const alvo = l.compromissado ? f.porMesComp : f.porMesPrev
+        alvo.set(m, (alvo.get(m) ?? 0) + v)
+      }
     }
     return [...map.values()].sort((a, b) => (a.root < b.root ? -1 : 1))
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -760,12 +764,20 @@ function FamiliaRows({ f, aberta, onToggle, mesesCols, hoje, fmtRk }: {
           {fmtRk(f.total)}
         </td>
         {mesesCols.map(m => {
-          const v = f.porMes.get(m)
+          const comp = f.porMesComp.get(m) ?? 0
+          const prev = f.porMesPrev.get(m) ?? 0
           const passado = m < mesAtual
           return (
-            <td key={m} className="px-2 py-2 text-right text-[13px] font-bold"
-                style={{ fontFamily: 'var(--font-geist-mono)', color: v ? (passado ? '#15803d' : B.text) : 'oklch(0.85 0.01 258)', background: passado ? 'oklch(0.97 0.02 145)' : undefined }}>
-              {v ? fmtRk(v) : '·'}
+            <td key={m} className="px-2 py-2 text-right text-[13px] font-bold whitespace-nowrap"
+                style={{ fontFamily: 'var(--font-geist-mono)', background: passado ? 'oklch(0.97 0.02 145)' : undefined }}>
+              {passado && (comp + prev > 0) ? <span style={{ color: '#15803d' }}>{fmtRk(comp + prev)}</span> : (
+                <>
+                  {comp > 0 && <span style={{ color: '#125BFF' }}>{fmtRk(comp)}</span>}
+                  {comp > 0 && prev > 0 && <span style={{ color: B.muted }}> + </span>}
+                  {prev > 0 && <span style={{ color: '#d97706' }}>{fmtRk(prev)}</span>}
+                  {comp === 0 && prev === 0 && <span style={{ color: 'oklch(0.85 0.01 258)' }}>·</span>}
+                </>
+              )}
             </td>
           )
         })}
@@ -797,7 +809,7 @@ function FamiliaRows({ f, aberta, onToggle, mesesCols, hoje, fmtRk }: {
               const det = l.detalhes.filter((d: any) => d.date.slice(0, 7) === m).map((d: any) => `${d.date < hoje ? '✓ pago' : '○'} ${fmtD(d.date)} ${d.label}: ${fmtR(d.amount)}`).join('\n')
               return (
                 <td key={m} title={det || undefined} className="px-2 py-1.5 text-right text-[12px]"
-                    style={{ fontFamily: 'var(--font-geist-mono)', color: v ? (passado ? '#15803d' : B.text) : 'oklch(0.88 0.01 258)', background: passado ? 'oklch(0.97 0.02 145)' : undefined }}>
+                    style={{ fontFamily: 'var(--font-geist-mono)', color: v ? (passado ? '#15803d' : l.compromissado ? '#125BFF' : '#d97706') : 'oklch(0.88 0.01 258)', background: passado ? 'oklch(0.97 0.02 145)' : undefined }}>
                   {v ? fmtRk(v) : '·'}
                 </td>
               )

@@ -137,6 +137,7 @@ export function FluxoGeralMatriz({ data, pagamentosMes }: Props) {
   const calc = useMemo(() => {
     const vendas = new Map<string, Record<string, number>>()   // efetivas (plano ?? sugestão)
     const saldo  = new Map<string, Record<string, number>>()
+    const saldoDep = new Map<string, Record<string, 'firm' | 'prev' | null>>() // de que tipo de chegada o saldo depende
     const estoqueRsBy = new Map<string, Record<string, number>>() // estoque em R$ por SKU
     const porMes = Object.fromEntries(meses.map(m => [m, { fat: 0, cmv: 0, lucro: 0, estoqueRs: 0, un: 0 }])) as Record<string, { fat: number; cmv: number; lucro: number; estoqueRs: number; un: number }>
     for (const r of data.rows) {
@@ -151,6 +152,8 @@ export function FluxoGeralMatriz({ data, pagamentosMes }: Props) {
         ? estqEdit[r.productId]
         : (r.estoqueManualMes === mesAnterior ? r.estoqueManual : null)
       let s = manual ?? r.estoqueAtual
+      const dm: Record<string, 'firm' | 'prev' | null> = {}
+      let firmSeen = false, prevSeen = false
       for (const m of meses) {
         if (m < mesAtual) {
           // REALIZADO: vendas/faturamento reais; saldo não é simulado no passado
@@ -168,6 +171,9 @@ export function FluxoGeralMatriz({ data, pagamentosMes }: Props) {
         const v = planoCel !== undefined ? planoCel : Math.round(velBase * diasNoMes(m))
         vm[m] = v
         const entrada = (r.entradas[m] ?? 0) + (incluirPrev ? (r.entradasPrev[m] ?? 0) : 0)
+        if ((r.entradas[m] ?? 0) > 0) firmSeen = true
+        if (incluirPrev && (r.entradasPrev[m] ?? 0) > 0) prevSeen = true
+        dm[m] = prevSeen ? 'prev' : firmSeen ? 'firm' : null
         s = s + entrada - v
         sm[m] = Math.round(s)
         em[m] = Math.max(s, 0) * custo
@@ -179,6 +185,7 @@ export function FluxoGeralMatriz({ data, pagamentosMes }: Props) {
       }
       vendas.set(r.productId, vm)
       saldo.set(r.productId, sm)
+      saldoDep.set(r.productId, dm)
       estoqueRsBy.set(r.productId, em)
     }
     // Resumo de caixa
@@ -207,7 +214,7 @@ export function FluxoGeralMatriz({ data, pagamentosMes }: Props) {
     const totFat = meses.reduce((a, m) => a + porMes[m].fat, 0)
     const totUn  = meses.reduce((a, m) => a + porMes[m].un, 0)
     const precoPonderado = totUn > 0 ? totFat / totUn : 0
-    return { vendas, saldo, estoqueRsBy, porMes, linhasCaixa, precoPonderado }
+    return { vendas, saldo, saldoDep, estoqueRsBy, porMes, linhasCaixa, precoPonderado }
   }, [data, meses, mesAnterior, planoEdit, precoEdit, velEdit, estqEdit, cashEdit, cfgEdit, incluirPrev, pagamentosMes])
 
   const inputCls = 'w-14 text-right text-[12px] px-1 py-0.5 rounded outline-none'
@@ -367,7 +374,7 @@ export function FluxoGeralMatriz({ data, pagamentosMes }: Props) {
       </Bloco>
 
       {/* 3. SALDO DE ESTOQUE */}
-      <Bloco titulo="3 · Saldo final de estoque" sub={`estoque + entradas − vendas planejadas · vermelho = ruptura · "${fmtMes(mesAnterior)} manual" = ponto de partida editável (vazio = usa o estoque real de hoje)`}>
+      <Bloco titulo="3 · Saldo final de estoque" sub={`azul = sustentado por pedido compromissado · laranja = depende de pedido PREVISTO · vermelho = ruptura · "${fmtMes(mesAnterior)} manual" = ponto de partida editável`}>
         <table className="text-[12px]" style={{ borderCollapse: 'collapse', minWidth: '100%' }}>
           <HeadMeses firstCols={['SKU', `${fmtMes(mesAnterior)} manual`, 'Hoje']} />
           <tbody>
@@ -387,12 +394,15 @@ export function FluxoGeralMatriz({ data, pagamentosMes }: Props) {
                     return <td key={m} className="px-2 py-1.5 text-right" style={{ background: B.bgSubtle, color: 'oklch(0.80 0.01 258)' }}>·</td>
                   }
                   const s = calc.saldo.get(r.productId)?.[m] ?? 0
+                  const dep = calc.saldoDep.get(r.productId)?.[m] ?? null
                   const cob30 = r.velReal * 30
+                  // vermelho = ruptura · laranja = saldo depende de pedido PREVISTO · azul = sustentado por compromissado
+                  const cor = s < 0 ? '#dc2626' : dep === 'prev' ? '#d97706' : dep === 'firm' ? '#125BFF' : B.text
                   return (
                     <td key={m} className="px-2 py-1.5 text-right" style={{
                       fontFamily: 'var(--font-geist-mono)',
                       background: s < 0 ? 'oklch(0.94 0.06 25)' : s < cob30 ? 'oklch(0.97 0.06 70)' : undefined,
-                      color: s < 0 ? '#dc2626' : s < cob30 ? '#92400e' : B.text,
+                      color: cor,
                       fontWeight: s < 0 ? 700 : 500,
                     }}>
                       {s.toLocaleString('pt-BR')}
