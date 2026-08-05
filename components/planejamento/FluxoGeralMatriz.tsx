@@ -16,12 +16,18 @@ export interface FluxoGeralData {
   rows: Array<{
     productId: string; sku: string; name: string
     estoqueAtual: number; velReal: number; cmp: number
+    velProj: number | null            // velocidade PROJETADA (manual, persistida)
+    estoqueManual: number | null      // estoque informado manualmente…
+    estoqueManualMes: string | null   // …para este mês (normalmente o anterior)
+    custoPlan: number | null          // custo unitário vindo do pedido (planilha)
     precoReal: number; precoParam: number | null; marginPct: number
-    entradas: Record<string, number>
+    entradas: Record<string, number>      // pedidos compromissados
+    entradasPrev: Record<string, number>  // pedidos PREVISTOS (em estudo)
     plano: Record<string, number>
   }>
   saldoInicial: number
   difalPct: number
+  difalSaldoInicial: number
   cashMonths: Record<string, { divida: number; retirada: number }>
 }
 
@@ -63,10 +69,20 @@ export function FluxoGeralMatriz({ data, pagamentosMes }: Props) {
   // Edições locais (aplicadas na tela na hora; "salvar" persiste)
   const [planoEdit, setPlanoEdit] = useState<Record<string, Record<string, number>>>({})
   const [precoEdit, setPrecoEdit] = useState<Record<string, number>>({})
+  const [velEdit, setVelEdit] = useState<Record<string, number | null>>({})
+  const [estqEdit, setEstqEdit] = useState<Record<string, number | null>>({})
   const [cashEdit, setCashEdit] = useState<Record<string, { divida?: number; retirada?: number }>>({})
-  const [cfgEdit, setCfgEdit] = useState<{ saldo_inicial?: number; difal_pct?: number }>({})
+  const [cfgEdit, setCfgEdit] = useState<{ saldo_inicial?: number; difal_pct?: number; difal_saldo_inicial?: number }>({})
+  const [incluirPrev, setIncluirPrev] = useState(true)
 
-  const temEdicao = Object.keys(planoEdit).length + Object.keys(precoEdit).length + Object.keys(cashEdit).length + Object.keys(cfgEdit).length > 0
+  // mês anterior ao primeiro mês da matriz (editável no bloco 3)
+  const mesAnterior = useMemo(() => {
+    const d = new Date(Number(meses[0].slice(0, 4)), Number(meses[0].slice(5, 7)) - 1, 1)
+    d.setMonth(d.getMonth() - 1)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  }, [meses])
+
+  const temEdicao = Object.keys(planoEdit).length + Object.keys(precoEdit).length + Object.keys(velEdit).length + Object.keys(estqEdit).length + Object.keys(cashEdit).length + Object.keys(cfgEdit).length > 0
 
   async function post(payload: Record<string, unknown>) {
     const r = await fetch('/api/import-planning', {
@@ -82,15 +98,17 @@ export function FluxoGeralMatriz({ data, pagamentosMes }: Props) {
         for (const [mes, qty] of Object.entries(ms)) entries.push({ product_id: pid, mes, qty })
       if (entries.length) await post({ action: 'save_sales_plan', entries })
       for (const [pid, preco] of Object.entries(precoEdit)) await post({ action: 'save_price', product_id: pid, preco_venda: preco || null })
+      for (const [pid, vel] of Object.entries(velEdit)) await post({ action: 'save_params', product_id: pid, vel_projetada: vel })
+      for (const [pid, estq] of Object.entries(estqEdit)) await post({ action: 'save_params', product_id: pid, estoque_manual: estq, estoque_manual_mes: estq === null ? null : mesAnterior })
       for (const [mes, v] of Object.entries(cashEdit)) {
         const base = data.cashMonths[mes] ?? { divida: 0, retirada: 0 }
         await post({ action: 'save_cash_month', mes, divida: v.divida ?? base.divida, retirada: v.retirada ?? base.retirada })
       }
       if (Object.keys(cfgEdit).length) {
-        await post({ action: 'save_cash_config', saldo_inicial: cfgEdit.saldo_inicial ?? data.saldoInicial, difal_pct: cfgEdit.difal_pct ?? data.difalPct })
+        await post({ action: 'save_cash_config', saldo_inicial: cfgEdit.saldo_inicial ?? data.saldoInicial, difal_pct: cfgEdit.difal_pct ?? data.difalPct, difal_saldo_inicial: cfgEdit.difal_saldo_inicial ?? data.difalSaldoInicial })
       }
       setMsg('✓ plano salvo')
-      setPlanoEdit({}); setPrecoEdit({}); setCashEdit({}); setCfgEdit({})
+      setPlanoEdit({}); setPrecoEdit({}); setVelEdit({}); setEstqEdit({}); setCashEdit({}); setCfgEdit({})
       router.refresh()
     } catch (e) { setMsg(`Erro: ${String(e).replace('Error: ', '')}`) }
     setBusy(false)
@@ -100,25 +118,37 @@ export function FluxoGeralMatriz({ data, pagamentosMes }: Props) {
   const calc = useMemo(() => {
     const vendas = new Map<string, Record<string, number>>()   // efetivas (plano ?? sugestão)
     const saldo  = new Map<string, Record<string, number>>()
-    const porMes = Object.fromEntries(meses.map(m => [m, { fat: 0, cmv: 0, lucro: 0, estoqueRs: 0 }])) as Record<string, { fat: number; cmv: number; lucro: number; estoqueRs: number }>
+    const estoqueRsBy = new Map<string, Record<string, number>>() // estoque em R$ por SKU
+    const porMes = Object.fromEntries(meses.map(m => [m, { fat: 0, cmv: 0, lucro: 0, estoqueRs: 0, un: 0 }])) as Record<string, { fat: number; cmv: number; lucro: number; estoqueRs: number; un: number }>
     for (const r of data.rows) {
       const vm: Record<string, number> = {}
       const sm: Record<string, number> = {}
+      const em: Record<string, number> = {}
       const preco = precoEdit[r.productId] ?? r.precoParam ?? r.precoReal
-      let s = r.estoqueAtual
+      const velBase = (velEdit[r.productId] !== undefined ? velEdit[r.productId] : r.velProj) ?? r.velReal
+      const custo = r.custoPlan ?? r.cmp
+      // estoque manual do mês anterior (edição > salvo) substitui o estoque atual
+      const manual = estqEdit[r.productId] !== undefined
+        ? estqEdit[r.productId]
+        : (r.estoqueManualMes === mesAnterior ? r.estoqueManual : null)
+      let s = manual ?? r.estoqueAtual
       for (const m of meses) {
         const planoCel = planoEdit[r.productId]?.[m] ?? r.plano[m]
-        const v = planoCel !== undefined ? planoCel : Math.round(r.velReal * diasNoMes(m))
+        const v = planoCel !== undefined ? planoCel : Math.round(velBase * diasNoMes(m))
         vm[m] = v
-        s = s + (r.entradas[m] ?? 0) - v
+        const entrada = (r.entradas[m] ?? 0) + (incluirPrev ? (r.entradasPrev[m] ?? 0) : 0)
+        s = s + entrada - v
         sm[m] = Math.round(s)
+        em[m] = Math.max(s, 0) * custo
         porMes[m].fat       += v * preco
-        porMes[m].cmv       += v * r.cmp
+        porMes[m].cmv       += v * custo
         porMes[m].lucro     += v * preco * (r.marginPct / 100)
-        porMes[m].estoqueRs += Math.max(s, 0) * r.cmp
+        porMes[m].estoqueRs += em[m]
+        porMes[m].un        += v
       }
       vendas.set(r.productId, vm)
       saldo.set(r.productId, sm)
+      estoqueRsBy.set(r.productId, em)
     }
     // Resumo de caixa
     const saldoIni = cfgEdit.saldo_inicial ?? data.saldoInicial
@@ -134,15 +164,19 @@ export function FluxoGeralMatriz({ data, pagamentosMes }: Props) {
         difalMes: porMes[m].fat * (difalPct / 100),
       }
     })
-    let acumulado = saldoIni, difalAcum = 0
+    let acumulado = saldoIni, difalAcum = cfgEdit.difal_saldo_inicial ?? data.difalSaldoInicial
     const linhasCaixa = resumo.map(r => {
       const liquidoMes = r.lucro - r.pagImport - r.divida - r.retirada
       acumulado += liquidoMes
       difalAcum += r.difalMes
       return { ...r, liquidoMes, acumulado, difalAcum, saldoMenosDifal: acumulado - difalAcum, saldoMaisEstoque: acumulado + r.estoqueRs }
     })
-    return { vendas, saldo, porMes, linhasCaixa }
-  }, [data, meses, planoEdit, precoEdit, cashEdit, cfgEdit, pagamentosMes])
+    // preço médio ponderado da projeção (Σ faturamento ÷ Σ unidades)
+    const totFat = meses.reduce((a, m) => a + porMes[m].fat, 0)
+    const totUn  = meses.reduce((a, m) => a + porMes[m].un, 0)
+    const precoPonderado = totUn > 0 ? totFat / totUn : 0
+    return { vendas, saldo, estoqueRsBy, porMes, linhasCaixa, precoPonderado }
+  }, [data, meses, mesAnterior, planoEdit, precoEdit, velEdit, estqEdit, cashEdit, cfgEdit, incluirPrev, pagamentosMes])
 
   const inputCls = 'w-14 text-right text-[12px] px-1 py-0.5 rounded outline-none'
   const inputStyle = (edited: boolean) => ({
@@ -190,18 +224,29 @@ export function FluxoGeralMatriz({ data, pagamentosMes }: Props) {
       </div>
 
       {/* 1. ENTRADA DE ESTOQUE */}
-      <Bloco titulo="1 · Entrada de estoque" sub="unidades chegando dos pedidos (itens) por mês" open={false}>
+      <Bloco titulo="1 · Entrada de estoque" sub="azul = pedidos em curso/compromissados · âmbar tracejado = pedidos PLANEJADOS (em estudo)" open={false}>
+        <label className="text-[12px] flex items-center gap-1.5 mb-2" style={{ color: B.muted }}>
+          <input type="checkbox" checked={incluirPrev} onChange={e => setIncluirPrev(e.target.checked)} />
+          incluir pedidos planejados (em estudo) nos cálculos
+        </label>
         <table className="text-[12px]" style={{ borderCollapse: 'collapse', minWidth: '100%' }}>
           <HeadMeses firstCols={['SKU']} />
           <tbody>
             {data.rows.map(r => (
               <tr key={r.productId} style={{ borderBottom: `1px solid ${B.bgSubtle}` }}>
                 <td className="px-2 py-1.5 sticky left-0 bg-white text-[12px] font-medium whitespace-nowrap" style={{ color: B.text }}>{r.sku}</td>
-                {meses.map(m => (
-                  <td key={m} className="px-2 py-1.5 text-right" style={{ fontFamily: 'var(--font-geist-mono)', color: r.entradas[m] ? '#125BFF' : 'oklch(0.88 0.01 258)', fontWeight: r.entradas[m] ? 700 : 400 }}>
-                    {r.entradas[m] ?? '·'}
-                  </td>
-                ))}
+                {meses.map(m => {
+                  const firm = r.entradas[m] ?? 0
+                  const prev = incluirPrev ? (r.entradasPrev[m] ?? 0) : 0
+                  return (
+                    <td key={m} className="px-2 py-1.5 text-right whitespace-nowrap" style={{ fontFamily: 'var(--font-geist-mono)' }}>
+                      {firm > 0 && <span style={{ color: '#125BFF', fontWeight: 700 }}>{firm}</span>}
+                      {firm > 0 && prev > 0 && <span style={{ color: B.muted }}> + </span>}
+                      {prev > 0 && <span style={{ color: '#d97706', fontWeight: 700, borderBottom: '1.5px dashed #d97706' }}>{prev}</span>}
+                      {firm === 0 && prev === 0 && <span style={{ color: 'oklch(0.88 0.01 258)' }}>·</span>}
+                    </td>
+                  )
+                })}
               </tr>
             ))}
           </tbody>
@@ -209,18 +254,28 @@ export function FluxoGeralMatriz({ data, pagamentosMes }: Props) {
       </Bloco>
 
       {/* 2. VENDAS PLANEJADAS (editável) */}
-      <Bloco titulo="2 · Vendas planejadas por mês" sub="EDITÁVEL — sugestão inicial = velocidade real × dias do mês; edite para planejar rampas de produto novo">
+      <Bloco titulo="2 · Vendas planejadas por mês" sub="EDITÁVEL — sugestão = velocidade (projetada, se preenchida; senão a real) × dias do mês">
         <table className="text-[12px]" style={{ borderCollapse: 'collapse', minWidth: '100%' }}>
-          <HeadMeses firstCols={['SKU', 'Vel real']} />
+          <HeadMeses firstCols={['SKU', 'Vel real', 'Vel proj']} />
           <tbody>
-            {data.rows.map(r => (
+            {data.rows.map(r => {
+              const velProjVal = velEdit[r.productId] !== undefined ? velEdit[r.productId] : r.velProj
+              const velBase = velProjVal ?? r.velReal
+              return (
               <tr key={r.productId} style={{ borderBottom: `1px solid ${B.bgSubtle}` }}>
                 <td className="px-2 py-1 sticky left-0 bg-white text-[12px] font-medium whitespace-nowrap" style={{ color: B.text }}>{r.sku}</td>
                 <td className="px-2 py-1 text-right" style={{ color: B.muted, fontFamily: 'var(--font-geist-mono)' }}>{r.velReal.toFixed(1)}/d</td>
+                <td className="px-1 py-0.5 text-right">
+                  <input type="number" step="0.1" min="0" placeholder="—"
+                    value={velProjVal ?? ''}
+                    onChange={e => setVelEdit(prev => ({ ...prev, [r.productId]: e.target.value === '' ? null : Number(e.target.value) }))}
+                    className="w-14 text-right text-[12px] px-1 py-0.5 rounded outline-none"
+                    style={{ ...inputStyle(velEdit[r.productId] !== undefined), border: `1px solid ${velEdit[r.productId] !== undefined ? '#d97706' : B.border}` }} />
+                </td>
                 {meses.map(m => {
                   const edited = planoEdit[r.productId]?.[m] !== undefined
                   const persisted = r.plano[m] !== undefined
-                  const val = planoEdit[r.productId]?.[m] ?? r.plano[m] ?? Math.round(r.velReal * diasNoMes(m))
+                  const val = planoEdit[r.productId]?.[m] ?? r.plano[m] ?? Math.round(velBase * diasNoMes(m))
                   return (
                     <td key={m} className="px-1 py-0.5 text-right">
                       <input
@@ -241,22 +296,29 @@ export function FluxoGeralMatriz({ data, pagamentosMes }: Props) {
                   )
                 })}
               </tr>
-            ))}
+            )})}
           </tbody>
         </table>
         <div className="text-[11px] mt-2" style={{ color: B.muted }}>
-          Números cinza = sugestão automática (velocidade real). Ao editar, a célula vira parte do SEU plano e é salva.
+          Números cinza = sugestão automática (Vel proj, se preenchida; senão a velocidade real). Ao editar, a célula vira parte do SEU plano e é salva.
         </div>
       </Bloco>
 
       {/* 3. SALDO DE ESTOQUE */}
-      <Bloco titulo="3 · Saldo final de estoque" sub="estoque atual + entradas − vendas planejadas · vermelho = ruptura">
+      <Bloco titulo="3 · Saldo final de estoque" sub={`estoque + entradas − vendas planejadas · vermelho = ruptura · "${fmtMes(mesAnterior)} manual" = ponto de partida editável (vazio = usa o estoque real de hoje)`}>
         <table className="text-[12px]" style={{ borderCollapse: 'collapse', minWidth: '100%' }}>
-          <HeadMeses firstCols={['SKU', 'Hoje']} />
+          <HeadMeses firstCols={['SKU', `${fmtMes(mesAnterior)} manual`, 'Hoje']} />
           <tbody>
             {data.rows.map(r => (
               <tr key={r.productId} style={{ borderBottom: `1px solid ${B.bgSubtle}` }}>
                 <td className="px-2 py-1.5 sticky left-0 bg-white text-[12px] font-medium whitespace-nowrap" style={{ color: B.text }}>{r.sku}</td>
+                <td className="px-1 py-0.5 text-right">
+                  <input type="number" min="0" placeholder="—"
+                    value={(estqEdit[r.productId] !== undefined ? estqEdit[r.productId] : (r.estoqueManualMes === mesAnterior ? r.estoqueManual : null)) ?? ''}
+                    onChange={e => setEstqEdit(prev => ({ ...prev, [r.productId]: e.target.value === '' ? null : Math.max(0, Number(e.target.value)) }))}
+                    className="w-14 text-right text-[12px] px-1 py-0.5 rounded outline-none"
+                    style={{ ...inputStyle(estqEdit[r.productId] !== undefined), border: `1px solid ${estqEdit[r.productId] !== undefined ? '#d97706' : B.border}` }} />
+                </td>
                 <td className="px-2 py-1.5 text-right font-semibold" style={{ fontFamily: 'var(--font-geist-mono)' }}>{r.estoqueAtual}</td>
                 {meses.map(m => {
                   const s = calc.saldo.get(r.productId)?.[m] ?? 0
@@ -294,6 +356,9 @@ export function FluxoGeralMatriz({ data, pagamentosMes }: Props) {
                       onChange={e => setPrecoEdit(prev => ({ ...prev, [r.productId]: Number(e.target.value) }))}
                       className="w-16 text-right text-[12px] px-1 py-0.5 rounded outline-none"
                       style={inputStyle(precoEdit[r.productId] !== undefined)} />
+                    {r.precoReal > 0 && Math.abs(preco - r.precoReal) > 0.5 && (
+                      <div className="text-[10px]" style={{ color: B.muted }}>médio real: {r.precoReal.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</div>
+                    )}
                   </td>
                   {meses.map(m => (
                     <td key={m} className="px-2 py-1 text-right" style={{ fontFamily: 'var(--font-geist-mono)', color: (vm[m] ?? 0) > 0 ? B.text : 'oklch(0.88 0.01 258)' }}>
@@ -315,24 +380,47 @@ export function FluxoGeralMatriz({ data, pagamentosMes }: Props) {
       </Bloco>
 
       {/* 5. CMV + ESTOQUE EM R$ */}
-      <Bloco titulo="5 · CMV e capital em estoque" sub="custo do vendido no mês · estoque valorizado a custo (capital imobilizado)" open={false}>
+      <Bloco titulo="5 · CMV e capital em estoque" sub="estoque valorizado a custo POR SKU · custo do pedido (se informado no cadastro) ou CMP · CMV total do mês" open={false}>
         <table className="text-[12px]" style={{ borderCollapse: 'collapse', minWidth: '100%' }}>
-          <HeadMeses firstCols={['Linha']} />
+          <HeadMeses firstCols={['SKU', 'Custo un.']} />
           <tbody>
-            <tr style={{ borderBottom: `1px solid ${B.bgSubtle}` }}>
+            {data.rows.map(r => {
+              const custo = r.custoPlan ?? r.cmp
+              const em = calc.estoqueRsBy.get(r.productId) ?? {}
+              return (
+                <tr key={r.productId} style={{ borderBottom: `1px solid ${B.bgSubtle}` }}>
+                  <td className="px-2 py-1.5 sticky left-0 bg-white text-[12px] font-medium whitespace-nowrap" style={{ color: B.text }}>{r.sku}</td>
+                  <td className="px-2 py-1.5 text-right whitespace-nowrap" style={{ fontFamily: 'var(--font-geist-mono)', color: r.custoPlan != null ? '#125BFF' : B.muted }}
+                      title={r.custoPlan != null ? 'custo informado no pedido' : 'CMP (custo médio da plataforma)'}>
+                    {custo > 0 ? custo.toLocaleString('pt-BR', { maximumFractionDigits: 0 }) : '—'}{r.custoPlan != null ? '*' : ''}
+                  </td>
+                  {meses.map(m => (
+                    <td key={m} className="px-2 py-1.5 text-right" style={{ fontFamily: 'var(--font-geist-mono)', color: (em[m] ?? 0) > 0 ? '#7B61FF' : 'oklch(0.88 0.01 258)' }}>
+                      {(em[m] ?? 0) > 0 ? fmtRk(em[m]) : '·'}
+                    </td>
+                  ))}
+                </tr>
+              )
+            })}
+            <tr style={{ borderTop: `2px solid ${B.border}`, background: B.bgSubtle }}>
+              <td className="px-2 py-1.5 text-[11px] font-bold sticky left-0 whitespace-nowrap" style={{ background: B.bgSubtle, color: '#7B61FF' }}>ESTOQUE TOTAL R$</td>
+              <td style={{ background: B.bgSubtle }} />
+              {meses.map(m => (
+                <td key={m} className="px-2 py-1.5 text-right font-bold" style={{ fontFamily: 'var(--font-geist-mono)', color: '#7B61FF' }}>{fmtRk(calc.porMes[m].estoqueRs)}</td>
+              ))}
+            </tr>
+            <tr>
               <td className="px-2 py-1.5 sticky left-0 bg-white text-[12px] font-semibold whitespace-nowrap" style={{ color: '#dc2626' }}>CMV do mês</td>
+              <td />
               {meses.map(m => (
                 <td key={m} className="px-2 py-1.5 text-right" style={{ fontFamily: 'var(--font-geist-mono)', color: '#dc2626' }}>{fmtRk(calc.porMes[m].cmv)}</td>
               ))}
             </tr>
-            <tr>
-              <td className="px-2 py-1.5 sticky left-0 bg-white text-[12px] font-semibold whitespace-nowrap" style={{ color: '#7B61FF' }}>Estoque em R$ (fim do mês)</td>
-              {meses.map(m => (
-                <td key={m} className="px-2 py-1.5 text-right font-semibold" style={{ fontFamily: 'var(--font-geist-mono)', color: '#7B61FF' }}>{fmtRk(calc.porMes[m].estoqueRs)}</td>
-              ))}
-            </tr>
           </tbody>
         </table>
+        <div className="text-[11px] mt-2" style={{ color: B.muted }}>
+          * = custo unitário informado no cadastro do pedido (custo total ÷ quantidade). Sem asterisco = CMP da plataforma. Este custo é da PLANILHA de planejamento — não altera o cálculo de margem do Oryma.
+        </div>
       </Bloco>
 
       {/* 6. RESUMO DE CAIXA */}
@@ -352,6 +440,16 @@ export function FluxoGeralMatriz({ data, pagamentosMes }: Props) {
               className="w-16 text-right text-[12px] px-1.5 py-0.5 rounded outline-none"
               style={{ ...inputStyle(cfgEdit.difal_pct !== undefined), border: `1px solid ${B.border}` }} />
           </label>
+          <label>Saldo inicial do DIFAL (R$ já devidos):{' '}
+            <input type="number" step="1000" min="0"
+              value={cfgEdit.difal_saldo_inicial ?? data.difalSaldoInicial}
+              onChange={e => setCfgEdit(prev => ({ ...prev, difal_saldo_inicial: Number(e.target.value) }))}
+              className="w-24 text-right text-[12px] px-1.5 py-0.5 rounded outline-none"
+              style={{ ...inputStyle(cfgEdit.difal_saldo_inicial !== undefined), border: `1px solid ${B.border}` }} />
+          </label>
+          <span className="text-[12px] font-semibold px-2.5 py-1 rounded-full" style={{ background: B.bgSubtle, color: B.text }}>
+            preço médio ponderado da projeção: R$ {calc.precoPonderado.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
+          </span>
         </div>
         <table className="text-[12px]" style={{ borderCollapse: 'collapse', minWidth: '100%' }}>
           <HeadMeses firstCols={['Linha']} />

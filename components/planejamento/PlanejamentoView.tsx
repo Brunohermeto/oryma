@@ -25,7 +25,7 @@ export interface RupturaRow {
 export interface ProductOption { id: string; sku: string; name: string }
 export interface ProjecaoMes { mes: string; receita: number; lucro: number }
 export interface EstoqueTempoRow { sku: string; name: string; vel: number; meses: Record<string, number> }
-interface PlanItem { id?: string; plan_id?: string; product_id: string | null; sku: string; quantity: number }
+interface PlanItem { id?: string; plan_id?: string; product_id: string | null; sku: string; quantity: number; custo_total?: number }
 
 const B = {
   border: 'oklch(0.88 0.016 258)', bgSubtle: 'oklch(0.97 0.008 258)',
@@ -289,6 +289,7 @@ function PedidosPanel({ plans, items, profiles, profById, products, hoje, onSave
             </Campo>
             <Campo label="Valor fornecedor (R$)"><input className="inp" type="number" step="0.01" value={editing.valor_fornecedor ?? 0} onChange={e => setEditing({ ...editing, valor_fornecedor: Number(e.target.value) })} /></Campo>
             <Campo label="Impostos + frete (R$)"><input className="inp" type="number" step="0.01" value={editing.valor_imposto_frete ?? 0} onChange={e => setEditing({ ...editing, valor_imposto_frete: Number(e.target.value) })} /></Campo>
+            <Campo label="Valor JÁ PAGO (R$) — efetivo"><input className="inp" type="number" step="0.01" value={editing.valor_pago ?? 0} onChange={e => setEditing({ ...editing, valor_pago: Number(e.target.value) })} /></Campo>
             <Campo label="Embarque REAL (se houver)"><input className="inp" type="date" value={editing.embarque_real ?? ''} onChange={e => setEditing({ ...editing, embarque_real: e.target.value || null })} /></Campo>
             <Campo label="Chegada galpão REAL"><input className="inp" type="date" value={editing.galpao_real ?? ''} onChange={e => setEditing({ ...editing, galpao_real: e.target.value || null })} /></Campo>
           </div>
@@ -350,6 +351,7 @@ function PedidosPanel({ plans, items, profiles, profById, products, hoje, onSave
                 </select>
                 <input className="inp w-24" placeholder="SKU" value={it.sku} onChange={e => { const n = [...editItems]; n[idx] = { ...it, sku: e.target.value }; setEditItems(n) }} />
                 <input className="inp w-24" type="number" placeholder="qtd" value={it.quantity || ''} onChange={e => { const n = [...editItems]; n[idx] = { ...it, quantity: Number(e.target.value) }; setEditItems(n) }} />
+                <input className="inp w-32" type="number" step="0.01" placeholder="custo total R$" title="Custo total deste SKU no pedido (alimenta a planilha de custo do estoque)" value={it.custo_total || ''} onChange={e => { const n = [...editItems]; n[idx] = { ...it, custo_total: Number(e.target.value) }; setEditItems(n) }} />
                 <button onClick={() => setEditItems(editItems.filter((_, i) => i !== idx))} className="p-1 cursor-pointer" style={{ border: 'none', background: 'transparent' }}><Trash2 size={13} style={{ color: '#dc2626' }} /></button>
               </div>
             ))}
@@ -394,6 +396,9 @@ function PedidosPanel({ plans, items, profiles, profById, products, hoje, onSave
               )}
               {aPagar > 0 && !pl.done && (
                 <span className="text-[12px] font-semibold" style={{ color: '#d97706' }}>a pagar: {fmtR(aPagar)}</span>
+              )}
+              {Number(pl.valor_pago ?? 0) > 0 && (
+                <span className="text-[12px] font-semibold" style={{ color: '#16a34a' }}>pago: {fmtR(Number(pl.valor_pago))}</span>
               )}
               {planItems.length === 0 && !pl.done && (
                 <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'oklch(0.96 0.08 70)', color: '#92400e' }}>
@@ -471,20 +476,26 @@ function CaixaPanel({ plans, profById, fluxoGeral, hoje }: {
   fluxoGeral: FluxoGeralData
   hoje: string
 }) {
-  // Pagamentos em aberto de cada pedido não concluído, resolvidos em datas
+  // Filtros: em curso / planejados (previstos) / concluídos
+  const [showCurso, setShowCurso] = useState(true)
+  const [showPrev, setShowPrev] = useState(true)
+  const [showDone, setShowDone] = useState(false)
+  // Pagamentos em aberto de cada pedido, resolvidos em datas
   interface Linha {
-    invoice: string; root: string; status: string; compromissado: boolean
-    total: number; porMes: Map<string, number>
+    invoice: string; root: string; status: string; compromissado: boolean; done: boolean
+    total: number; pago: number; porMes: Map<string, number>
     detalhes: Array<{ date: string; label: string; amount: number }>
   }
   const linhas: Linha[] = []
   for (const pl of plans) {
-    if (pl.done) continue
     const prof = profById.get(pl.profile_id ?? '')
     if (!prof) continue
+    const ehPrevisto = pl.compromissado === false
+    if (pl.done ? !showDone : ehPrevisto ? !showPrev : !showCurso) continue
     const dates = resolvePlanDates(pl, prof, hoje)
-    const abertos = resolvePagamentos(pl, prof, dates).filter(p => p.date >= hoje)
-    if (!abertos.length) continue
+    const abertos = pl.done ? [] : resolvePagamentos(pl, prof, dates).filter(p => p.date >= hoje)
+    const pago = Number(pl.valor_pago ?? 0)
+    if (!abertos.length && !(pl.done && showDone) && pago <= 0) continue
     const porMes = new Map<string, number>()
     for (const p of abertos) {
       const m = p.date.slice(0, 7)
@@ -492,8 +503,8 @@ function CaixaPanel({ plans, profById, fluxoGeral, hoje }: {
     }
     linhas.push({
       invoice: pl.invoice, root: prof.root_sku, status: dates.status,
-      compromissado: pl.compromissado !== false,
-      total: abertos.reduce((s, p) => s + p.amount, 0),
+      compromissado: pl.compromissado !== false, done: !!pl.done,
+      total: abertos.reduce((s, p) => s + p.amount, 0), pago,
       porMes, detalhes: abertos,
     })
   }
@@ -530,6 +541,17 @@ function CaixaPanel({ plans, profById, fluxoGeral, hoje }: {
               previsto: {fmtR(totalPrev)}
             </span>
           )}
+          <span className="text-[12px] font-bold px-2.5 py-1 rounded-full" style={{ background: 'oklch(0.95 0.06 145)', color: '#15803d' }}>
+            pago: {fmtR(linhas.reduce((s, l) => s + l.pago, 0))}
+          </span>
+          <span className="mx-1" style={{ borderLeft: `1px solid ${B.border}`, height: 18 }} />
+          {([['em curso', showCurso, setShowCurso], ['planejados', showPrev, setShowPrev], ['concluídos', showDone, setShowDone]] as const).map(([label, on, set]) => (
+            <button key={label} onClick={() => set(!on)}
+              className="text-[11px] font-semibold px-2.5 py-1 rounded-full cursor-pointer"
+              style={{ background: on ? B.brand : 'white', color: on ? 'white' : B.muted, border: `1px solid ${on ? B.brand : B.border}` }}>
+              {on ? '✓ ' : ''}{label}
+            </button>
+          ))}
         </div>
         <div className="text-[12px] mb-4" style={{ color: B.muted }}>
           Pedidos nas linhas, meses nas colunas — como a planilha. Valores em R$ mil; passe o mouse na célula para o detalhe.
@@ -541,6 +563,7 @@ function CaixaPanel({ plans, profById, fluxoGeral, hoje }: {
               <tr style={{ borderBottom: `2px solid ${B.border}` }}>
                 <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide sticky left-0 bg-white" style={{ color: B.muted }}>Pedido</th>
                 <th className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wide" style={{ color: B.muted }}>Status</th>
+                <th className="px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: B.muted }}>Pago</th>
                 <th className="px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: B.muted }}>A pagar</th>
                 {mesesCols.map(m => (
                   <th key={m} className="px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap" style={{ color: B.muted }}>{fmtMes(m)}</th>
@@ -571,6 +594,9 @@ function CaixaPanel({ plans, profById, fluxoGeral, hoje }: {
                     <td className="px-2 py-2">
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap" style={{ background: sc.bg, color: sc.color }}>{l.status}</span>
                     </td>
+                    <td className="px-2 py-2 text-right text-[13px] font-semibold" style={{ color: l.pago > 0 ? '#15803d' : 'oklch(0.85 0.01 258)', fontFamily: 'var(--font-geist-mono)' }}>
+                      {l.pago > 0 ? fmtRk(l.pago) : '·'}
+                    </td>
                     <td className="px-2 py-2 text-right text-[13px] font-bold" style={{ color: '#dc2626', fontFamily: 'var(--font-geist-mono)' }}>
                       {fmtRk(l.total)}
                     </td>
@@ -592,6 +618,9 @@ function CaixaPanel({ plans, profById, fluxoGeral, hoje }: {
               <tr style={{ borderTop: `2px solid ${B.border}`, background: B.bgSubtle }}>
                 <td className="px-3 py-2 text-[12px] font-bold sticky left-0" style={{ color: B.text, background: B.bgSubtle }}>TOTAL</td>
                 <td />
+                <td className="px-2 py-2 text-right text-[13px] font-bold" style={{ color: '#15803d', fontFamily: 'var(--font-geist-mono)' }}>
+                  {fmtRk(linhas.reduce((s, l) => s + l.pago, 0))}
+                </td>
                 <td className="px-2 py-2 text-right text-[13px] font-bold" style={{ color: '#dc2626', fontFamily: 'var(--font-geist-mono)' }}>
                   {fmtRk(totalComp + totalPrev)}
                 </td>

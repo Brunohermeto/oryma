@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
       status_override: p.status_override || null,
       valor_fornecedor: Number(p.valor_fornecedor ?? 0),
       valor_imposto_frete: Number(p.valor_imposto_frete ?? 0),
+      valor_pago: Number(p.valor_pago ?? 0),
       parcelas: Array.isArray(p.parcelas) && p.parcelas.length ? p.parcelas : null,
       notes: p.notes || null,
       done: !!p.done,
@@ -90,6 +91,7 @@ export async function POST(request: NextRequest) {
         product_id: i.product_id || null,
         sku: String(i.sku).trim(),
         quantity: Number(i.quantity),
+        custo_total: Number(i.custo_total ?? 0),
       }))
     if (items.length) {
       const { error } = await db.from('import_plan_items').insert(items)
@@ -126,12 +128,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true })
   }
 
+  // Parâmetros de planejamento por produto (vel projetada, estoque manual)
+  if (body.action === 'save_params') {
+    if (!body.product_id) return NextResponse.json({ error: 'product_id obrigatório' }, { status: 400 })
+    const row: Record<string, unknown> = { product_id: body.product_id }
+    if ('vel_projetada' in body) row.vel_projetada = body.vel_projetada === null ? null : Number(body.vel_projetada)
+    if ('estoque_manual' in body) {
+      row.estoque_manual = body.estoque_manual === null ? null : Number(body.estoque_manual)
+      row.estoque_manual_mes = body.estoque_manual_mes ?? null
+    }
+    const { error } = await db.from('import_product_params').upsert(row, { onConflict: 'product_id' })
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true })
+  }
+
   // Config do caixa (saldo inicial, % DIFAL) e linhas mensais (dívida/retirada)
   if (body.action === 'save_cash_config') {
     const { error } = await db.from('import_cash_config').upsert({
       id: 1,
       saldo_inicial: Number(body.saldo_inicial ?? 0),
       difal_pct: Number(body.difal_pct ?? 0),
+      difal_saldo_inicial: Number(body.difal_saldo_inicial ?? 0),
       updated_at: new Date().toISOString(),
     }, { onConflict: 'id' })
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })

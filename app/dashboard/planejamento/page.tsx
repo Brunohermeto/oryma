@@ -19,11 +19,12 @@ export default async function PlanejamentoPage() {
     db.from('products').select('id, sku, name, stock_quantity, stock_full, archived').eq('archived', false).order('sku'),
   ])
 
-  // Só produtos das famílias com perfil de importação cadastrado (planilha do
-  // Bruno). Para incluir outro produto: criar o perfil dele na aba Perfis.
+  // Produtos das famílias com perfil cadastrado + qualquer produto que apareça
+  // em item de pedido (pedido novo com SKU novo entra nas planilhas sozinho).
   const roots = (profiles ?? []).map(p => String(p.root_sku).toUpperCase())
   const daFamilia = (sku: string) => roots.some(r => sku.toUpperCase().startsWith(r))
-  const familyProducts = (products ?? []).filter(p => daFamilia(p.sku))
+  const idsEmPedidos = new Set((items ?? []).map(i => i.product_id).filter(Boolean))
+  const familyProducts = (products ?? []).filter(p => daFamilia(p.sku) || idsEmPedidos.has(p.id))
 
   // Velocidade real: 12 meses descontando rupturas (gaps > 14d sem venda)
   const yearAgo = format(subDays(new Date(), 365), 'yyyy-MM-dd')
@@ -61,16 +62,24 @@ export default async function PlanejamentoPage() {
 
   // Chegadas futuras por produto (itens de pedidos não concluídos, DG >= hoje)
   const profById = new Map((profiles ?? []).map(p => [p.id, p as ImportProfile]))
-  const arrivalsByProduct = new Map<string, Array<{ date: string; qty: number; invoice: string }>>()
+  const arrivalsByProduct = new Map<string, Array<{ date: string; qty: number; invoice: string; compromissado: boolean }>>()
+  // Custo de planejamento por produto: custo unitário do item de pedido mais recente com custo informado
+  const custoPlanBy = new Map<string, number>()
   for (const pl of (plans ?? []) as ImportPlan[]) {
     const prof = profById.get(pl.profile_id ?? '')
-    if (!prof || pl.done) continue
+    if (!prof) continue
+    for (const it of (items ?? []).filter(i => i.plan_id === (pl as any).id)) {
+      if (it.product_id && !custoPlanBy.has(it.product_id) && Number(it.custo_total) > 0 && Number(it.quantity) > 0) {
+        custoPlanBy.set(it.product_id, Number(it.custo_total) / Number(it.quantity))
+      }
+    }
+    if (pl.done) continue
     const dates = resolvePlanDates(pl, prof, hoje)
     if (dates.dg < hoje) continue
     for (const it of (items ?? []).filter(i => i.plan_id === (pl as any).id)) {
       const key = it.product_id ?? `sku:${it.sku}`
       if (!arrivalsByProduct.has(key)) arrivalsByProduct.set(key, [])
-      arrivalsByProduct.get(key)!.push({ date: dates.dg, qty: Number(it.quantity), invoice: pl.invoice })
+      arrivalsByProduct.get(key)!.push({ date: dates.dg, qty: Number(it.quantity), invoice: pl.invoice, compromissado: pl.compromissado !== false })
     }
   }
 
@@ -174,7 +183,7 @@ export default async function PlanejamentoPage() {
   // ── Fluxo Geral (formato da planilha): 24 meses, blocos empilhados ──
   const [{ data: salesPlan }, { data: prodParams }, { data: cashCfgRows }, { data: cashMonths }, { data: cmpAll }] = await Promise.all([
     db.from('import_sales_plan').select('product_id, mes, qty').limit(5000),
-    db.from('import_product_params').select('product_id, preco_venda'),
+    db.from('import_product_params').select('product_id, preco_venda, vel_projetada, estoque_manual, estoque_manual_mes'),
     db.from('import_cash_config').select('*').eq('id', 1),
     db.from('import_cash_months').select('*'),
     db.from('cmp_costs').select('product_id, cmp_value, effective_date, calculated_at')
@@ -188,6 +197,7 @@ export default async function PlanejamentoPage() {
     planoBy.get(sp.product_id)![sp.mes] = Number(sp.qty)
   }
   const paramBy = new Map((prodParams ?? []).map(p => [p.product_id, p.preco_venda ? Number(p.preco_venda) : null]))
+  const paramFullBy = new Map((prodParams ?? []).map(p => [p.product_id, p]))
 
   const mesesFG: string[] = []
   {
@@ -204,29 +214,44 @@ export default async function PlanejamentoPage() {
     const agg = priceAgg.get(p.id)
     const entradas: Record<string, number> = {}
     for (const a of arrivalsByProduct.get(p.id) ?? []) {
+      if (!a.compromissado) continue
       const m = a.date.slice(0, 7)
       entradas[m] = (entradas[m] ?? 0) + a.qty
     }
+    const entradasPrev: Record<string, number> = {}
+    for (const a of arrivalsByProduct.get(p.id) ?? []) {
+      if (a.compromissado) continue
+      const m = a.date.slice(0, 7)
+      entradasPrev[m] = (entradasPrev[m] ?? 0) + a.qty
+    }
     const plano = planoBy.get(p.id) ?? {}
-    if (vel <= 0 && !Object.keys(entradas).length && !Object.keys(plano).length) continue
+    // SKU que é exatamente a raiz de um perfil (produto novo em planejamento) sempre aparece
+    const ehRaizDePerfil = roots.includes(p.sku.toUpperCase())
+    if (!ehRaizDePerfil && vel <= 0 && !Object.keys(entradas).length && !Object.keys(entradasPrev).length && !Object.keys(plano).length) continue
+    const par = paramFullBy.get(p.id) as any
     fgRows.push({
       productId: p.id, sku: p.sku, name: p.name,
       estoqueAtual: Number(p.stock_quantity ?? 0) + Number((p as any).stock_full ?? 0),
       velReal: Math.round(vel * 100) / 100,
+      velProj: par?.vel_projetada != null ? Number(par.vel_projetada) : null,
+      estoqueManual: par?.estoque_manual != null ? Number(par.estoque_manual) : null,
+      estoqueManualMes: par?.estoque_manual_mes ?? null,
       cmp: cmpVigente.get(p.id) ?? 0,
+      custoPlan: custoPlanBy.get(p.id) ?? null,
       precoReal: agg && agg.qty > 0 ? Math.round((agg.gross / agg.qty) * 100) / 100 : 0,
       precoParam: paramBy.get(p.id) ?? null,
       marginPct: agg && agg.mvGross > 0 ? Math.round((agg.mv / agg.mvGross) * 1000) / 10 : 0,
-      entradas, plano,
+      entradas, entradasPrev, plano,
     })
   }
   fgRows.sort((a, b) => (a.sku < b.sku ? -1 : 1))
-  const cashCfg = (cashCfgRows ?? [])[0] ?? { saldo_inicial: 0, difal_pct: 0 }
+  const cashCfg = (cashCfgRows ?? [])[0] ?? { saldo_inicial: 0, difal_pct: 0, difal_saldo_inicial: 0 }
   const fluxoGeral: FluxoGeralData = {
     meses: mesesFG,
     rows: fgRows,
     saldoInicial: Number(cashCfg.saldo_inicial ?? 0),
     difalPct: Number(cashCfg.difal_pct ?? 0),
+    difalSaldoInicial: Number((cashCfg as any).difal_saldo_inicial ?? 0),
     cashMonths: Object.fromEntries((cashMonths ?? []).map(m => [m.mes, { divida: Number(m.divida), retirada: Number(m.retirada) }])),
   }
 

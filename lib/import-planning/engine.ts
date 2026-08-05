@@ -37,6 +37,7 @@ export interface ImportPlan {
   status_override: string | null
   valor_fornecedor: number
   valor_imposto_frete: number
+  valor_pago?: number         // efetivamente pago até agora (histórico)
   parcelas: Parcela[] | null  // null = herda do perfil
   notes: string | null
   done: boolean
