@@ -172,6 +172,13 @@ try:
 except Exception as e:
     print(f"9. stock: ERRO {str(e)[:70]}", flush=True)
 
+# ── 9b. estoque FBA Amazon ──
+try:
+    r = post("/api/sync/amazon/stock")
+    print(f"9b. stock FBA: {json.dumps(r, ensure_ascii=False)[:110]}", flush=True)
+except Exception as e:
+    print(f"9b. stock FBA: ERRO {str(e)[:70]}", flush=True)
+
 # ── 10. CMP + margens ──
 try:
     r = post("/api/landed-cost/relink")

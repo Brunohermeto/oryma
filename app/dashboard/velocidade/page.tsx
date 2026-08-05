@@ -30,7 +30,7 @@ export default async function VelocidadePage() {
   const d60 = format(subDays(today, 60), 'yyyy-MM-dd')
   const d90 = format(subDays(today, 89), 'yyyy-MM-dd')
 
-  const { data: products } = await db.from('products').select('id, name, sku, stock_quantity, stock_full, archived, updated_at').eq('archived', false)
+  const { data: products } = await db.from('products').select('id, name, sku, stock_quantity, stock_full, stock_fba, archived, updated_at').eq('archived', false)
 
   // Verifica se o estoque foi sincronizado recentemente (últimas 24h)
   const lastUpdated = (products ?? []).reduce((latest, p) => {
@@ -112,7 +112,7 @@ export default async function VelocidadePage() {
 
     // Estoque CONCILIADO: galpão (Bling) + Full (marketplaces) — nunca só o galpão.
     // Se o Bling não sincronizou, usa importado-vendido como fallback.
-    const fullStock  = Number((product as any).stock_full ?? 0)
+    const fullStock  = Number((product as any).stock_full ?? 0) + Number((product as any).stock_fba ?? 0)
     const blingStock = Number(product.stock_quantity ?? -1)
     const calcStock  = Math.max(0, (importedByProduct[product.id] ?? 0) - (soldByProduct[product.id] ?? 0))
     const stock      = (blingStock >= 0 ? blingStock : calcStock) + fullStock

@@ -16,7 +16,7 @@ export default async function PlanejamentoPage() {
     db.from('import_profiles').select('*').order('root_sku'),
     db.from('import_plans').select('*').order('order_date', { ascending: false }),
     db.from('import_plan_items').select('*'),
-    db.from('products').select('id, sku, name, stock_quantity, stock_full, archived').eq('archived', false).order('sku'),
+    db.from('products').select('id, sku, name, stock_quantity, stock_full, stock_fba, archived').eq('archived', false).order('sku'),
   ])
 
   // Produtos das famílias com perfil cadastrado + qualquer produto que apareça
@@ -103,7 +103,7 @@ export default async function PlanejamentoPage() {
     if (sold <= 0) continue
     const vel = sold / activeDays(datesBy.get(p.id) ?? [])
     if (vel <= 0) continue
-    const stock = Number(p.stock_quantity ?? 0) + Number((p as any).stock_full ?? 0)
+    const stock = Number(p.stock_quantity ?? 0) + Number((p as any).stock_full ?? 0) + Number((p as any).stock_fba ?? 0)
     const diasAteRuptura = Math.floor(stock / vel)
     const dataRuptura = format(subDays(new Date(), -diasAteRuptura), 'yyyy-MM-dd')
     const chegadas = (arrivalsByProduct.get(p.id) ?? []).sort((a, b) => (a.date < b.date ? -1 : 1))
@@ -156,7 +156,7 @@ export default async function PlanejamentoPage() {
     for (const a of arrivalsByProduct.get(p.id) ?? []) {
       chegadas.set(a.date, (chegadas.get(a.date) ?? 0) + a.qty)
     }
-    let avail = Number(p.stock_quantity ?? 0) + Number((p as any).stock_full ?? 0)
+    let avail = Number(p.stock_quantity ?? 0) + Number((p as any).stock_full ?? 0) + Number((p as any).stock_fba ?? 0)
     const meses: Record<string, number> = {}
     for (let d = 0; d < 365; d++) {
       const dia = addD(d)
@@ -231,7 +231,7 @@ export default async function PlanejamentoPage() {
     const par = paramFullBy.get(p.id) as any
     fgRows.push({
       productId: p.id, sku: p.sku, name: p.name,
-      estoqueAtual: Number(p.stock_quantity ?? 0) + Number((p as any).stock_full ?? 0),
+      estoqueAtual: Number(p.stock_quantity ?? 0) + Number((p as any).stock_full ?? 0) + Number((p as any).stock_fba ?? 0),
       velReal: Math.round(vel * 100) / 100,
       velProj: par?.vel_projetada != null ? Number(par.vel_projetada) : null,
       estoqueManual: par?.estoque_manual != null ? Number(par.estoque_manual) : null,
