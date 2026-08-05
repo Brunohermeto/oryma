@@ -20,6 +20,7 @@ interface ShopeeOrderDetailResponse {
       recipient_address?: { state?: string }
       item_list: Array<{
         item_sku: string
+        model_sku?: string
         item_name: string
         model_quantity_purchased: number
         model_original_price: number
@@ -87,6 +88,9 @@ export async function syncShopee(startDate: string, endDate: string): Promise<nu
     const SKIP_STATUS = new Set(['CANCELLED', 'UNPAID', 'IN_CANCEL'])
     for (const orderDetail of detailRes.response?.order_list ?? []) {
       if (SKIP_STATUS.has((orderDetail as any).order_status ?? '')) continue
+      const createTime = orders.find(o => o.order_sn === orderDetail.order_sn)?.create_time
+        ?? (orderDetail as any).create_time
+      if (!createTime) continue
       // Fetch escrow (financial) data per order
       let escrow: ShopeeEscrowResponse['response'] | undefined
       try {
@@ -104,7 +108,8 @@ export async function syncShopee(startDate: string, endDate: string): Promise<nu
         a + (it.model_discounted_price || it.model_original_price) * it.model_quantity_purchased, 0)
       const uf = (orderDetail as any).recipient_address?.state?.toUpperCase() ?? null
       for (const item of itemsAll) {
-        const sku = item.item_sku
+        // SKU da variação (model_sku) é o código real; item_sku é o do anúncio
+        const sku = item.model_sku || item.item_sku
         const grossPrice = (item.model_discounted_price || item.model_original_price) * item.model_quantity_purchased
         const share = totalItems > 0 ? grossPrice / totalItems : 1 / itemsAll.length
         const productId = productMap[sku] ?? null
@@ -116,7 +121,7 @@ export async function syncShopee(startDate: string, endDate: string): Promise<nu
           fulfillment_type: 'galpao',
           product_id: productId,
           sku,
-          sale_date: toBrazilDate(new Date(orders.find(o => o.order_sn === orderDetail.order_sn)!.create_time * 1000)),
+          sale_date: toBrazilDate(new Date(createTime * 1000)),
           quantity: item.model_quantity_purchased,
           gross_price: grossPrice,
           shipping_received: (income?.buyer_paid_shipping_fee ?? 0) * share,
