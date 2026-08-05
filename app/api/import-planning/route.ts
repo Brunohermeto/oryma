@@ -93,6 +93,16 @@ export async function POST(request: NextRequest) {
         quantity: Number(i.quantity),
         custo_total: Number(i.custo_total ?? 0),
       }))
+    // SKU novo (sem produto) → cria o produto na hora, para entrar em TODAS as planilhas
+    for (const it of items) {
+      if (it.product_id) continue
+      const { data: found } = await db.from('products').select('id').ilike('sku', it.sku).limit(1)
+      if (found?.length) { it.product_id = found[0].id; continue }
+      const { data: created } = await db.from('products')
+        .insert({ sku: it.sku, name: it.sku, stock_quantity: 0, stock_full: 0, archived: false })
+        .select('id').single()
+      if (created) it.product_id = created.id
+    }
     if (items.length) {
       const { error } = await db.from('import_plan_items').insert(items)
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
