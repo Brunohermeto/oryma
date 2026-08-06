@@ -154,6 +154,17 @@ export default async function DashboardPage(
     for (const [mp, v] of Object.entries(a.byMp)) yearTotalByMp[mp] = (yearTotalByMp[mp] ?? 0) + v
   }
 
+  // ── Margem média do mês por marketplace (só vendas com cálculo completo) ──
+  const margemMesByMp: Record<string, { mv: number; mg: number }> = {}
+  for (const s of sales ?? []) {
+    const mvv = (uw((s as any).sale_costs) as any)?.margin_value
+    if (mvv === null || mvv === undefined) continue
+    const mp = (s as any).marketplace as string
+    if (!margemMesByMp[mp]) margemMesByMp[mp] = { mv: 0, mg: 0 }
+    margemMesByMp[mp].mv += Number(mvv)
+    margemMesByMp[mp].mg += Number(s.gross_price) - Number((s as any).cancellation ?? 0)
+  }
+
   // ── Taxas pagas no período — por marketplace + total ──
   type FeeAgg = { comissao: number; frete: number; fixa: number; ads: number; estorno: number; revenue: number }
   const newFeeAgg = (): FeeAgg => ({ comissao: 0, frete: 0, fixa: 0, ads: 0, estorno: 0, revenue: 0 })
@@ -549,6 +560,21 @@ export default async function DashboardPage(
               Totalizado (todos os canais) · barras = lucro do dia (R$) · linha roxa = margem % · só vendas com cálculo completo ·{' '}
               <b style={{ color: '#16a34a' }}>lucro total do período: {fmtR(grossProfit)}</b>
             </div>
+          </div>
+          {/* Margem média do mês por canal */}
+          <div className="flex items-center gap-2 flex-wrap mb-3">
+            {MP_ORDER.filter(mp => (margemMesByMp[mp]?.mg ?? 0) > 0).map(mp => {
+              const a = margemMesByMp[mp]
+              const pct = (a.mv / a.mg) * 100
+              return (
+                <span key={mp} className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg"
+                      style={{ background: 'oklch(0.97 0.008 258)', color: '#0B1023' }}>
+                  <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: MP_INFO[mp]?.color }} />
+                  {mpLabel(mp)}: <span style={{ fontFamily: 'var(--font-geist-mono)', color: pct >= 15 ? '#16a34a' : pct >= 8 ? '#d97706' : '#dc2626' }}>{pct.toFixed(1)}%</span>
+                  <span style={{ color: 'oklch(0.50 0.025 258)' }}>({fmtR(a.mv)})</span>
+                </span>
+              )
+            })}
           </div>
           <MarginDailyChart data={marginTrend} avgMargin={grossMargin} />
         </div>
