@@ -165,6 +165,13 @@ try:
 except Exception as e:
     print(f"8c. magalu finance: ERRO {str(e)[:70]}", flush=True)
 
+# ── 8d2. chaves de NF da Shopee (invoice_data) ──
+try:
+    r = post("/api/sync/shopee/invoices?days=14", timeout=170)
+    print(f"8d2. shopee chaves NF: {json.dumps(r, ensure_ascii=False)[:110]}", flush=True)
+except Exception as e:
+    print(f"8d2. shopee chaves NF: ERRO {str(e)[:70]}", flush=True)
+
 # ── 8e. devoluções Shopee → estorno ──
 try:
     r = post("/api/sync/shopee/returns?days=30", timeout=170)
