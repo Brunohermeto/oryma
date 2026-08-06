@@ -186,6 +186,13 @@ try:
 except Exception as e:
     print(f"9. stock: ERRO {str(e)[:70]}", flush=True)
 
+# ── 9c. estoque CD Shopee (Full) ──
+try:
+    r = post("/api/sync/shopee/stock", timeout=170)
+    print(f"9c. stock Shopee: {json.dumps(r, ensure_ascii=False)[:110]}", flush=True)
+except Exception as e:
+    print(f"9c. stock Shopee: ERRO {str(e)[:70]}", flush=True)
+
 # ── 9b. estoque FBA Amazon ──
 try:
     r = post("/api/sync/amazon/stock")

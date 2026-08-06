@@ -61,7 +61,7 @@ export async function InsightsPanel() {
     productsRes, recentSalesRes, salesNoCostRes, pendingNFeRes,
     curSalesRes, prevSalesRes, mpSalesRes, curRevRes, prevRevRes,
   ] = await Promise.allSettled([
-    db.from('products').select('id, name, sku, stock_quantity, stock_full, stock_fba, archived'),
+    db.from('products').select('id, name, sku, stock_quantity, stock_full, stock_fba, stock_shopee, archived'),
     db.from('sales').select('product_id, quantity').gte('sale_date', d30).lte('sale_date', today),
     db.from('sales').select('product_id, products(name, sku)').gte('sale_date', start).lte('sale_date', end).is('sale_costs', null).limit(1),
     db.from('import_orders').select('id', { count: 'exact', head: true }).eq('costs_complete', false),
@@ -85,7 +85,7 @@ export async function InsightsPanel() {
       const upd = (byProd[p.id] ?? 0) / 30
       if (upd <= 0) continue
       // Estoque CONCILIADO: galpão (Bling) + Full (marketplaces) — nunca só o galpão
-      const totalStock = Number(p.stock_quantity ?? 0) + Number((p as any).stock_full ?? 0) + Number((p as any).stock_fba ?? 0)
+      const totalStock = Number(p.stock_quantity ?? 0) + Number((p as any).stock_full ?? 0) + Number((p as any).stock_fba ?? 0) + Number((p as any).stock_shopee ?? 0)
       const daysLeft = Math.floor(totalStock / upd)
       if (daysLeft < 15) insights.push({ id: `stock-critical-${p.id}`, severity: 'critical', title: `Estoque crítico — ${p.name}`, detail: `Ao ritmo atual (${upd.toFixed(1)} un./dia), o estoque total (galpão + Full) acaba em ${daysLeft} dias.`, href: '/dashboard/produtos', metric: `${daysLeft}d` })
       else if (daysLeft < 30) insights.push({ id: `stock-warning-${p.id}`, severity: 'warning', title: `Repor em breve — ${p.name}`, detail: `${daysLeft} dias de estoque total restantes (${upd.toFixed(1)} un./dia).`, href: '/dashboard/produtos', metric: `${daysLeft}d` })

@@ -48,8 +48,11 @@ export async function POST(request: NextRequest) {
     for (const od of det.response?.order_list ?? []) {
       const chave = od.invoice_data?.access_key
       if (!chave || chave.length !== 44) continue
+      // série 005 = faturador do Shopee Full (não passa pelo Bling)
+      const patch: Record<string, string> = { nfe_saida_key: chave }
+      if (chave.slice(22, 25) === '005') patch.fulfillment_type = 'full_shopee'
       for (const id of byOrder.get(od.order_sn) ?? []) {
-        await db.from('sales').update({ nfe_saida_key: chave }).eq('id', id)
+        await db.from('sales').update(patch).eq('id', id)
       }
       comChave++
     }

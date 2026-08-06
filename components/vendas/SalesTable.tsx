@@ -16,7 +16,7 @@ import { MarketplaceBadge, mpLabel } from '@/components/marketplaces'
 import { isReturned } from '@/lib/sales/returned'
 
 const FULFILLMENT_LABELS: Record<string, string> = {
-  galpao: 'Galpão', full_ml: 'Full ML', fba_amazon: 'FBA', full_magalu: 'Full Magalu',
+  galpao: 'Galpão', full_ml: 'Full ML', fba_amazon: 'FBA', full_magalu: 'Full Magalu', full_shopee: 'Full Shopee',
 }
 
 function fmtR(v: number) {
