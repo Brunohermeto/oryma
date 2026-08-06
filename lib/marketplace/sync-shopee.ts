@@ -106,7 +106,9 @@ export async function syncShopee(startDate: string, endDate: string): Promise<nu
       const itemsAll = orderDetail.item_list ?? []
       const totalItems = itemsAll.reduce((a, it) =>
         a + (it.model_discounted_price || it.model_original_price) * it.model_quantity_purchased, 0)
-      const uf = (orderDetail as any).recipient_address?.state?.toUpperCase() ?? null
+      // Shopee mascara o endereço (****) após a conclusão — só grava UF válida
+      const ufRaw = (orderDetail as any).recipient_address?.state?.toUpperCase() ?? ''
+      const uf = /^[A-Z]{2}$/.test(ufRaw) ? ufRaw : null
       for (const item of itemsAll) {
         // SKU da variação (model_sku) é o código real; item_sku é o do anúncio
         const sku = item.model_sku || item.item_sku
@@ -126,11 +128,13 @@ export async function syncShopee(startDate: string, endDate: string): Promise<nu
           gross_price: grossPrice,
           shipping_received: (income?.buyer_paid_shipping_fee ?? 0) * share,
           marketplace_commission: ((income?.commission_fee ?? 0) + (income?.service_fee ?? 0)) * share,
-          marketplace_shipping_fee: (income?.final_shipping_fee ?? 0) * share,
+          // frete do VENDEDOR = custo real − pago pelo comprador − subsídio Shopee (piso 0)
+          marketplace_shipping_fee: Math.max(0, (income?.actual_shipping_fee ?? 0) - (income?.buyer_paid_shipping_fee ?? 0) - ((income as any)?.shopee_shipping_rebate ?? 0)) * share,
           ads_cost: (income?.ads_campaign_cost ?? 0) * share,
           discounts: (income?.voucher_from_seller ?? 0) * share,
           cancellation: 0,
-          uf_destino: uf,
+          // não sobrescrever UF vinda do XML da NF quando a API vier mascarada
+          ...(uf ? { uf_destino: uf } : {}),
           synced_at: new Date().toISOString(),
         }, { onConflict: 'external_order_id' })
 
