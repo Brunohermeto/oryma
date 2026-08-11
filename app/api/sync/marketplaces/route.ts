@@ -47,18 +47,24 @@ export async function POST(request: NextRequest) {
   const mlSync = (s: string, e: string) =>
     syncMercadoLivre(s, e, { fetchShipmentCosts: false })
 
-  const syncFns: Record<string, (s: string, e: string) => Promise<number>> = {
+  const allFns: Record<string, (s: string, e: string) => Promise<number>> = {
     mercado_livre: mlSync,
     shopee:        syncShopee,
     amazon:        syncAmazon,
     magalu:        syncMagalu,
   }
+  // ?channel=amazon roda só um canal (fatiado); sem o parâmetro roda os 4 EM
+  // PARALELO — em série ML+Shopee estouravam os 60s e Amazon/Magalu sumiam
+  const channelParam = request.nextUrl.searchParams.get('channel')
+  const syncFns = channelParam && allFns[channelParam]
+    ? { [channelParam]: allFns[channelParam] }
+    : allFns
 
   const syncWork = async () => {
     const results: Record<string, number | string> = {}
     let totalSynced = 0
 
-    for (const [channel, fn] of Object.entries(syncFns)) {
+    await Promise.all(Object.entries(syncFns).map(async ([channel, fn]) => {
       try {
         const count = await fn(startDate, endDate)
         results[channel] = count
@@ -66,7 +72,7 @@ export async function POST(request: NextRequest) {
       } catch (err) {
         results[channel] = `error: ${String(err)}`
       }
-    }
+    }))
 
     // hasError = true se ALGUM canal configurado falhou (não só se todos falharam)
     const hasError = Object.values(results).some(v => typeof v === 'string' && v.startsWith('error:'))
