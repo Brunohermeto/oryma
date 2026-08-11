@@ -127,9 +127,11 @@ export async function syncShopee(startDate: string, endDate: string): Promise<nu
           quantity: item.model_quantity_purchased,
           gross_price: grossPrice,
           shipping_received: (income?.buyer_paid_shipping_fee ?? 0) * share,
-          marketplace_commission: ((income?.commission_fee ?? 0) + (income?.service_fee ?? 0)) * share,
-          // frete do VENDEDOR = custo real − pago pelo comprador − subsídio Shopee (piso 0)
-          marketplace_shipping_fee: Math.max(0, (income?.actual_shipping_fee ?? 0) - (income?.buyer_paid_shipping_fee ?? 0) - ((income as any)?.shopee_shipping_rebate ?? 0)) * share,
+          // comissão pura; a taxa de serviço (programa Frete Grátis) vai para a coluna FRETE
+          marketplace_commission: (income?.commission_fee ?? 0) * share,
+          // frete do VENDEDOR = taxa do programa Frete Grátis + excedente do frete real
+          // (custo real − pago pelo comprador − subsídio Shopee, piso 0)
+          marketplace_shipping_fee: ((income?.service_fee ?? 0) + Math.max(0, (income?.actual_shipping_fee ?? 0) - (income?.buyer_paid_shipping_fee ?? 0) - ((income as any)?.shopee_shipping_rebate ?? 0))) * share,
           ads_cost: (income?.ads_campaign_cost ?? 0) * share,
           discounts: (income?.voucher_from_seller ?? 0) * share,
           cancellation: 0,
