@@ -282,7 +282,7 @@ export async function applyCmpToSale(saleId: string): Promise<void> {
 
   const { data: sale } = await db
     .from('sales')
-    .select('product_id, gross_price, shipping_received, marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, ads_cost, cancellation, discounts, rebate, quantity, sale_date, sale_taxes(pis, cofins, icms, icms_difal, ipi)')
+    .select('product_id, marketplace, gross_price, shipping_received, marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, ads_cost, cancellation, discounts, rebate, quantity, sale_date, sale_taxes(pis, cofins, icms, icms_difal, ipi)')
     .eq('id', saleId)
     .single()
 
@@ -330,7 +330,10 @@ export async function applyCmpToSale(saleId: string): Promise<void> {
   // Venda DEVOLVIDA também fica sem margem (mesma regra do relink): dinheiro
   // estornado, mercadoria de volta ao estoque, tarifas estornadas pelo canal.
   const hasTaxes    = !!t
-  const contaMargem = hasTaxes && !isReturned(sale as any)
+  // Amazon: comissao vem da API financeira com lag de quinzena — sem ela a
+  // margem sairia inflada; fica "em calculo" ate o repasse chegar
+  const feesPendentes = (sale as any).marketplace === 'amazon' && !(Number(sale.marketplace_commission ?? 0) > 0)
+  const contaMargem = hasTaxes && !feesPendentes && !isReturned(sale as any)
   const marginValue = contaMargem ? netRevenue - totalCost + importCredit : null
   // Margem % sobre o faturamento bruto (definição do Bruno)
   const gross       = Number(sale.gross_price)
