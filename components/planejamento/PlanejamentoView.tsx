@@ -12,7 +12,7 @@ import { Ship, Plus, Pencil, Trash2, AlertTriangle, RefreshCw } from 'lucide-rea
 import { FluxoGeralMatriz, type FluxoGeralData } from './FluxoGeralMatriz'
 import {
   resolvePlanDates, resolvePagamentos, STATUS_COLORS,
-  type ImportPlan, type ImportProfile, type Parcela, type PagamentoExtra,
+  type ImportPlan, type ImportProfile, type Parcela, type PagamentoExtra, type PagamentoReal,
 } from '@/lib/import-planning/engine'
 
 export interface RupturaRow {
@@ -210,17 +210,19 @@ function PedidosPanel({ plans, items, profiles, profById, products, hoje, onSave
   const [editing, setEditing] = useState<Partial<ImportPlan & { id?: string }> | null>(null)
   const [editItems, setEditItems] = useState<PlanItem[]>([])
   const [editExtras, setEditExtras] = useState<PagamentoExtra[]>([])
+  const [editPagos, setEditPagos] = useState<Record<string, { valor?: number; data?: string }>>({})
   const [parcelasTxt, setParcelasTxt] = useState('')
   const [showDone, setShowDone] = useState(false)
 
   function openNew() {
     setEditing({ containers: 1, order_date: hoje, valor_fornecedor: 0, valor_imposto_frete: 0, done: false })
-    setEditItems([]); setEditExtras([]); setParcelasTxt('')
+    setEditItems([]); setEditExtras([]); setEditPagos({}); setParcelasTxt('')
   }
   function openEdit(pl: ImportPlan & { id: string }) {
     setEditing({ ...pl })
     setEditItems(items.filter(i => i.plan_id === pl.id).map(i => ({ ...i })))
     setEditExtras((pl.extras ?? []).map(e => ({ ...e })))
+    setEditPagos(Object.fromEntries((pl.pagamentos_reais ?? []).map(r => [r.label, { valor: r.valor, data: r.data }])))
     setParcelasTxt(parcelasToText(pl.parcelas))
   }
   async function save() {
@@ -233,9 +235,12 @@ function PedidosPanel({ plans, items, profiles, profById, products, hoje, onSave
       )
       if (!seguir) return
     }
+    const pagosArr: PagamentoReal[] = Object.entries(editPagos)
+      .filter(([, v]) => Number(v.valor) > 0)
+      .map(([label, v]) => ({ label, valor: Number(v.valor), data: v.data || undefined }))
     const ok = await onSave({
       action: 'save_plan',
-      plan: { ...editing, parcelas: parcelasTxt.trim() ? parseParcelas(parcelasTxt) : null, extras: editExtras },
+      plan: { ...editing, parcelas: parcelasTxt.trim() ? parseParcelas(parcelasTxt) : null, extras: editExtras, pagamentos_reais: pagosArr },
       items: editItems,
     })
     if (ok) setEditing(null)
@@ -296,6 +301,56 @@ function PedidosPanel({ plans, items, profiles, profById, products, hoje, onSave
           <Campo label={`Parcelas deste pedido (vazio = herda do perfil${editing.profile_id ? `: ${parcelasToText(profById.get(editing.profile_id!)?.parcelas)}` : ''}) — formato: 20% D0 · 80% D1+90`}>
             <input className="inp w-full" value={parcelasTxt} onChange={e => setParcelasTxt(e.target.value)} placeholder="ex: 25% D0 · 25% D1 · 25% D2+30 · 25% D2+60" />
           </Campo>
+          {/* Pagamentos: previsto × efetivamente pago, por parcela */}
+          {editing.profile_id && profById.get(editing.profile_id) && (() => {
+            const prof = profById.get(editing.profile_id!)!
+            const planPreview = {
+              ...editing,
+              order_date: editing.order_date ?? hoje,
+              parcelas: parcelasTxt.trim() ? parseParcelas(parcelasTxt) : null,
+              extras: editExtras,
+              valor_fornecedor: Number(editing.valor_fornecedor ?? 0),
+              valor_imposto_frete: Number(editing.valor_imposto_frete ?? 0),
+            } as ImportPlan
+            const dates = resolvePlanDates(planPreview, prof, hoje)
+            const pags = resolvePagamentos(planPreview, prof, dates)
+            if (!pags.length) return null
+            return (
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: B.muted }}>
+                  Pagamentos — previsto × efetivamente PAGO (preencha ao pagar cada parcela)
+                </div>
+                <table className="text-[12px]" style={{ borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ borderBottom: `1px solid ${B.border}` }}>
+                      {['Parcela', 'Vencimento', 'Previsto R$', 'PAGO R$', 'Data do pagamento'].map(h => (
+                        <th key={h} className="px-2 py-1 text-left text-[10px] font-semibold uppercase" style={{ color: B.muted }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pags.map(p => (
+                      <tr key={p.label} style={{ borderBottom: `1px solid oklch(0.97 0.008 258)` }}>
+                        <td className="px-2 py-1" style={{ color: B.text }}>{p.label}</td>
+                        <td className="px-2 py-1" style={{ color: B.muted, fontFamily: 'var(--font-geist-mono)' }}>{fmtD(p.date)}</td>
+                        <td className="px-2 py-1 text-right" style={{ fontFamily: 'var(--font-geist-mono)' }}>{fmtR(p.amount)}</td>
+                        <td className="px-1 py-0.5">
+                          <input className="inp w-28" type="number" step="0.01" placeholder="—"
+                            value={editPagos[p.label]?.valor ?? ''}
+                            onChange={e => setEditPagos(prev => ({ ...prev, [p.label]: { ...prev[p.label], valor: e.target.value === '' ? undefined : Number(e.target.value) } }))} />
+                        </td>
+                        <td className="px-1 py-0.5">
+                          <input className="inp" type="date"
+                            value={editPagos[p.label]?.data ?? ''}
+                            onChange={e => setEditPagos(prev => ({ ...prev, [p.label]: { ...prev[p.label], data: e.target.value || undefined } }))} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          })()}
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: B.muted }}>
               Taxas extras da importação (Siscomex, AFRMM, armazenagem, despachante…) — cada uma com sua data
@@ -395,7 +450,8 @@ function PedidosPanel({ plans, items, profiles, profById, products, hoje, onSave
         if (!prof) return null
         const dates = resolvePlanDates(pl, prof, hoje)
         const pags = resolvePagamentos(pl, prof, dates)
-        const aPagar = pags.filter(p => p.date >= hoje).reduce((s, p) => s + p.amount, 0)
+        const aPagar = pags.filter(p => !p.pago && p.date >= hoje).reduce((s, p) => s + p.amount, 0)
+        const pagoTotal = pags.reduce((s, p) => s + (p.pago ?? 0), 0) + Number(pl.valor_pago ?? 0)
         const sc = STATUS_COLORS[dates.status] ?? { bg: B.bgSubtle, color: B.muted }
         const planItems = items.filter(i => i.plan_id === pl.id)
         return (
@@ -418,8 +474,8 @@ function PedidosPanel({ plans, items, profiles, profById, products, hoje, onSave
               {aPagar > 0 && !pl.done && (
                 <span className="text-[12px] font-semibold" style={{ color: '#d97706' }}>a pagar: {fmtR(aPagar)}</span>
               )}
-              {Number(pl.valor_pago ?? 0) > 0 && (
-                <span className="text-[12px] font-semibold" style={{ color: '#16a34a' }}>pago: {fmtR(Number(pl.valor_pago))}</span>
+              {pagoTotal > 0 && (
+                <span className="text-[12px] font-semibold" style={{ color: '#16a34a' }}>pago: {fmtR(pagoTotal)}</span>
               )}
               {planItems.length === 0 && !pl.done && (
                 <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'oklch(0.96 0.08 70)', color: '#92400e' }}>
@@ -467,8 +523,9 @@ function PedidosPanel({ plans, items, profiles, profById, products, hoje, onSave
             {/* Pagamentos + itens */}
             <div className="flex flex-wrap gap-x-5 gap-y-1 text-[12px]" style={{ color: B.muted }}>
               {pags.map((p, i) => (
-                <span key={i} style={{ color: p.date < hoje ? 'oklch(0.65 0.02 258)' : B.text }}>
-                  {p.date < hoje ? '✓' : '○'} {fmtD(p.date)} · {fmtR(p.amount)} <span style={{ color: B.muted }}>({p.label.replace('Parcela ', 'P')})</span>
+                <span key={i} style={{ color: p.pago ? '#16a34a' : p.date < hoje ? 'oklch(0.65 0.02 258)' : B.text }}>
+                  {p.pago ? '✓' : p.date < hoje ? '✓' : '○'} {fmtD(p.pago ? (p.dataPago ?? p.date) : p.date)} · {fmtR(p.pago ?? p.amount)}
+                  <span style={{ color: B.muted }}> ({p.label.replace('Parcela ', 'P')}{p.pago ? ' · pago' : ''})</span>
                 </span>
               ))}
             </div>
@@ -504,8 +561,9 @@ function CaixaPanel({ plans, profById, fluxoGeral, hoje }: {
   // Pagamentos em aberto de cada pedido, resolvidos em datas
   interface Linha {
     invoice: string; root: string; status: string; compromissado: boolean; done: boolean
+    emTransito: boolean   // pago mas mercadoria ainda não chegou ao galpão
     total: number; pago: number; porMes: Map<string, number>
-    detalhes: Array<{ date: string; label: string; amount: number }>
+    detalhes: Array<{ date: string; label: string; amount: number; pago?: number }>
   }
   const linhas: Linha[] = []
   for (const pl of plans) {
@@ -515,9 +573,9 @@ function CaixaPanel({ plans, profById, fluxoGeral, hoje }: {
     if (pl.done ? !showDone : ehPrevisto ? !showPrev : !showCurso) continue
     const dates = resolvePlanDates(pl, prof, hoje)
     const todos = resolvePagamentos(pl, prof, dates)
-    const abertos = pl.done ? [] : todos.filter(p => p.date >= hoje)
-    const passados = todos.filter(p => p.date < hoje)
-    const pago = Number(pl.valor_pago ?? 0)
+    const abertos = pl.done ? [] : todos.filter(p => !p.pago && p.date >= hoje)
+    const passados = todos.filter(p => p.pago || p.date < hoje)
+    const pago = todos.reduce((s, p) => s + (p.pago ?? 0), 0) + Number(pl.valor_pago ?? 0)
     if (!abertos.length && !passados.length && !(pl.done && showDone) && pago <= 0) continue
     const porMes = new Map<string, number>()
     for (const p of [...passados, ...abertos]) {
@@ -527,6 +585,7 @@ function CaixaPanel({ plans, profById, fluxoGeral, hoje }: {
     linhas.push({
       invoice: pl.invoice, root: prof.root_sku, status: dates.status,
       compromissado: pl.compromissado !== false, done: !!pl.done,
+      emTransito: !pl.done && !pl.galpao_real,
       total: abertos.reduce((s, p) => s + p.amount, 0), pago,
       porMes, detalhes: todos,
     })
@@ -586,6 +645,10 @@ function CaixaPanel({ plans, profById, fluxoGeral, hoje }: {
           )}
           <span className="text-[12px] font-bold px-2.5 py-1 rounded-full" style={{ background: 'oklch(0.95 0.06 145)', color: '#15803d' }}>
             pago: {fmtR(linhas.reduce((s, l) => s + l.pago, 0))}
+          </span>
+          <span className="text-[12px] font-bold px-2.5 py-1 rounded-full" title="Caixa alocado em mercadoria paga que ainda não chegou ao galpão (em produção ou em trânsito)"
+                style={{ background: 'oklch(0.94 0.08 280)', color: '#7B61FF' }}>
+            pago em trânsito/produção: {fmtR(linhas.filter(l => l.emTransito).reduce((s, l) => s + l.pago, 0))}
           </span>
           <span className="mx-1" style={{ borderLeft: `1px solid ${B.border}`, height: 18 }} />
           {([['em curso', showCurso, setShowCurso], ['planejados', showPrev, setShowPrev], ['concluídos', showDone, setShowDone]] as const).map(([label, on, set]) => (

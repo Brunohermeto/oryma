@@ -43,6 +43,13 @@ export interface ImportPlan {
   done: boolean
   compromissado?: boolean   // false = pedido PREVISTO (em estudo, ainda não fechado)
   extras?: PagamentoExtra[] // taxas avulsas (Siscomex, AFRMM, armazenagem, despachante…)
+  pagamentos_reais?: PagamentoReal[] // valor/data efetivamente pagos, por parcela (chave = label)
+}
+
+export interface PagamentoReal {
+  label: string   // mesmo label do Pagamento resolvido ("Parcela 1 (…)", "Impostos + frete (D2)", extra)
+  valor: number
+  data?: string   // data em que foi pago (yyyy-mm-dd)
 }
 
 export interface PagamentoExtra {
@@ -66,6 +73,8 @@ export interface Pagamento {
   label: string
   date: string
   amount: number
+  pago?: number       // valor efetivamente pago (se registrado)
+  dataPago?: string   // quando foi pago
 }
 
 function addDays(iso: string, days: number): string {
@@ -122,6 +131,11 @@ export function resolvePagamentos(plan: ImportPlan, profile: ImportProfile, date
       ? ex.data
       : addDays(ancoras[ex.ancora ?? 'D2'] ?? dates.d2, Number(ex.offset ?? 0))
     pags.push({ label: ex.label, date, amount: Number(ex.valor) })
+  }
+  // junta o efetivamente pago (registrado por label no pedido)
+  for (const p of pags) {
+    const real = (plan.pagamentos_reais ?? []).find(r => r.label === p.label)
+    if (real && Number(real.valor) > 0) { p.pago = Number(real.valor); p.dataPago = real.data }
   }
   return pags.sort((a, b) => (a.date < b.date ? -1 : 1))
 }

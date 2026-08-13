@@ -56,6 +56,36 @@ const fmtRk = (v: number) => {
 }
 const diasNoMes = (m: string) => new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 0).getDate()
 
+// FORA do componente: definidos dentro, ganham identidade nova a cada render e
+// o React desmonta/remonta as tabelas — foco perdido e "tela subindo" ao digitar
+function Bloco({ titulo, sub, children, open = true }: { titulo: string; sub?: string; children: React.ReactNode; open?: boolean }) {
+  return (
+    <details open={open} className="bg-white rounded-2xl" style={{ border: `1px solid ${B.border}` }}>
+      <summary className="cursor-pointer select-none px-5 py-3">
+        <span className="font-semibold text-sm" style={{ color: B.text, fontFamily: 'var(--font-sora)' }}>{titulo}</span>
+        {sub && <span className="text-[11px] ml-2" style={{ color: B.muted }}>{sub}</span>}
+      </summary>
+      <div className="px-5 pb-4 overflow-x-auto">{children}</div>
+    </details>
+  )
+}
+
+function MesesHead({ firstCols, meses, mesAtual }: { firstCols: string[]; meses: string[]; mesAtual: string }) {
+  return (
+    <thead>
+      <tr style={{ borderBottom: `2px solid ${B.border}` }}>
+        {firstCols.map((c, i) => <Th key={c + i} left={i === 0}>{c}</Th>)}
+        {meses.map(m => (
+          <th key={m} className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide whitespace-nowrap text-right"
+              style={{ color: m < mesAtual ? 'oklch(0.70 0.01 258)' : m === mesAtual ? B.brand : B.muted, background: m < mesAtual ? B.bgSubtle : undefined }}>
+            {fmtMes(m)}{m < mesAtual ? '✓' : ''}
+          </th>
+        ))}
+      </tr>
+    </thead>
+  )
+}
+
 function Th({ children, left = false }: { children: React.ReactNode; left?: boolean }) {
   return (
     <th className={`px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide whitespace-nowrap ${left ? 'text-left sticky left-0 bg-white' : 'text-right'}`} style={{ color: B.muted }}>
@@ -168,9 +198,12 @@ export function FluxoGeralMatriz({ data, pagamentosMes }: Props) {
           continue
         }
         const planoCel = planoEdit[r.productId]?.[m] ?? r.plano[m]
-        const v = planoCel !== undefined ? planoCel : Math.round(velBase * diasNoMes(m))
-        vm[m] = v
         const entrada = (r.entradas[m] ?? 0) + (incluirPrev ? (r.entradasPrev[m] ?? 0) : 0)
+        // sugestão automática LIMITADA ao estoque disponível (não vende o que não tem);
+        // valor digitado pelo usuário vale sempre (pode planejar acima, fica vermelho)
+        const disponivel = Math.max(0, s + entrada)
+        const v = planoCel !== undefined ? planoCel : Math.min(Math.round(velBase * diasNoMes(m)), disponivel)
+        vm[m] = v
         if ((r.entradas[m] ?? 0) > 0) firmSeen = true
         if (incluirPrev && (r.entradasPrev[m] ?? 0) > 0) prevSeen = true
         dm[m] = prevSeen ? 'prev' : firmSeen ? 'firm' : null
@@ -224,30 +257,8 @@ export function FluxoGeralMatriz({ data, pagamentosMes }: Props) {
     color: B.text, fontFamily: 'var(--font-geist-mono)',
   })
 
-  function Bloco({ titulo, sub, children, open = true }: { titulo: string; sub?: string; children: React.ReactNode; open?: boolean }) {
-    return (
-      <details open={open} className="bg-white rounded-2xl" style={{ border: `1px solid ${B.border}` }}>
-        <summary className="cursor-pointer select-none px-5 py-3">
-          <span className="font-semibold text-sm" style={{ color: B.text, fontFamily: 'var(--font-sora)' }}>{titulo}</span>
-          {sub && <span className="text-[11px] ml-2" style={{ color: B.muted }}>{sub}</span>}
-        </summary>
-        <div className="px-5 pb-4 overflow-x-auto">{children}</div>
-      </details>
-    )
-  }
-
   const HeadMeses = ({ firstCols }: { firstCols: string[] }) => (
-    <thead>
-      <tr style={{ borderBottom: `2px solid ${B.border}` }}>
-        {firstCols.map((c, i) => <Th key={c + i} left={i === 0}>{c}</Th>)}
-        {meses.map(m => (
-          <th key={m} className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide whitespace-nowrap text-right"
-              style={{ color: ehPassado(m) ? 'oklch(0.70 0.01 258)' : m === mesAtual ? B.brand : B.muted, background: ehPassado(m) ? B.bgSubtle : undefined }}>
-            {fmtMes(m)}{ehPassado(m) ? '✓' : ''}
-          </th>
-        ))}
-      </tr>
-    </thead>
+    <MesesHead firstCols={firstCols} meses={meses} mesAtual={mesAtual} />
   )
 
   return (
@@ -344,7 +355,8 @@ export function FluxoGeralMatriz({ data, pagamentosMes }: Props) {
                   }
                   const edited = planoEdit[r.productId]?.[m] !== undefined
                   const persisted = r.plano[m] !== undefined
-                  const val = planoEdit[r.productId]?.[m] ?? r.plano[m] ?? Math.round(velBase * diasNoMes(m))
+                  // sugestão vem do motor (já limitada ao estoque disponível)
+                  const val = planoEdit[r.productId]?.[m] ?? r.plano[m] ?? calc.vendas.get(r.productId)?.[m] ?? 0
                   return (
                     <td key={m} className="px-1 py-0.5 text-right">
                       <input

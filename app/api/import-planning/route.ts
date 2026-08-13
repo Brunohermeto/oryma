@@ -71,6 +71,9 @@ export async function POST(request: NextRequest) {
       extras: Array.isArray(p.extras)
         ? p.extras.filter((e: any) => e?.label && Number(e.valor) > 0)
         : [],
+      pagamentos_reais: Array.isArray(p.pagamentos_reais)
+        ? p.pagamentos_reais.filter((r: any) => r?.label && Number(r.valor) > 0)
+        : [],
       updated_at: new Date().toISOString(),
     }
     let planId = p.id as string | undefined
