@@ -86,6 +86,8 @@ export async function POST(request: NextRequest) {
       planId = data.id
     }
     // Itens: substitui o conjunto (simples e sem estado órfão)
+    const { data: oldItems } = await db.from('import_plan_items').select('product_id').eq('plan_id', planId)
+    const oldPids = new Set((oldItems ?? []).map(i => i.product_id).filter(Boolean))
     await db.from('import_plan_items').delete().eq('plan_id', planId)
     const items = (Array.isArray(body.items) ? body.items : [])
       .filter((i: any) => i.sku && Number(i.quantity) > 0)
@@ -109,6 +111,20 @@ export async function POST(request: NextRequest) {
     if (items.length) {
       const { error } = await db.from('import_plan_items').insert(items)
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+    // Limpa resquício: produto REMOVIDO deste pedido, sem giro/estoque e fora de
+    // qualquer outro pedido, não deve deixar plano de vendas órfão pra trás
+    const newPids = new Set(items.map((i: any) => i.product_id).filter(Boolean))
+    const removidos = [...oldPids].filter(pid => !newPids.has(pid))
+    for (const pid of removidos) {
+      const { data: usado } = await db.from('import_plan_items').select('id').eq('product_id', pid).limit(1)
+      if (usado?.length) continue
+      const { data: prod } = await db.from('products').select('stock_quantity, stock_full, stock_fba, stock_shopee').eq('id', pid).single()
+      const temEstoque = prod && (Number(prod.stock_quantity ?? 0) + Number(prod.stock_full ?? 0) + Number((prod as any).stock_fba ?? 0) + Number((prod as any).stock_shopee ?? 0) > 0)
+      const { count } = await db.from('sales').select('id', { count: 'exact', head: true }).eq('product_id', pid)
+      if (temEstoque || (count ?? 0) > 0) continue
+      await db.from('import_sales_plan').delete().eq('product_id', pid)
+      await db.from('import_product_params').delete().eq('product_id', pid)
     }
     return NextResponse.json({ ok: true, id: planId })
   }

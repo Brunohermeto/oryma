@@ -23,8 +23,11 @@ export default async function PlanejamentoPage() {
   // em item de pedido (pedido novo com SKU novo entra nas planilhas sozinho).
   const roots = (profiles ?? []).map(p => String(p.root_sku).toUpperCase())
   const daFamilia = (sku: string) => roots.some(r => sku.toUpperCase().startsWith(r))
-  const idsEmPedidos = new Set((items ?? []).map(i => i.product_id).filter(Boolean))
-  const familyProducts = (products ?? []).filter(p => daFamilia(p.sku) || idsEmPedidos.has(p.id))
+  // pedidos VIVOS por product_id e por SKU (item com SKU livre, sem produto, também conta)
+  const idsEmPedidos  = new Set((items ?? []).map(i => i.product_id).filter(Boolean))
+  const skusEmPedidos = new Set((items ?? []).map(i => String(i.sku ?? '').toUpperCase()).filter(Boolean))
+  const emPedido = (p: { id: string; sku: string }) => idsEmPedidos.has(p.id) || skusEmPedidos.has(p.sku.toUpperCase())
+  const familyProducts = (products ?? []).filter(p => daFamilia(p.sku) || emPedido(p))
 
   // Velocidade real: 12 meses descontando rupturas (gaps > 14d sem venda)
   const yearAgo = format(subDays(new Date(), 365), 'yyyy-MM-dd')
@@ -237,9 +240,14 @@ export default async function PlanejamentoPage() {
       entradasPrev[m] = (entradasPrev[m] ?? 0) + a.qty
     }
     const plano = planoBy.get(p.id) ?? {}
-    // SKU que é exatamente a raiz de um perfil (produto novo em planejamento) sempre aparece
+    // Âncora REAL para aparecer: raiz de perfil, giro, estoque, chegada ou pedido
+    // vivo. Plano de vendas (import_sales_plan) SOZINHO não conta — senão um SKU
+    // apagado do pedido continua na planilha por causa do resquício de plano.
     const ehRaizDePerfil = roots.includes(p.sku.toUpperCase())
-    if (!ehRaizDePerfil && vel <= 0 && !Object.keys(entradas).length && !Object.keys(entradasPrev).length && !Object.keys(plano).length) continue
+    const estoqueTotal = Number(p.stock_quantity ?? 0) + Number((p as any).stock_full ?? 0) + Number((p as any).stock_fba ?? 0) + Number((p as any).stock_shopee ?? 0)
+    const temAncora = ehRaizDePerfil || vel > 0 || estoqueTotal > 0 || emPedido(p)
+      || Object.keys(entradas).length > 0 || Object.keys(entradasPrev).length > 0
+    if (!temAncora) continue
     const par = paramFullBy.get(p.id) as any
     fgRows.push({
       productId: p.id, sku: p.sku, name: p.name,
