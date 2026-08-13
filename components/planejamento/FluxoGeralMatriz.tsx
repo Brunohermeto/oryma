@@ -18,6 +18,7 @@ export interface FluxoGeralData {
     productId: string; sku: string; name: string
     estoqueAtual: number; velReal: number; cmp: number
     velProj: number | null            // velocidade PROJETADA (manual, persistida)
+    marginProj: number | null         // margem % PROJETADA (manual; real fica como referência)
     estoqueManual: number | null      // estoque informado manualmente…
     estoqueManualMes: string | null   // …para este mês (normalmente o anterior)
     custoPlan: number | null          // custo unitário vindo do pedido (planilha)
@@ -104,6 +105,7 @@ export function FluxoGeralMatriz({ data, pagamentosMes }: Props) {
   const [planoEdit, setPlanoEdit] = useState<Record<string, Record<string, number>>>({})
   const [precoEdit, setPrecoEdit] = useState<Record<string, number>>({})
   const [velEdit, setVelEdit] = useState<Record<string, number | null>>({})
+  const [margemEdit, setMargemEdit] = useState<Record<string, number | null>>({})
   const [estqEdit, setEstqEdit] = useState<Record<string, number | null>>({})
   const [cashEdit, setCashEdit] = useState<Record<string, { divida?: number; retirada?: number }>>({})
   const [cfgEdit, setCfgEdit] = useState<{ saldo_inicial?: number; difal_pct?: number; difal_saldo_inicial?: number }>({})
@@ -131,7 +133,7 @@ export function FluxoGeralMatriz({ data, pagamentosMes }: Props) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
   }, [mesAtual])
 
-  const temEdicao = Object.keys(planoEdit).length + Object.keys(precoEdit).length + Object.keys(velEdit).length + Object.keys(estqEdit).length + Object.keys(cashEdit).length + Object.keys(cfgEdit).length > 0
+  const temEdicao = Object.keys(planoEdit).length + Object.keys(precoEdit).length + Object.keys(velEdit).length + Object.keys(margemEdit).length + Object.keys(estqEdit).length + Object.keys(cashEdit).length + Object.keys(cfgEdit).length > 0
 
   async function post(payload: Record<string, unknown>) {
     const r = await fetch('/api/import-planning', {
@@ -148,6 +150,7 @@ export function FluxoGeralMatriz({ data, pagamentosMes }: Props) {
       if (entries.length) await post({ action: 'save_sales_plan', entries })
       for (const [pid, preco] of Object.entries(precoEdit)) await post({ action: 'save_price', product_id: pid, preco_venda: preco || null })
       for (const [pid, vel] of Object.entries(velEdit)) await post({ action: 'save_params', product_id: pid, vel_projetada: vel })
+      for (const [pid, mg] of Object.entries(margemEdit)) await post({ action: 'save_params', product_id: pid, margem_projetada: mg })
       for (const [pid, estq] of Object.entries(estqEdit)) await post({ action: 'save_params', product_id: pid, estoque_manual: estq, estoque_manual_mes: estq === null ? null : mesAnterior })
       for (const [mes, v] of Object.entries(cashEdit)) {
         const base = data.cashMonths[mes] ?? { divida: 0, retirada: 0 }
@@ -157,7 +160,7 @@ export function FluxoGeralMatriz({ data, pagamentosMes }: Props) {
         await post({ action: 'save_cash_config', saldo_inicial: cfgEdit.saldo_inicial ?? data.saldoInicial, difal_pct: cfgEdit.difal_pct ?? data.difalPct, difal_saldo_inicial: cfgEdit.difal_saldo_inicial ?? data.difalSaldoInicial })
       }
       setMsg('✓ plano salvo')
-      setPlanoEdit({}); setPrecoEdit({}); setVelEdit({}); setEstqEdit({}); setCashEdit({}); setCfgEdit({})
+      setPlanoEdit({}); setPrecoEdit({}); setVelEdit({}); setMargemEdit({}); setEstqEdit({}); setCashEdit({}); setCfgEdit({})
       router.refresh()
     } catch (e) { setMsg(`Erro: ${String(e).replace('Error: ', '')}`) }
     setBusy(false)
@@ -176,6 +179,8 @@ export function FluxoGeralMatriz({ data, pagamentosMes }: Props) {
       const em: Record<string, number> = {}
       const preco = precoEdit[r.productId] ?? r.precoParam ?? r.precoReal
       const velBase = (velEdit[r.productId] !== undefined ? velEdit[r.productId] : r.velProj) ?? r.velReal
+      // margem: projetada manual (edição > salva) vence; real calculada é o fallback/referência
+      const margemPct = (margemEdit[r.productId] !== undefined ? margemEdit[r.productId] : r.marginProj) ?? r.marginPct
       const custo = r.custoPlan ?? r.cmp
       // estoque manual do mês anterior (edição > salvo) substitui o estoque atual
       const manual = estqEdit[r.productId] !== undefined
@@ -212,7 +217,7 @@ export function FluxoGeralMatriz({ data, pagamentosMes }: Props) {
         em[m] = Math.max(s, 0) * custo
         porMes[m].fat       += v * preco
         porMes[m].cmv       += v * custo
-        porMes[m].lucro     += v * preco * (r.marginPct / 100)
+        porMes[m].lucro     += v * preco * (margemPct / 100)
         porMes[m].estoqueRs += em[m]
         porMes[m].un        += v
       }
@@ -428,9 +433,9 @@ export function FluxoGeralMatriz({ data, pagamentosMes }: Props) {
       </Bloco>
 
       {/* 4. FATURAMENTO */}
-      <Bloco titulo="4 · Faturamento projetado" sub="vendas planejadas × preço (edite o preço por produto)" open={false}>
+      <Bloco titulo="4 · Faturamento projetado" sub="vendas planejadas × preço · Margem proj % alimenta o lucro do Resumo (real calculada fica de referência)" open={false}>
         <table className="text-[12px]" style={{ borderCollapse: 'collapse', minWidth: '100%' }}>
-          <HeadMeses firstCols={['SKU', 'Preço R$']} />
+          <HeadMeses firstCols={['SKU', 'Preço R$', 'Margem proj %']} />
           <tbody>
             {data.rows.map(r => {
               const preco = precoEdit[r.productId] ?? r.precoParam ?? r.precoReal
@@ -446,6 +451,14 @@ export function FluxoGeralMatriz({ data, pagamentosMes }: Props) {
                     {r.precoReal > 0 && Math.abs(preco - r.precoReal) > 0.5 && (
                       <div className="text-[10px]" style={{ color: B.muted }}>médio real: {r.precoReal.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</div>
                     )}
+                  </td>
+                  <td className="px-1 py-0.5 text-right">
+                    <input type="number" step="0.5" min="0" max="80" placeholder="—"
+                      value={(margemEdit[r.productId] !== undefined ? margemEdit[r.productId] : r.marginProj) ?? ''}
+                      onChange={e => setMargemEdit(prev => ({ ...prev, [r.productId]: e.target.value === '' ? null : Number(e.target.value) }))}
+                      className="w-14 text-right text-[12px] px-1 py-0.5 rounded outline-none"
+                      style={{ ...inputStyle(margemEdit[r.productId] !== undefined), border: `1px solid ${margemEdit[r.productId] !== undefined ? '#d97706' : B.border}` }} />
+                    <div className="text-[10px]" style={{ color: B.muted }}>real: {r.marginPct.toFixed(1)}%</div>
                   </td>
                   {meses.map(m => {
                     if (ehPassado(m)) {

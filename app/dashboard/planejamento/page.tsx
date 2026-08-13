@@ -192,7 +192,7 @@ export default async function PlanejamentoPage() {
   // ── Fluxo Geral (formato da planilha): 24 meses, blocos empilhados ──
   const [{ data: salesPlan }, { data: prodParams }, { data: cashCfgRows }, { data: cashMonths }, { data: cmpAll }] = await Promise.all([
     db.from('import_sales_plan').select('product_id, mes, qty').limit(5000),
-    db.from('import_product_params').select('product_id, preco_venda, vel_projetada, estoque_manual, estoque_manual_mes'),
+    db.from('import_product_params').select('product_id, preco_venda, vel_projetada, margem_projetada, estoque_manual, estoque_manual_mes'),
     db.from('import_cash_config').select('*').eq('id', 1),
     db.from('import_cash_months').select('*'),
     db.from('cmp_costs').select('product_id, cmp_value, effective_date, calculated_at')
@@ -246,6 +246,7 @@ export default async function PlanejamentoPage() {
       estoqueAtual: Number(p.stock_quantity ?? 0) + Number((p as any).stock_full ?? 0) + Number((p as any).stock_fba ?? 0) + Number((p as any).stock_shopee ?? 0),
       velReal: Math.round(vel * 100) / 100,
       velProj: par?.vel_projetada != null ? Number(par.vel_projetada) : null,
+      marginProj: par?.margem_projetada != null ? Number(par.margem_projetada) : null,
       estoqueManual: par?.estoque_manual != null ? Number(par.estoque_manual) : null,
       estoqueManualMes: par?.estoque_manual_mes ?? null,
       cmp: cmpVigente.get(p.id) ?? 0,

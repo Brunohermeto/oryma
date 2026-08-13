@@ -146,6 +146,7 @@ export async function POST(request: NextRequest) {
     if (!body.product_id) return NextResponse.json({ error: 'product_id obrigatório' }, { status: 400 })
     const row: Record<string, unknown> = { product_id: body.product_id }
     if ('vel_projetada' in body) row.vel_projetada = body.vel_projetada === null ? null : Number(body.vel_projetada)
+    if ('margem_projetada' in body) row.margem_projetada = body.margem_projetada === null ? null : Number(body.margem_projetada)
     if ('estoque_manual' in body) {
       row.estoque_manual = body.estoque_manual === null ? null : Number(body.estoque_manual)
       row.estoque_manual_mes = body.estoque_manual_mes ?? null
