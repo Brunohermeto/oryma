@@ -24,12 +24,17 @@
 #   9. Estoque Full ML
 #  10. Relink: CMP por vigencia de NF + margens
 #  11. Auditoria automatica (alertas na Visao Geral)
-import json, time, urllib.request, datetime
+import json, time, urllib.request, datetime, os
 
-BASE = "https://www.oryma.com.br"
-ENV = r"C:\Users\bruno.vinhas\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\Projetos Pessoais\Market_Intel\marketplace-intel\.env.local"
-env = dict(l.strip().split("=", 1) for l in open(ENV, encoding="utf-8") if "=" in l and not l.startswith("#"))
-HDRS = {"Cookie": f"mi_auth={env['APP_PASSWORD']}", "Content-Type": "application/json"}
+BASE = os.environ.get("ORYMA_BASE", "https://www.oryma.com.br")
+# Senha: variavel de ambiente (nuvem/GitHub Actions) tem prioridade; senao le o
+# .env.local (PC do Bruno). Assim o mesmo script roda nos dois lugares.
+APP_PASSWORD = os.environ.get("APP_PASSWORD")
+if not APP_PASSWORD:
+    ENV = r"C:\Users\bruno.vinhas\OneDrive - BH BEER INDUSTRIA E COMERCIO DE BEBIDAS LTDA\Projetos Pessoais\Market_Intel\marketplace-intel\.env.local"
+    env = dict(l.strip().split("=", 1) for l in open(ENV, encoding="utf-8") if "=" in l and not l.startswith("#"))
+    APP_PASSWORD = env["APP_PASSWORD"]
+HDRS = {"Cookie": f"mi_auth={APP_PASSWORD}", "Content-Type": "application/json"}
 
 TODAY = datetime.date.today()
 HOJE = TODAY.isoformat()

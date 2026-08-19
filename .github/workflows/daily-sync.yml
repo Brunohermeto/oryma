@@ -1,0 +1,27 @@
+name: Ciclo diário Oryma
+
+# Roda o ciclo diário na NUVEM (servidor do GitHub) — não depende do PC do Bruno.
+# 12:05 UTC = 09:05 no horário de Brasília (BRT, UTC-3).
+on:
+  schedule:
+    - cron: '5 12 * * *'
+  workflow_dispatch:        # permite disparar manualmente pelo site do GitHub
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v4
+
+      - name: Instalar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Rodar ciclo diário
+        env:
+          APP_PASSWORD: ${{ secrets.ORYMA_APP_PASSWORD }}
+          ORYMA_BASE: https://www.oryma.com.br
+        run: python scripts/catchup.py
