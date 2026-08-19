@@ -177,6 +177,13 @@ try:
 except Exception as e:
     print(f"8d2. shopee chaves NF: ERRO {str(e)[:70]}", flush=True)
 
+# ── 8d3. impostos do Shopee Full (FBS) — 100% automático via API ──
+try:
+    r = post("/api/sync/shopee/full-taxes?days=20", timeout=170)
+    print(f"8d3. shopee full taxes: {json.dumps(r, ensure_ascii=False)[:120]}", flush=True)
+except Exception as e:
+    print(f"8d3. shopee full taxes: ERRO {str(e)[:70]}", flush=True)
+
 # ── 8e. devoluções Shopee → estorno ──
 try:
     r = post("/api/sync/shopee/returns?days=30", timeout=170)

@@ -112,3 +112,32 @@ export async function shopeeGet<T>(path: string, params?: Record<string, string>
   if (data?.error) throw new Error(`Shopee API ${path}: ${data.error} ${data.message ?? ''}`)
   return data as T
 }
+
+/** Versão POST (body JSON) — necessária para os endpoints FBS de nota fiscal do Full. */
+export async function shopeePost<T>(path: string, body: Record<string, unknown>): Promise<T> {
+  const cred = await getCredential('shopee')
+  if (!cred?.access_token) throw new Error('Shopee não conectado')
+  let accessToken: string = cred.access_token
+  if (isTokenExpired(cred.expires_at)) accessToken = await refreshShopeeToken()
+  const shopId = String((cred.extra as Record<string, unknown>)?.shop_id ?? '')
+  const call = async (token: string) => {
+    const ts = Math.floor(Date.now() / 1000)
+    const url = new URL(`${SHOPEE_BASE}/api/v2${path}`)
+    url.searchParams.set('partner_id', process.env.SHOPEE_PARTNER_ID!)
+    url.searchParams.set('shop_id', shopId)
+    url.searchParams.set('timestamp', String(ts))
+    url.searchParams.set('access_token', token)
+    url.searchParams.set('sign', signShop(`/api/v2${path}`, ts, token, shopId))
+    const res = await fetch(url.toString(), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body), next: { revalidate: 0 },
+    })
+    return res.json()
+  }
+  let data = await call(accessToken)
+  if (data?.error && String(data.error).includes('auth')) {
+    accessToken = await refreshShopeeToken()
+    data = await call(accessToken)
+  }
+  return data as T
+}
