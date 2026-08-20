@@ -16,6 +16,8 @@ const SCOPES = [
   'open:order-financial-report-seller:read',
   'open:portfolio-skus-seller:read',
   'open:portfolio-prices-seller:read',
+  'open:logistic-inventory:read',            // estoque no CD do Magalu Full
+  'open:logistic-fiscal-documents-seller:read', // XML de nota do fulfillment (backup)
 ].join(' ')
 
 /** URL para o seller autorizar o app (tela de consentimento do ID Magalu). */
