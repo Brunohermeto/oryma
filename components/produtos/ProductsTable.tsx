@@ -15,7 +15,10 @@ export interface ProductRow {
   name: string
   sku: string
   stock: number            // galpão próprio (Bling)
-  stockFull: number        // CDs dos marketplaces (Full ML etc.)
+  stockFull: number        // CDs dos marketplaces (soma ML+FBA+Shopee)
+  stockFullMl?: number     // Full Mercado Livre
+  stockFba?: number        // FBA Amazon
+  stockShopee?: number     // Full Shopee
   sold12m: number          // unidades vendidas nos últimos 12 meses
   velocityPerDay: number   // un/dia descontando períodos de ruptura de estoque
   cmp: number | null
@@ -26,6 +29,16 @@ type SortKey = 'name' | 'stock' | 'velocity' | 'coverage' | 'cmp'
 
 function fmtR(v: number) {
   return `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+// Detalhe do estoque por local — mostra só os canais que têm unidades
+function estoquePartes(r: { stock: number; stockFullMl?: number; stockFba?: number; stockShopee?: number }): string[] {
+  const partes: string[] = []
+  if (r.stock > 0) partes.push(`galpão ${r.stock.toFixed(0)}`)
+  if ((r.stockFullMl ?? 0) > 0) partes.push(`Full ML ${(r.stockFullMl ?? 0).toFixed(0)}`)
+  if ((r.stockFba ?? 0) > 0) partes.push(`FBA ${(r.stockFba ?? 0).toFixed(0)}`)
+  if ((r.stockShopee ?? 0) > 0) partes.push(`Full Shopee ${(r.stockShopee ?? 0).toFixed(0)}`)
+  return partes.length ? partes : ['—']
 }
 
 type Situacao = 'todos' | 'com_estoque' | 'sem_estoque' | 'critico' | 'sem_giro' | 'sem_custo' | 'arquivados'
@@ -167,7 +180,7 @@ export function ProductsTable({ rows }: { rows: ProductRow[] }) {
                   <span className="font-bold">{r.totalStock.toFixed(0)}</span>
                   {r.totalStock > 0 && (
                     <div className="text-[10px]" style={{ color: B.muted }}>
-                      galpão {r.stock.toFixed(0)} · full {r.stockFull.toFixed(0)}
+                      {estoquePartes(r).join(' · ')}
                     </div>
                   )}
                 </td>
@@ -191,16 +204,17 @@ export function ProductsTable({ rows }: { rows: ProductRow[] }) {
             {view.length > 0 && (() => {
               const t = view.reduce((a, r) => {
                 a.stock += r.stock; a.full += r.stockFull; a.total += r.totalStock
+                a.ml += r.stockFullMl ?? 0; a.fba += r.stockFba ?? 0; a.shopee += r.stockShopee ?? 0
                 a.sold += r.sold12m; a.vel += r.velocityPerDay
                 a.capital += r.cmp !== null ? r.cmp * r.totalStock : 0
                 return a
-              }, { stock: 0, full: 0, total: 0, sold: 0, vel: 0, capital: 0 })
+              }, { stock: 0, full: 0, ml: 0, fba: 0, shopee: 0, total: 0, sold: 0, vel: 0, capital: 0 })
               return (
                 <tr style={{ background: B.bgSubtle, borderTop: `2px solid ${B.border}` }}>
                   <td className="py-2.5 px-4 font-bold" style={{ color: B.text }}>TOTAL ({view.length} produtos)</td>
                   <td className="py-2.5 px-4 text-right num" style={{ fontFamily: 'var(--font-geist-mono)', color: B.text }}>
                     <span className="font-bold">{t.total.toFixed(0)}</span>
-                    <div className="text-[10px]" style={{ color: B.muted }}>galpão {t.stock.toFixed(0)} · full {t.full.toFixed(0)}</div>
+                    <div className="text-[10px]" style={{ color: B.muted }}>{estoquePartes({ stock: t.stock, stockFullMl: t.ml, stockFba: t.fba, stockShopee: t.shopee }).join(' · ')}</div>
                   </td>
                   <td className="py-2.5 px-4 text-right num" style={{ fontFamily: 'var(--font-geist-mono)', color: B.text }}>
                     <span className="font-bold">{t.vel.toFixed(1)}/dia</span>
