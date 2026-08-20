@@ -148,19 +148,11 @@ except Exception as e:
 # janela 90d (nao 30): ha pedidos que a Amazon so publica depois de 30 dias; com a
 # janela curta eles saiam da fila e ficavam sem comissao para sempre. A fila ja
 # prioriza os sem comissao, entao a janela maior nao deixa a rota mais lenta.
-# Repete ate esvaziar a fila (cada chamada Vercel drenra ~40 por causa do limite
-# de 60s; o GitHub Actions nao tem esse limite, entao chamamos varias vezes).
+# Uma chamada basta: a fila prioriza os sem comissao e limit=60 cobre o pendente
+# real (~40, o lag normal da Amazon). "pendentes_sem_comissao" e a metrica honesta.
 try:
-    total = 0
-    for i in range(15):
-        r = post("/api/sync/amazon/fees?days=90&limit=40", timeout=170)
-        total += r.get("updated", 0)
-        rem = r.get("remaining", 0)
-        print(f"8b. amazon fees r{i}: {json.dumps(r, ensure_ascii=False)[:100]}", flush=True)
-        if rem <= 0:
-            break
-        time.sleep(2)
-    print(f"8b. amazon fees TOTAL atualizadas: {total}", flush=True)
+    r = post("/api/sync/amazon/fees?days=90&limit=60", timeout=170)
+    print(f"8b. amazon fees: {json.dumps(r, ensure_ascii=False)[:120]}", flush=True)
 except Exception as e:
     print(f"8b. amazon fees: ERRO {str(e)[:70]}", flush=True)
 

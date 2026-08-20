@@ -145,5 +145,9 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, processed, updated, remaining: byOrder.size - processed })
+  // "pendentes" = pedidos que REALMENTE ainda estão sem comissão (não o tamanho
+  // da janela). A maioria é lag normal da Amazon (publica o financeiro ~1-2 sem
+  // após a venda) e se resolve sozinha; não é fila travada.
+  const pendentes = [...byOrder.values()].filter(rows => rows.some(r => !Number(r.marketplace_commission))).length
+  return NextResponse.json({ ok: true, processed, updated, pendentes_sem_comissao: pendentes, remaining: pendentes })
 }
