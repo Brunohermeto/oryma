@@ -213,6 +213,8 @@ function PedidosPanel({ plans, items, profiles, profById, products, hoje, onSave
   const [editPagos, setEditPagos] = useState<Record<string, { valor?: number; data?: string }>>({})
   const [parcelasTxt, setParcelasTxt] = useState('')
   const [showDone, setShowDone] = useState(false)
+  const [filtroRoot, setFiltroRoot] = useState('')     // filtro por família de produto (root_sku)
+  const [filtroStatus, setFiltroStatus] = useState('') // filtro por status da linha do tempo
 
   function openNew() {
     setEditing({ containers: 1, order_date: hoje, valor_fornecedor: 0, valor_imposto_frete: 0, done: false })
@@ -246,7 +248,18 @@ function PedidosPanel({ plans, items, profiles, profById, products, hoje, onSave
     if (ok) setEditing(null)
   }
 
-  const visiveis = plans.filter(p => showDone || !p.done)
+  // Lista com filtros (família de produto + status) e ordenada por DATA DO PEDIDO
+  const rootsDisponiveis = [...new Set(plans.map(p => profById.get(p.profile_id ?? '')?.root_sku).filter(Boolean))].sort() as string[]
+  const statusDe = (pl: ImportPlan & { id: string }) => {
+    const prof = profById.get(pl.profile_id ?? '')
+    return prof ? resolvePlanDates(pl, prof, hoje).status : ''
+  }
+  const statusDisponiveis = [...new Set(plans.map(statusDe).filter(Boolean))]
+  const visiveis = plans
+    .filter(p => showDone || !p.done)
+    .filter(p => !filtroRoot || profById.get(p.profile_id ?? '')?.root_sku === filtroRoot)
+    .filter(p => !filtroStatus || statusDe(p) === filtroStatus)
+    .sort((a, b) => (a.order_date < b.order_date ? -1 : a.order_date > b.order_date ? 1 : 0)) // data do pedido (antiga → recente)
 
   // Ação rápida: marcar data real (embarque/galpão) — preserva os itens atuais
   async function marcarData(pl: ImportPlan & { id: string }, campo: 'embarque_real' | 'santos_real' | 'galpao_real', label: string) {
@@ -268,6 +281,20 @@ function PedidosPanel({ plans, items, profiles, profById, products, hoje, onSave
         <label className="text-[12px] flex items-center gap-1.5" style={{ color: B.muted }}>
           <input type="checkbox" checked={showDone} onChange={e => setShowDone(e.target.checked)} /> mostrar concluídos
         </label>
+        <select className="inp" value={filtroRoot} onChange={e => setFiltroRoot(e.target.value)} style={{ minWidth: 130 }}>
+          <option value="">Todos os produtos</option>
+          {rootsDisponiveis.map(r => <option key={r} value={r}>{r}</option>)}
+        </select>
+        <select className="inp" value={filtroStatus} onChange={e => setFiltroStatus(e.target.value)} style={{ minWidth: 150 }}>
+          <option value="">Todos os status</option>
+          {statusDisponiveis.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+        {(filtroRoot || filtroStatus) && (
+          <button onClick={() => { setFiltroRoot(''); setFiltroStatus('') }} className="text-[11px] cursor-pointer" style={{ color: B.brand, border: 'none', background: 'transparent' }}>
+            limpar filtros
+          </button>
+        )}
+        <span className="text-[11px]" style={{ color: B.muted }}>{visiveis.length} pedido{visiveis.length !== 1 ? 's' : ''}</span>
       </div>
 
       {editing && (
@@ -539,7 +566,9 @@ function PedidosPanel({ plans, items, profiles, profById, products, hoje, onSave
       })}
       {visiveis.length === 0 && !editing && (
         <div className="bg-white rounded-2xl p-8 text-center text-[13px]" style={{ border: `1px solid ${B.border}`, color: B.muted }}>
-          Nenhum pedido ainda. Cadastre os perfis de produto e clique em "Novo pedido".
+          {filtroRoot || filtroStatus
+            ? 'Nenhum pedido com esse filtro. Ajuste ou limpe os filtros acima.'
+            : 'Nenhum pedido ainda. Cadastre os perfis de produto e clique em "Novo pedido".'}
         </div>
       )}
       <style>{`.inp{border:1px solid ${B.border};border-radius:8px;padding:6px 8px;font-size:13px;color:${B.text};background:white;outline:none}`}</style>
