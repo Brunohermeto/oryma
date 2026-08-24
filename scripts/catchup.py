@@ -85,6 +85,22 @@ try:
 except Exception as e:
     print(f"1. vendas: ERRO {str(e)[:100]}", flush=True)
 
+# ── 1b. backfill largo da Amazon (pedidos que a API publica com atraso e que
+#        a janela de 2 dias perdia; a Amazon Orders API e lenta ~1 pag/min, entao
+#        so cabe no GitHub Actions, que nao tem o limite de 60s da Vercel) ──
+try:
+    d15 = (TODAY - datetime.timedelta(days=15)).isoformat()
+    r = post(f"/api/sync/marketplaces?channel=amazon&from={d15}&to={HOJE}")
+    sid = r.get("sync_id")
+    for _ in range(24):
+        time.sleep(10)
+        st = get(f"/api/sync/marketplaces/status?id={sid}")
+        if st.get("status") != "running":
+            print(f"1b. amazon backfill 15d: {json.dumps(st, ensure_ascii=False)[:120]}", flush=True)
+            break
+except Exception as e:
+    print(f"1b. amazon backfill: ERRO {str(e)[:80]}", flush=True)
+
 # ── 2. produtos/estoque galpao (Bling) ──
 try:
     r = post("/api/sync/bling/products", timeout=170)
