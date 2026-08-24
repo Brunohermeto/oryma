@@ -17,6 +17,7 @@ interface Props {
     marketplace: string
     productId: string
     fulfillment: string
+    orderQuery: string
   }
 }
 
@@ -166,6 +167,7 @@ export function SalesFilters({ products, currentFilters }: Props) {
   const [marketplace,  setMarketplace]  = useState(currentFilters.marketplace || 'all')
   const [productId,    setProductId]    = useState(currentFilters.productId || 'all')
   const [fulfillment,  setFulfillment]  = useState(currentFilters.fulfillment || 'all')
+  const [orderQuery,   setOrderQuery]   = useState(currentFilters.orderQuery || '')
 
   // Sincroniza estado local com a URL — resolve dessincronização após router.push
   useEffect(() => {
@@ -174,13 +176,15 @@ export function SalesFilters({ products, currentFilters }: Props) {
     setMarketplace(currentFilters.marketplace || 'all')
     setProductId(currentFilters.productId || 'all')
     setFulfillment(currentFilters.fulfillment || 'all')
+    setOrderQuery(currentFilters.orderQuery || '')
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams.toString()])
 
   function applyFilters() {
     const params = new URLSearchParams()
-    if (dateFrom) params.set('from', dateFrom)
-    if (dateTo)   params.set('to', dateTo)
+    const pedido = orderQuery.trim()
+    if (pedido) params.set('order', pedido)         // busca por pedido ignora o período
+    else { if (dateFrom) params.set('from', dateFrom); if (dateTo) params.set('to', dateTo) }
     if (marketplace && marketplace !== 'all') params.set('mp', marketplace)
     if (productId  && productId   !== 'all') params.set('product', productId)
     if (fulfillment && fulfillment !== 'all') params.set('fulfillment', fulfillment)
@@ -193,6 +197,7 @@ export function SalesFilters({ products, currentFilters }: Props) {
     setMarketplace('all')
     setProductId('all')
     setFulfillment('all')
+    setOrderQuery('')
     router.push(pathname)
   }
 
@@ -243,8 +248,22 @@ export function SalesFilters({ products, currentFilters }: Props) {
               <SelectItem value="galpao">Galpão</SelectItem>
               <SelectItem value="full_ml">Full ML</SelectItem>
               <SelectItem value="fba_amazon">FBA Amazon</SelectItem>
+              <SelectItem value="full_magalu">Full Magalu</SelectItem>
+              <SelectItem value="full_shopee">Full Shopee</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+
+        {/* Busca por nº de pedido (ignora o período) */}
+        <div>
+          <Label className="text-xs text-gray-500">Nº do pedido</Label>
+          <div className="relative mt-1">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Input value={orderQuery} onChange={e => setOrderQuery(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') applyFilters() }}
+              placeholder="ex: 2000018069823964"
+              className="h-9 text-sm w-52 pl-8" />
+          </div>
         </div>
 
         <div className="flex gap-2 ml-auto items-end">
@@ -254,6 +273,12 @@ export function SalesFilters({ products, currentFilters }: Props) {
           </Button>
         </div>
       </div>
+
+      {orderQuery.trim() && (
+        <div className="mt-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1 inline-block">
+          Buscando pelo pedido “{orderQuery.trim()}” — o filtro de período está desativado nesta busca.
+        </div>
+      )}
 
       {/* Indicador de filtros ativos */}
       {(marketplace !== 'all' || productId !== 'all' || fulfillment !== 'all') && (

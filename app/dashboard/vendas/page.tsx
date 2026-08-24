@@ -28,7 +28,7 @@ function fmtPct(v: number) {
 export default async function VendasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string; mp?: string; product?: string; fulfillment?: string }>
+  searchParams: Promise<{ from?: string; to?: string; mp?: string; product?: string; fulfillment?: string; order?: string }>
 }) {
   const db = createSupabaseServiceClient()
   const params = await searchParams
@@ -39,6 +39,7 @@ export default async function VendasPage({
   const marketplace = params.mp ?? ''
   const productId  = params.product ?? ''
   const fulfillment = params.fulfillment ?? ''
+  const orderQuery = (params.order ?? '').trim()
 
   const { data: products } = await db.from('products').select('id, name, sku').order('name')
 
@@ -52,11 +53,13 @@ export default async function VendasPage({
       sale_taxes(pis, cofins, icms, icms_difal, ipi, total_taxes),
       sale_costs(unit_cost_applied, total_cost, margin_value, margin_pct)
     `)
-    .gte('sale_date', dateFrom)
-    .lte('sale_date', dateTo)
     .order('sale_date', { ascending: false })
     .order('id', { ascending: false })
     .limit(500)
+
+  // Busca por nº de pedido ignora o período (acha o pedido em qualquer data)
+  if (orderQuery) query = query.ilike('external_order_id', `%${orderQuery}%`)
+  else            query = query.gte('sale_date', dateFrom).lte('sale_date', dateTo)
 
   if (marketplace) query = query.eq('marketplace', marketplace)
   if (productId)   query = query.eq('product_id', productId)
@@ -113,7 +116,7 @@ export default async function VendasPage({
         {/* Filters */}
         <SalesFilters
           products={products ?? []}
-          currentFilters={{ dateFrom, dateTo, marketplace, productId, fulfillment }}
+          currentFilters={{ dateFrom, dateTo, marketplace, productId, fulfillment, orderQuery }}
         />
 
         {/* Summary bar */}
