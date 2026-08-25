@@ -70,6 +70,7 @@ export async function POST(request: NextRequest) {
 
     const pis = tag(xml, 'vPIS'), cofins = tag(xml, 'vCOFINS'), icms = tag(xml, 'vICMS')
     const difal = tag(xml, 'vICMSUFDest') + tag(xml, 'vICMSUFRemet'), ipi = tag(xml, 'vIPI')
+    const uf = xml.match(/<dest>[\s\S]*?<UF>([A-Z]{2})<\/UF>/)?.[1] ?? null
     const total = group.reduce((a, s) => a + s.gross_price, 0)
     for (const s of group) {
       const share = total > 0 ? s.gross_price / total : 1 / group.length
@@ -78,6 +79,7 @@ export async function POST(request: NextRequest) {
         pis: pis * share, cofins: cofins * share, icms: icms * share,
         icms_difal: difal * share, ipi: ipi * share,
       }, { onConflict: 'sale_id' })
+      if (uf) await db.from('sales').update({ uf_destino: uf }).eq('id', s.id)
       updated++
     }
   }

@@ -88,6 +88,8 @@ export async function POST(request: NextRequest) {
     if (group.every(s => one(s.sale_taxes))) { jaTinha++; continue }
     const pis = num(xml, 'vPIS'), cofins = num(xml, 'vCOFINS'), icms = num(xml, 'vICMS')
     const difal = num(xml, 'vICMSUFDest') + num(xml, 'vICMSUFRemet'), ipi = num(xml, 'vIPI')
+    // UF do destinatário (pega carona no mesmo XML)
+    const uf = xml.match(/<dest>[\s\S]*?<UF>([A-Z]{2})<\/UF>/)?.[1] ?? null
     const total = group.reduce((a, s) => a + Number(s.gross_price), 0)
     for (const s of group) {
       const share = total > 0 ? Number(s.gross_price) / total : 1 / group.length
@@ -95,7 +97,10 @@ export async function POST(request: NextRequest) {
         sale_id: s.id, nfe_key: chave, pis: pis * share, cofins: cofins * share,
         icms: icms * share, icms_difal: difal * share, ipi: ipi * share,
       }, { onConflict: 'sale_id' })
-      if (!s.nfe_saida_key && chave) await db.from('sales').update({ nfe_saida_key: chave, fulfillment_type: 'full_shopee' }).eq('id', s.id)
+      const patch: Record<string, unknown> = {}
+      if (!s.nfe_saida_key && chave) { patch.nfe_saida_key = chave; patch.fulfillment_type = 'full_shopee' }
+      if (uf) patch.uf_destino = uf
+      if (Object.keys(patch).length) await db.from('sales').update(patch).eq('id', s.id)
     }
     aplicadas++
   }

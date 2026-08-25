@@ -209,6 +209,13 @@ try:
 except Exception as e:
     print(f"8e. shopee returns: ERRO {str(e)[:70]}", flush=True)
 
+# ── 8f. UF de destino da Amazon (getOrderAddress, lote) ──
+try:
+    r = post("/api/sync/amazon/uf?limit=60", timeout=170)
+    print(f"8f. amazon UF: {json.dumps(r, ensure_ascii=False)[:100]}", flush=True)
+except Exception as e:
+    print(f"8f. amazon UF: ERRO {str(e)[:70]}", flush=True)
+
 # ── 9. estoque Full ──
 try:
     r = post("/api/sync/ml/stock")
