@@ -85,11 +85,15 @@ export async function POST(request: NextRequest) {
     const sn = name.match(/NFe_([A-Z0-9]+)_/i)?.[1]
     const group = (chave && byChave.get(chave)) || (sn && byOrder.get(sn)) || []
     if (!group.length) { semVenda++; continue }
-    if (group.every(s => one(s.sale_taxes))) { jaTinha++; continue }
+    // UF do destinatário (pega carona no mesmo XML) — sempre completa, mesmo se o
+    // imposto já existir (venda com imposto mas sem estado ficava órfã pra sempre)
+    const uf = xml.match(/<dest>[\s\S]*?<UF>([A-Z]{2})<\/UF>/)?.[1] ?? null
+    if (group.every(s => one(s.sale_taxes))) {
+      if (uf) for (const s of group) await db.from('sales').update({ uf_destino: uf }).eq('id', s.id)
+      jaTinha++; continue
+    }
     const pis = num(xml, 'vPIS'), cofins = num(xml, 'vCOFINS'), icms = num(xml, 'vICMS')
     const difal = num(xml, 'vICMSUFDest') + num(xml, 'vICMSUFRemet'), ipi = num(xml, 'vIPI')
-    // UF do destinatário (pega carona no mesmo XML)
-    const uf = xml.match(/<dest>[\s\S]*?<UF>([A-Z]{2})<\/UF>/)?.[1] ?? null
     const total = group.reduce((a, s) => a + Number(s.gross_price), 0)
     for (const s of group) {
       const share = total > 0 ? Number(s.gross_price) / total : 1 / group.length
