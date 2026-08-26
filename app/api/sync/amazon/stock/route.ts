@@ -30,16 +30,21 @@ export async function POST(request: NextRequest) {
   let nextToken: string | undefined
   do {
     const res = await amazonGet<{
-      payload?: { inventorySummaries?: Array<{ sellerSku?: string; totalQuantity?: number }> }
+      payload?: { inventorySummaries?: Array<{ sellerSku?: string; totalQuantity?: number; inventoryDetails?: { fulfillableQuantity?: number } }> }
       pagination?: { nextToken?: string }
     }>('/fba/inventory/v1/summaries', {
       granularityType: 'Marketplace', granularityId: MKT_BR, marketplaceIds: MKT_BR,
+      details: 'true',   // precisamos do detalhamento p/ pegar só o DISPONÍVEL
       ...(nextToken ? { nextToken } : {}),
     })
     for (const s of res.payload?.inventorySummaries ?? []) {
       const sku = (s.sellerSku ?? '').replace(/[_-]FBA$/i, '').trim()
       if (!sku) continue
-      bySku.set(sku, (bySku.get(sku) ?? 0) + Number(s.totalQuantity ?? 0))
+      // fulfillableQuantity = disponível para venda AGORA (exclui em trânsito/
+      // inbound, reservado em pedidos e avariado). totalQuantity inflava com o
+      // que ainda está a caminho do armazém.
+      const disponivel = Number(s.inventoryDetails?.fulfillableQuantity ?? 0)
+      bySku.set(sku, (bySku.get(sku) ?? 0) + disponivel)
     }
     nextToken = res.pagination?.nextToken
   } while (nextToken)
