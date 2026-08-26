@@ -20,7 +20,8 @@ export default async function ProdutosPage({
   const iso = /^\d{4}-\d{2}-\d{2}$/
   const dateTo   = iso.test(params.to ?? '')   ? params.to!   : toBrazilDate(new Date())
   const dateFrom = iso.test(params.from ?? '') ? params.from! : brazilDaysAgo(365)
-  const periodLabel = `${dateFrom.slice(8, 10)}/${dateFrom.slice(5, 7)} a ${dateTo.slice(8, 10)}/${dateTo.slice(5, 7)}`
+  const br = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(2, 4)}`
+  const periodLabel = `${br(dateFrom)} a ${br(dateTo)}`
 
   // Vendas do período escolhido (paginado — PostgREST devolve no máx. 1000/página)
   async function fetchAllSales() {
