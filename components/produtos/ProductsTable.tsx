@@ -17,7 +17,8 @@ export interface ProductRow {
   stock: number            // galpão próprio (Bling)
   stockFull: number        // CDs dos marketplaces (soma ML+FBA+Shopee)
   stockFullMl?: number     // Full Mercado Livre
-  stockFba?: number        // FBA Amazon
+  stockFba?: number        // FBA Amazon (disponível)
+  stockFbaTransito?: number // FBA Amazon a caminho do armazém
   stockShopee?: number     // Full Shopee
   sold12m: number          // unidades vendidas nos últimos 12 meses
   velocityPerDay: number   // un/dia descontando períodos de ruptura de estoque
@@ -32,12 +33,13 @@ function fmtR(v: number) {
 }
 
 // Detalhe do estoque por local — mostra só os canais que têm unidades
-function estoquePartes(r: { stock: number; stockFullMl?: number; stockFba?: number; stockShopee?: number }): string[] {
+function estoquePartes(r: { stock: number; stockFullMl?: number; stockFba?: number; stockFbaTransito?: number; stockShopee?: number }): string[] {
   const partes: string[] = []
   if (r.stock > 0) partes.push(`galpão ${r.stock.toFixed(0)}`)
   if ((r.stockFullMl ?? 0) > 0) partes.push(`Full ML ${(r.stockFullMl ?? 0).toFixed(0)}`)
   if ((r.stockFba ?? 0) > 0) partes.push(`FBA ${(r.stockFba ?? 0).toFixed(0)}`)
   if ((r.stockShopee ?? 0) > 0) partes.push(`Full Shopee ${(r.stockShopee ?? 0).toFixed(0)}`)
+  if ((r.stockFbaTransito ?? 0) > 0) partes.push(`FBA em trânsito ${(r.stockFbaTransito ?? 0).toFixed(0)}`)
   return partes.length ? partes : ['—']
 }
 
@@ -204,17 +206,17 @@ export function ProductsTable({ rows, periodLabel = '12 meses' }: { rows: Produc
             {view.length > 0 && (() => {
               const t = view.reduce((a, r) => {
                 a.stock += r.stock; a.full += r.stockFull; a.total += r.totalStock
-                a.ml += r.stockFullMl ?? 0; a.fba += r.stockFba ?? 0; a.shopee += r.stockShopee ?? 0
+                a.ml += r.stockFullMl ?? 0; a.fba += r.stockFba ?? 0; a.shopee += r.stockShopee ?? 0; a.fbaT += r.stockFbaTransito ?? 0
                 a.sold += r.sold12m; a.vel += r.velocityPerDay
                 a.capital += r.cmp !== null ? r.cmp * r.totalStock : 0
                 return a
-              }, { stock: 0, full: 0, ml: 0, fba: 0, shopee: 0, total: 0, sold: 0, vel: 0, capital: 0 })
+              }, { stock: 0, full: 0, ml: 0, fba: 0, fbaT: 0, shopee: 0, total: 0, sold: 0, vel: 0, capital: 0 })
               return (
                 <tr style={{ background: B.bgSubtle, borderTop: `2px solid ${B.border}` }}>
                   <td className="py-2.5 px-4 font-bold" style={{ color: B.text }}>TOTAL ({view.length} produtos)</td>
                   <td className="py-2.5 px-4 text-right num" style={{ fontFamily: 'var(--font-geist-mono)', color: B.text }}>
                     <span className="font-bold">{t.total.toFixed(0)}</span>
-                    <div className="text-[10px]" style={{ color: B.muted }}>{estoquePartes({ stock: t.stock, stockFullMl: t.ml, stockFba: t.fba, stockShopee: t.shopee }).join(' · ')}</div>
+                    <div className="text-[10px]" style={{ color: B.muted }}>{estoquePartes({ stock: t.stock, stockFullMl: t.ml, stockFba: t.fba, stockFbaTransito: t.fbaT, stockShopee: t.shopee }).join(' · ')}</div>
                   </td>
                   <td className="py-2.5 px-4 text-right num" style={{ fontFamily: 'var(--font-geist-mono)', color: B.text }}>
                     <span className="font-bold">{t.vel.toFixed(1)}/dia</span>
