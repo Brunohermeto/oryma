@@ -42,11 +42,14 @@ interface ShopeeEscrowResponse {
       escrow_amount: number
       commission_fee: number
       service_fee: number
+      net_commission_fee?: number
+      net_service_fee?: number
       final_shipping_fee: number
       actual_shipping_fee: number
       buyer_paid_shipping_fee: number
       ads_campaign_cost?: number
       voucher_from_seller?: number
+      voucher_from_shopee?: number
     }
   }
 }
@@ -126,14 +129,16 @@ export async function syncShopee(startDate: string, endDate: string): Promise<nu
           sale_date: toBrazilDate(new Date(createTime * 1000)),
           quantity: item.model_quantity_purchased,
           gross_price: grossPrice,
-          shipping_received: (income?.buyer_paid_shipping_fee ?? 0) * share,
-          // comissão pura; a taxa de serviço (programa Frete Grátis) vai para a coluna FRETE
-          marketplace_commission: (income?.commission_fee ?? 0) * share,
-          // frete do VENDEDOR = taxa do programa Frete Grátis + excedente do frete real
-          // (custo real − pago pelo comprador − subsídio Shopee, piso 0)
-          marketplace_shipping_fee: ((income?.service_fee ?? 0) + Math.max(0, (income?.actual_shipping_fee ?? 0) - (income?.buyer_paid_shipping_fee ?? 0) - ((income as any)?.shopee_shipping_rebate ?? 0))) * share,
-          ads_cost: (income?.ads_campaign_cost ?? 0) * share,
-          discounts: (income?.voucher_from_seller ?? 0) * share,
+          shipping_received: ((income as any)?.buyer_paid_shipping_fee ?? 0) * share, // info; frete é neutro pro vendedor
+          // Custos REAIS da Shopee (já LÍQUIDOS do ajuste de ação comercial):
+          //   comissão líquida + serviço líquida. Frete NÃO é custo do vendedor
+          //   (comprador paga e a Shopee repassa à logística — resultado zero).
+          marketplace_commission: ((income as any)?.net_commission_fee ?? income?.commission_fee ?? 0) * share,
+          marketplace_fixed_fee:  ((income as any)?.net_service_fee ?? income?.service_fee ?? 0) * share,
+          marketplace_shipping_fee: 0,
+          ads_cost: ((income as any)?.ads_campaign_cost ?? 0) * share,
+          // cupom que reduz a receita do vendedor (Shopee desconta do repasse)
+          discounts: (((income as any)?.voucher_from_seller ?? 0) + ((income as any)?.voucher_from_shopee ?? 0)) * share,
           cancellation: 0,
           // não sobrescrever UF vinda do XML da NF quando a API vier mascarada
           ...(uf ? { uf_destino: uf } : {}),
