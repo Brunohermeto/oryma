@@ -6,16 +6,26 @@ import { brazilDaysAgo } from '@/lib/utils/brazil-time'
 export const dynamic = 'force-dynamic'
 export const preferredRegion = 'gru1'
 
-export default async function ProdutosPage() {
+export default async function ProdutosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ dias?: string }>
+}) {
   const db = createSupabaseServiceClient()
 
-  // Vendas dos últimos 12 meses (paginado — PostgREST devolve no máx. 1000/página)
+  // Janela de análise (velocidade/cobertura): 7, 30, 90, 180 ou 365 dias
+  const params = await searchParams
+  const OPCOES = [7, 30, 90, 180, 365]
+  const dias = OPCOES.includes(Number(params.dias)) ? Number(params.dias) : 365
+  const periodLabel = dias >= 365 ? '12 meses' : `${dias} dias`
+
+  // Vendas do período escolhido (paginado — PostgREST devolve no máx. 1000/página)
   async function fetchAllSales() {
     const out: Array<{ product_id: string; quantity: number; sale_date: string }> = []
     for (let page = 0; page < 12; page++) {
       const { data } = await db.from('sales')
         .select('product_id, quantity, sale_date')
-        .gte('sale_date', brazilDaysAgo(365))
+        .gte('sale_date', brazilDaysAgo(dias))
         .not('product_id', 'is', null)
         .order('sale_date', { ascending: true })
         .range(page * 1000, page * 1000 + 999)
@@ -87,12 +97,20 @@ export default async function ProdutosPage() {
   return (
     <>
       <TopBar title="Produtos & Estoque" subtitle="Estoque, velocidade de venda e cobertura por produto" />
-      <div className="px-4 md:px-8 pt-4 flex gap-2">
+      <div className="px-4 md:px-8 pt-4 flex gap-2 flex-wrap items-center">
         <a href="/dashboard/velocidade" className="text-[12px] font-semibold px-3 py-1.5 rounded-lg" style={{ background: 'oklch(0.96 0.010 258)', color: '#125BFF' }}>Giro e Velocidade →</a>
         <a href="/dashboard/precificacao" className="text-[12px] font-semibold px-3 py-1.5 rounded-lg" style={{ background: 'oklch(0.96 0.010 258)', color: '#125BFF' }}>Simulador de Margem →</a>
+        <span className="mx-1 text-[12px]" style={{ color: 'oklch(0.55 0.02 258)' }}>Velocidade/cobertura em:</span>
+        {OPCOES.map(d => (
+          <a key={d} href={`/dashboard/produtos?dias=${d}`}
+             className="text-[12px] font-semibold px-3 py-1.5 rounded-lg"
+             style={{ background: dias === d ? '#125BFF' : 'oklch(0.96 0.010 258)', color: dias === d ? 'white' : '#125BFF' }}>
+            {d >= 365 ? '12 meses' : `${d}d`}
+          </a>
+        ))}
       </div>
       <div className="px-4 md:px-8 py-6">
-        <ProductsTable rows={rows} />
+        <ProductsTable rows={rows} periodLabel={periodLabel} />
       </div>
     </>
   )

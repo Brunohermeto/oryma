@@ -53,7 +53,7 @@ const SITUACOES: Array<{ key: Situacao; label: string }> = [
   { key: 'arquivados',  label: 'Arquivados' },
 ]
 
-export function ProductsTable({ rows }: { rows: ProductRow[] }) {
+export function ProductsTable({ rows, periodLabel = '12 meses' }: { rows: ProductRow[]; periodLabel?: string }) {
   const [search, setSearch] = useState('')
   const [situacao, setSituacao] = useState<Situacao>('todos')
   const [sortKey, setSortKey] = useState<SortKey>('velocity')
@@ -188,7 +188,7 @@ export function ProductsTable({ rows }: { rows: ProductRow[] }) {
                   {r.velocityPerDay > 0 ? (
                     <>
                       <span className="font-bold">{r.velocityPerDay.toFixed(1)}/dia</span>
-                      <div className="text-[10px]" style={{ color: B.muted }}>{r.sold12m.toFixed(0)} un em 12m</div>
+                      <div className="text-[10px]" style={{ color: B.muted }}>{r.sold12m.toFixed(0)} un em {periodLabel}</div>
                     </>
                   ) : (
                     <span style={{ color: B.muted }}>—</span>
@@ -218,7 +218,7 @@ export function ProductsTable({ rows }: { rows: ProductRow[] }) {
                   </td>
                   <td className="py-2.5 px-4 text-right num" style={{ fontFamily: 'var(--font-geist-mono)', color: B.text }}>
                     <span className="font-bold">{t.vel.toFixed(1)}/dia</span>
-                    <div className="text-[10px]" style={{ color: B.muted }}>{t.sold.toFixed(0)} un em 12m</div>
+                    <div className="text-[10px]" style={{ color: B.muted }}>{t.sold.toFixed(0)} un em {periodLabel}</div>
                   </td>
                   <td className="py-2.5 px-4 text-right text-[11px]" style={{ color: B.muted }}>
                     {t.vel > 0 ? `${Math.round(t.total / t.vel)} dias` : '—'}
