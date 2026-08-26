@@ -1,7 +1,8 @@
 import { TopBar } from '@/components/layout/TopBar'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { ProductsTable, type ProductRow } from '@/components/produtos/ProductsTable'
-import { brazilDaysAgo } from '@/lib/utils/brazil-time'
+import { PeriodoFilter } from '@/components/produtos/PeriodoFilter'
+import { brazilDaysAgo, toBrazilDate } from '@/lib/utils/brazil-time'
 
 export const dynamic = 'force-dynamic'
 export const preferredRegion = 'gru1'
@@ -9,23 +10,25 @@ export const preferredRegion = 'gru1'
 export default async function ProdutosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ dias?: string }>
+  searchParams: Promise<{ from?: string; to?: string }>
 }) {
   const db = createSupabaseServiceClient()
 
-  // Janela de análise (velocidade/cobertura): 7, 30, 90, 180 ou 365 dias
+  // Janela de análise (velocidade/cobertura) — período escolhido pelo usuário.
+  // Padrão: últimos 12 meses.
   const params = await searchParams
-  const OPCOES = [7, 30, 90, 180, 365]
-  const dias = OPCOES.includes(Number(params.dias)) ? Number(params.dias) : 365
-  const periodLabel = dias >= 365 ? '12 meses' : `${dias} dias`
+  const iso = /^\d{4}-\d{2}-\d{2}$/
+  const dateTo   = iso.test(params.to ?? '')   ? params.to!   : toBrazilDate(new Date())
+  const dateFrom = iso.test(params.from ?? '') ? params.from! : brazilDaysAgo(365)
+  const periodLabel = `${dateFrom.slice(8, 10)}/${dateFrom.slice(5, 7)} a ${dateTo.slice(8, 10)}/${dateTo.slice(5, 7)}`
 
   // Vendas do período escolhido (paginado — PostgREST devolve no máx. 1000/página)
   async function fetchAllSales() {
     const out: Array<{ product_id: string; quantity: number; sale_date: string }> = []
-    for (let page = 0; page < 12; page++) {
+    for (let page = 0; page < 20; page++) {
       const { data } = await db.from('sales')
         .select('product_id, quantity, sale_date')
-        .gte('sale_date', brazilDaysAgo(dias))
+        .gte('sale_date', dateFrom).lte('sale_date', dateTo)
         .not('product_id', 'is', null)
         .order('sale_date', { ascending: true })
         .range(page * 1000, page * 1000 + 999)
@@ -62,7 +65,7 @@ export default async function ProdutosPage({
     if (!datesByProduct.has(s.product_id)) datesByProduct.set(s.product_id, [])
     datesByProduct.get(s.product_id)!.push(s.sale_date)
   }
-  const today = new Date()
+  const fimJanela = new Date(dateTo).getTime()
   function activeDays(dates: string[]): number {
     if (!dates.length) return 0
     let days = 1
@@ -70,7 +73,7 @@ export default async function ProdutosPage({
       const gap = (new Date(dates[i]).getTime() - new Date(dates[i - 1]).getTime()) / 86400000
       days += Math.min(gap, GAP_MAX)
     }
-    const tail = (today.getTime() - new Date(dates[dates.length - 1]).getTime()) / 86400000
+    const tail = (fimJanela - new Date(dates[dates.length - 1]).getTime()) / 86400000
     days += Math.min(Math.max(tail, 0), GAP_MAX)
     return Math.max(days, 1)
   }
@@ -100,14 +103,9 @@ export default async function ProdutosPage({
       <div className="px-4 md:px-8 pt-4 flex gap-2 flex-wrap items-center">
         <a href="/dashboard/velocidade" className="text-[12px] font-semibold px-3 py-1.5 rounded-lg" style={{ background: 'oklch(0.96 0.010 258)', color: '#125BFF' }}>Giro e Velocidade →</a>
         <a href="/dashboard/precificacao" className="text-[12px] font-semibold px-3 py-1.5 rounded-lg" style={{ background: 'oklch(0.96 0.010 258)', color: '#125BFF' }}>Simulador de Margem →</a>
-        <span className="mx-1 text-[12px]" style={{ color: 'oklch(0.55 0.02 258)' }}>Velocidade/cobertura em:</span>
-        {OPCOES.map(d => (
-          <a key={d} href={`/dashboard/produtos?dias=${d}`}
-             className="text-[12px] font-semibold px-3 py-1.5 rounded-lg"
-             style={{ background: dias === d ? '#125BFF' : 'oklch(0.96 0.010 258)', color: dias === d ? 'white' : '#125BFF' }}>
-            {d >= 365 ? '12 meses' : `${d}d`}
-          </a>
-        ))}
+      </div>
+      <div className="px-4 md:px-8 pt-3">
+        <PeriodoFilter from={dateFrom} to={dateTo} />
       </div>
       <div className="px-4 md:px-8 py-6">
         <ProductsTable rows={rows} periodLabel={periodLabel} />
