@@ -133,8 +133,11 @@ export async function syncShopee(startDate: string, endDate: string): Promise<nu
           // Custos REAIS da Shopee (já LÍQUIDOS do ajuste de ação comercial):
           //   comissão líquida + serviço líquida. Frete NÃO é custo do vendedor
           //   (comprador paga e a Shopee repassa à logística — resultado zero).
-          marketplace_commission: ((income as any)?.net_commission_fee ?? income?.commission_fee ?? 0) * share,
-          marketplace_fixed_fee:  ((income as any)?.net_service_fee ?? income?.service_fee ?? 0) * share,
+          // usa a LÍQUIDA quando já existe (pedido concluído); senão a BRUTA como
+          // provisória (a líquida só é finalizada na entrega — antes vem 0, o que
+          // zerava o custo e inflava a margem de vendas ainda em trânsito)
+          marketplace_commission: (((income as any)?.net_commission_fee > 0 ? (income as any).net_commission_fee : income?.commission_fee) ?? 0) * share,
+          marketplace_fixed_fee:  (((income as any)?.net_service_fee > 0 ? (income as any).net_service_fee : income?.service_fee) ?? 0) * share,
           marketplace_shipping_fee: 0,
           ads_cost: ((income as any)?.ads_campaign_cost ?? 0) * share,
           // cupom que reduz a receita do vendedor (Shopee desconta do repasse)
