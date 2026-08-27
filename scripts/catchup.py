@@ -206,6 +206,14 @@ try:
 except Exception as e:
     print(f"8d3. shopee full taxes: ERRO {str(e)[:70]}", flush=True)
 
+# ── 8d4. custos Shopee (comissão/serviço líquidos) — reprocessa 15d conforme a
+#        Shopee finaliza o financeiro (o sync só relê 2 dias) ──
+try:
+    r = post("/api/sync/shopee/costs?days=15", timeout=170)
+    print(f"8d4. shopee custos: {json.dumps(r, ensure_ascii=False)[:110]}", flush=True)
+except Exception as e:
+    print(f"8d4. shopee custos: ERRO {str(e)[:70]}", flush=True)
+
 # ── 8e. devoluções Shopee → estorno ──
 try:
     r = post("/api/sync/shopee/returns?days=30", timeout=170)
