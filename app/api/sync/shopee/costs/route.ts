@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
   if (!isAuthorized) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const days  = Number(request.nextUrl.searchParams.get('days') ?? 15)
-  const limit = Number(request.nextUrl.searchParams.get('limit') ?? 120)
+  const limit = Number(request.nextUrl.searchParams.get('limit') ?? 40)
   const db = createSupabaseServiceClient()
   const since = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10)
 

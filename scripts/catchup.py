@@ -209,8 +209,12 @@ except Exception as e:
 # ── 8d4. custos Shopee (comissão/serviço líquidos) — reprocessa 15d conforme a
 #        Shopee finaliza o financeiro (o sync só relê 2 dias) ──
 try:
-    r = post("/api/sync/shopee/costs?days=15", timeout=170)
-    print(f"8d4. shopee custos: {json.dumps(r, ensure_ascii=False)[:110]}", flush=True)
+    for i in range(6):
+        r = post("/api/sync/shopee/costs?days=15&limit=40", timeout=170)
+        print(f"8d4. shopee custos r{i}: {json.dumps(r, ensure_ascii=False)[:100]}", flush=True)
+        if r.get("updated", 0) == 0:
+            break
+        time.sleep(2)
 except Exception as e:
     print(f"8d4. shopee custos: ERRO {str(e)[:70]}", flush=True)
 
