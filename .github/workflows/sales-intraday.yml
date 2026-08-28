@@ -1,0 +1,24 @@
+name: Vendas intradia Oryma
+
+# Só o passo de vendas (todos os canais), pra as vendas do dia aparecerem quase
+# em tempo real. O ciclo pesado completo continua 1x de manhã (daily-sync.yml).
+# Horários BRT (UTC-3): 8h, 11h, 14h, 17h, 20h  ->  11,14,17,20,23 UTC.
+on:
+  schedule:
+    - cron: '0 11,14,17,20,23 * * *'
+  workflow_dispatch:
+
+jobs:
+  vendas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Rodar sync de vendas
+        env:
+          APP_PASSWORD: ${{ secrets.ORYMA_APP_PASSWORD }}
+          ORYMA_BASE: https://www.oryma.com.br
+        run: python scripts/sales_now.py
