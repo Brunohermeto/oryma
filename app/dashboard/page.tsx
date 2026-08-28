@@ -53,22 +53,36 @@ export default async function DashboardPage(
     return { key: format(d, 'yyyy-MM'), label: d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace('. de ', '/').replace('.', '') }
   })
 
-  const { data: salesRaw } = await db
-    .from('sales')
-    .select('marketplace, gross_price, marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, rebate, ads_cost, cancellation, sale_date, sale_costs(total_cost, margin_value)')
-    .gte('sale_date', start)
-    .lte('sale_date', end)
+  // Paginação: o PostgREST devolve no máx. 1000 linhas por query. Meses com mais
+  // de 1000 vendas (a partir de ago/2026, com a Shopee) truncavam o faturamento.
+  const salesRaw: any[] = []
+  for (let pg = 0; pg < 30; pg++) {
+    const { data } = await db
+      .from('sales')
+      .select('marketplace, gross_price, marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, rebate, ads_cost, cancellation, sale_date, sale_costs(total_cost, margin_value)')
+      .gte('sale_date', start).lte('sale_date', end)
+      .order('id', { ascending: true })
+      .range(pg * 1000, pg * 1000 + 999)
+    if (!data?.length) break
+    salesRaw.push(...data)
+    if (data.length < 1000) break
+  }
 
   // Devolvidas ficam FORA de todo indicador (faturamento, margem, pedidos,
   // tarifas): o valor foi estornado ao comprador e a mercadoria voltou ao estoque.
   const devolvidas = (salesRaw ?? []).filter(isReturned)
   const sales      = (salesRaw ?? []).filter(s => !isReturned(s))
 
-  const { data: prevSalesRaw } = await db
-    .from('sales')
-    .select('gross_price, cancellation, marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, rebate, ads_cost, sale_costs(margin_value)')
-    .gte('sale_date', prevStart)
-    .lte('sale_date', prevEnd)
+  const prevSalesRaw: any[] = []
+  for (let pg = 0; pg < 30; pg++) {
+    const { data } = await db.from('sales')
+      .select('gross_price, cancellation, marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, rebate, ads_cost, sale_costs(margin_value)')
+      .gte('sale_date', prevStart).lte('sale_date', prevEnd)
+      .order('id', { ascending: true }).range(pg * 1000, pg * 1000 + 999)
+    if (!data?.length) break
+    prevSalesRaw.push(...data)
+    if (data.length < 1000) break
+  }
 
   const prevSales = (prevSalesRaw ?? []).filter(s => !isReturned(s))
 
@@ -78,11 +92,16 @@ export default async function DashboardPage(
     .select('id', { count: 'exact', head: true })
     .is('dismissed_at', null)
 
-  const { data: trendSalesRaw } = await db
-    .from('sales')
-    .select('marketplace, gross_price, cancellation, sale_date')
-    .gte('sale_date', start)
-    .lte('sale_date', format(now, 'yyyy-MM-dd'))
+  const trendSalesRaw: any[] = []
+  for (let pg = 0; pg < 30; pg++) {
+    const { data } = await db.from('sales')
+      .select('marketplace, gross_price, cancellation, sale_date')
+      .gte('sale_date', start).lte('sale_date', format(now, 'yyyy-MM-dd'))
+      .order('id', { ascending: true }).range(pg * 1000, pg * 1000 + 999)
+    if (!data?.length) break
+    trendSalesRaw.push(...data)
+    if (data.length < 1000) break
+  }
 
   const trendSales = (trendSalesRaw ?? []).filter(s => !isReturned(s))
 
@@ -99,12 +118,17 @@ export default async function DashboardPage(
     .limit(1)
     .single()
 
-  const { data: topProductSalesRaw } = await db
-    .from('sales')
-    .select('product_id, gross_price, cancellation, marketplace_commission, sale_costs(total_cost, margin_pct), products(name, sku)')
-    .gte('sale_date', start)
-    .lte('sale_date', end)
-    .not('sale_costs', 'is', null)
+  const topProductSalesRaw: any[] = []
+  for (let pg = 0; pg < 30; pg++) {
+    const { data } = await db.from('sales')
+      .select('product_id, gross_price, cancellation, marketplace_commission, sale_costs(total_cost, margin_pct), products(name, sku)')
+      .gte('sale_date', start).lte('sale_date', end)
+      .not('sale_costs', 'is', null)
+      .order('id', { ascending: true }).range(pg * 1000, pg * 1000 + 999)
+    if (!data?.length) break
+    topProductSalesRaw.push(...data)
+    if (data.length < 1000) break
+  }
 
   const topProductSales = (topProductSalesRaw ?? []).filter(s => !isReturned(s))
 
