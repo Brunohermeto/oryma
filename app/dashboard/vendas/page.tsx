@@ -74,13 +74,37 @@ export default async function VendasPage({
     return (Array.isArray(v) ? (v as T[])[0] : v as T) ?? null
   }
 
+  // Os cards de resumo somam o PERÍODO INTEIRO (paginado), não só as 500 linhas
+  // exibidas na tabela — senão o faturamento fica truncado (ex.: mês com 1200+
+  // pedidos mostrava ~38% do total). Na busca por pedido o conjunto já é pequeno,
+  // então reaproveita as linhas carregadas.
+  const SUMMARY_COLS = 'gross_price, cancellation, discounts, shipping_received, marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, ads_cost, rebate, sale_taxes(total_taxes), sale_costs(total_cost, margin_pct)'
+  let summaryRows: any[] = sales ?? []
+  if (!orderQuery) {
+    summaryRows = []
+    for (let pg = 0; pg < 30; pg++) {
+      let sq = db.from('sales').select(SUMMARY_COLS)
+        .gte('sale_date', dateFrom).lte('sale_date', dateTo)
+        .order('id', { ascending: true }).range(pg * 1000, pg * 1000 + 999)
+      if (marketplace)  sq = sq.eq('marketplace', marketplace)
+      if (productId)    sq = sq.eq('product_id', productId)
+      if (fulfillment)  sq = sq.eq('fulfillment_type', fulfillment)
+      const { data } = await sq
+      if (!data?.length) break
+      summaryRows.push(...data)
+      if (data.length < 1000) break
+    }
+  }
+
   // Devolvidas ficam FORA de todos os totais (continuam listadas, com selo)
   const devolvidas = (sales ?? []).filter(isReturned)
 
-  const summary = (sales ?? []).filter(s => !isReturned(s)).reduce((acc, s) => {
+  const summary = summaryRows.filter(s => !isReturned(s)).reduce((acc, s) => {
     const taxes = unwrap<{ total_taxes: number }>(s.sale_taxes)
     const cost  = unwrap<{ total_cost: number; margin_pct: number }>(s.sale_costs)
-    acc.revenue      += Number(s.gross_price) - Number(s.cancellation) - Number((s as any).discounts ?? 0)
+    // Faturamento BRUTO = gross - devolução (mesma fórmula do Dashboard). O cupom
+    // (discounts) NÃO sai do faturamento — entra como redução no balde de tarifas.
+    acc.revenue      += Number(s.gross_price) - Number(s.cancellation)
     // Frete do COMPRADOR (shipping_received) não é receita — vai para o ML.
     // Só o frete do VENDEDOR entra, como custo (negativo).
     acc.freteNeto    += -Number(s.marketplace_shipping_fee ?? 0)
@@ -88,6 +112,7 @@ export default async function VendasPage({
     acc.commission   += Number(s.marketplace_commission)
     acc.ads          += Number(s.ads_cost)
     acc.rebates      += Number((s as any).rebate ?? 0)
+    acc.discounts    += Number((s as any).discounts ?? 0)
     acc.taxes        += Number(taxes?.total_taxes ?? 0)
     acc.cmv          += Number(cost?.total_cost ?? 0)
     acc.orders++
@@ -96,9 +121,9 @@ export default async function VendasPage({
       acc.marginCount++
     }
     return acc
-  }, { revenue: 0, freteNeto: 0, fixedFees: 0, commission: 0, ads: 0, rebates: 0, taxes: 0, cmv: 0, orders: 0, marginSum: 0, marginCount: 0 })
+  }, { revenue: 0, freteNeto: 0, fixedFees: 0, commission: 0, ads: 0, rebates: 0, discounts: 0, taxes: 0, cmv: 0, orders: 0, marginSum: 0, marginCount: 0 })
 
-  const netRevenue  = summary.revenue + summary.freteNeto + summary.rebates - summary.fixedFees - summary.commission - summary.ads - summary.taxes
+  const netRevenue  = summary.revenue + summary.freteNeto + summary.rebates - summary.fixedFees - summary.commission - summary.ads - summary.taxes - summary.discounts
   const grossProfit = netRevenue - summary.cmv
   const avgMargin   = summary.marginCount > 0 ? summary.marginSum / summary.marginCount : 0
 
@@ -123,7 +148,7 @@ export default async function VendasPage({
         <div className="grid grid-cols-5 gap-3">
           {[
             { label: 'Faturamento Bruto', value: fmtR(summary.revenue), color: B.text, href: undefined },
-            { label: 'Impostos + Tarifas + ADS', value: fmtR(summary.taxes + summary.commission + summary.fixedFees + summary.ads - summary.freteNeto - summary.rebates), color: '#dc2626', href: undefined },
+            { label: 'Impostos + Tarifas + ADS', value: fmtR(summary.taxes + summary.commission + summary.fixedFees + summary.ads + summary.discounts - summary.freteNeto - summary.rebates), color: '#dc2626', href: undefined },
             { label: 'CMV (Custo Landed)', value: fmtR(summary.cmv), color: '#dc2626', href: undefined },
             { label: 'Lucro Bruto', value: fmtR(grossProfit), color: grossProfit >= 0 ? '#16a34a' : '#dc2626', href: undefined },
             { label: 'Margem Média', value: summary.marginCount > 0 ? fmtPct(avgMargin) : '—', color: avgMargin >= 0.35 ? '#16a34a' : avgMargin >= 0.20 ? '#d97706' : '#dc2626', href: undefined },
