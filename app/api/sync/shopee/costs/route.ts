@@ -30,15 +30,20 @@ export async function POST(request: NextRequest) {
   const since = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10)
 
   const { data: sales } = await db.from('sales')
-    .select('id, external_order_id, gross_price, marketplace_commission')
+    .select('id, external_order_id, gross_price, marketplace_commission, marketplace_fixed_fee, marketplace_shipping_fee, discounts')
     .eq('marketplace', 'shopee').gte('sale_date', since)
 
   // agrupa por pedido; prioriza os que ainda estão SEM comissão
-  const byOrder = new Map<string, Array<{ id: string; gross_price: number; hasComm: boolean }>>()
+  type Item = { id: string; gross_price: number; hasComm: boolean; comm: number; serv: number; ship: number; disc: number }
+  const byOrder = new Map<string, Array<Item>>()
   for (const s of sales ?? []) {
     const sn = s.external_order_id.replace(/^shopee_/, '').split('_')[0]
     if (!byOrder.has(sn)) byOrder.set(sn, [])
-    byOrder.get(sn)!.push({ id: s.id, gross_price: Number(s.gross_price), hasComm: Number(s.marketplace_commission) > 0 })
+    byOrder.get(sn)!.push({
+      id: s.id, gross_price: Number(s.gross_price), hasComm: Number(s.marketplace_commission) > 0,
+      comm: Number(s.marketplace_commission ?? 0), serv: Number(s.marketplace_fixed_fee ?? 0),
+      ship: Number(s.marketplace_shipping_fee ?? 0), disc: Number(s.discounts ?? 0),
+    })
   }
   const fila = [...byOrder.entries()].sort((a, b) =>
     Number(a[1].every(x => x.hasComm)) - Number(b[1].every(x => x.hasComm)))
@@ -62,11 +67,17 @@ export async function POST(request: NextRequest) {
     const total = items.reduce((a, x) => a + x.gross_price, 0)
     for (const it of items) {
       const share = total > 0 ? it.gross_price / total : 1 / items.length
+      const nComm = Math.round(comm * share * 100) / 100
+      const nServ = Math.round(serv * share * 100) / 100
+      const nDisc = Math.round(cupom * share * 100) / 100
+      // só grava se algo mudou de verdade — assim o loop converge (updated=0 → para)
+      // em vez de reescrever os mesmos valores toda rodada.
+      if (it.comm === nComm && it.serv === nServ && it.ship === 0 && it.disc === nDisc) continue
       const { error } = await db.from('sales').update({
-        marketplace_commission: Math.round(comm * share * 100) / 100,
-        marketplace_fixed_fee: Math.round(serv * share * 100) / 100,
+        marketplace_commission: nComm,
+        marketplace_fixed_fee: nServ,
         marketplace_shipping_fee: 0,
-        discounts: Math.round(cupom * share * 100) / 100,
+        discounts: nDisc,
       }).eq('id', it.id)
       if (!error) updated++
     }
