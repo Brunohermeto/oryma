@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
 
   // vendas com chave, do Bling (não-Amazon), no período
   const { data: sales } = await db.from('sales')
-    .select('id, nfe_saida_key, gross_price, marketplace, fulfillment_type')
+    .select('id, nfe_saida_key, gross_price, marketplace, fulfillment_type, uf_destino')
     .not('nfe_saida_key', 'is', null)
     .neq('marketplace', 'amazon')
     .gte('sale_date', since)
@@ -47,7 +47,9 @@ export async function POST(request: NextRequest) {
   }
   const byChave = new Map<string, Array<{ id: string; gross_price: number }>>()
   for (const s of sales ?? []) {
-    if (taxed.has(s.id)) continue
+    // pula só quem já tem imposto E já tem UF — a venda com imposto mas sem UF
+    // (extração de UF falhou numa rodada antiga) precisa reentrar pra pegar o UF
+    if (taxed.has(s.id) && s.uf_destino) continue
     if (s.marketplace === 'magalu' && s.fulfillment_type === 'full_magalu') continue // NF série 6 não está no Bling
     // Shopee emite pela própria plataforma desde ~10/07 (série 005) — XML não está no Bling
     if (s.marketplace === 'shopee' && s.nfe_saida_key.slice(22, 25) === '005') continue
