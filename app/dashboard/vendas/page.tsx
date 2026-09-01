@@ -78,7 +78,7 @@ export default async function VendasPage({
   // exibidas na tabela — senão o faturamento fica truncado (ex.: mês com 1200+
   // pedidos mostrava ~38% do total). Na busca por pedido o conjunto já é pequeno,
   // então reaproveita as linhas carregadas.
-  const SUMMARY_COLS = 'gross_price, cancellation, discounts, shipping_received, marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, ads_cost, rebate, sale_taxes(total_taxes), sale_costs(total_cost, margin_pct)'
+  const SUMMARY_COLS = 'gross_price, cancellation, discounts, shipping_received, marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, ads_cost, rebate, sale_taxes(total_taxes), sale_costs(total_cost, margin_value)'
   let summaryRows: any[] = sales ?? []
   if (!orderQuery) {
     summaryRows = []
@@ -101,10 +101,11 @@ export default async function VendasPage({
 
   const summary = summaryRows.filter(s => !isReturned(s)).reduce((acc, s) => {
     const taxes = unwrap<{ total_taxes: number }>(s.sale_taxes)
-    const cost  = unwrap<{ total_cost: number; margin_pct: number }>(s.sale_costs)
+    const cost  = unwrap<{ total_cost: number; margin_value: number }>(s.sale_costs)
+    const bruto = Number(s.gross_price) - Number(s.cancellation)
     // Faturamento BRUTO = gross - devolução (mesma fórmula do Dashboard). O cupom
     // (discounts) NÃO sai do faturamento — entra como redução no balde de tarifas.
-    acc.revenue      += Number(s.gross_price) - Number(s.cancellation)
+    acc.revenue      += bruto
     // Frete do COMPRADOR (shipping_received) não é receita — vai para o ML.
     // Só o frete do VENDEDOR entra, como custo (negativo).
     acc.freteNeto    += -Number(s.marketplace_shipping_fee ?? 0)
@@ -116,22 +117,26 @@ export default async function VendasPage({
     acc.taxes        += Number(taxes?.total_taxes ?? 0)
     acc.cmv          += Number(cost?.total_cost ?? 0)
     acc.orders++
-    if (cost?.margin_pct !== null && cost?.margin_pct !== undefined) {
-      acc.marginSum += Number(cost.margin_pct)
-      acc.marginCount++
+    // Lucro/margem REAL: soma de margin_value só das vendas COMPLETAS (com custo
+    // e imposto lançados), sobre o faturamento bruto delas — MESMO método do
+    // Dashboard. Vendas em cálculo ficam fora do lucro até os custos chegarem
+    // (senão o lucro infla, pois a receita entra sem o custo correspondente).
+    if (cost?.margin_value !== null && cost?.margin_value !== undefined) {
+      acc.marginValue += Number(cost.margin_value)
+      acc.marginBase  += bruto
     }
     return acc
-  }, { revenue: 0, freteNeto: 0, fixedFees: 0, commission: 0, ads: 0, rebates: 0, discounts: 0, taxes: 0, cmv: 0, orders: 0, marginSum: 0, marginCount: 0 })
+  }, { revenue: 0, freteNeto: 0, fixedFees: 0, commission: 0, ads: 0, rebates: 0, discounts: 0, taxes: 0, cmv: 0, orders: 0, marginValue: 0, marginBase: 0 })
 
-  const netRevenue  = summary.revenue + summary.freteNeto + summary.rebates - summary.fixedFees - summary.commission - summary.ads - summary.taxes - summary.discounts
-  const grossProfit = netRevenue - summary.cmv
-  const avgMargin   = summary.marginCount > 0 ? summary.marginSum / summary.marginCount : 0
+  const grossProfit = summary.marginValue
+  const avgMargin   = summary.marginBase > 0 ? summary.marginValue / summary.marginBase : 0
+  const emCalculo   = summary.orders - summaryRows.filter(s => !isReturned(s) && unwrap<{ margin_value: number }>(s.sale_costs)?.margin_value != null).length
 
   return (
     <>
       <TopBar
         title="Vendas & Margem"
-        subtitle={`${summary.orders} vendas${devolvidas.length ? ` (+${devolvidas.length} devolvida${devolvidas.length > 1 ? 's' : ''}, fora dos totais)` : ''} — ${dateFrom} a ${dateTo}`}
+        subtitle={`${summary.orders} vendas${emCalculo > 0 ? ` (${emCalculo} em cálculo, fora do lucro)` : ''}${devolvidas.length ? ` (+${devolvidas.length} devolvida${devolvidas.length > 1 ? 's' : ''}, fora dos totais)` : ''} — ${dateFrom} a ${dateTo}`}
       />
       <div className="px-4 md:px-8 pt-4">
         <a href="/dashboard/vendas-ao-vivo" className="text-[12px] font-semibold px-3 py-1.5 rounded-lg inline-block" style={{ background: 'oklch(0.96 0.010 258)', color: '#125BFF' }}>Vendas ao Vivo (tempo real) →</a>
@@ -150,8 +155,8 @@ export default async function VendasPage({
             { label: 'Faturamento Bruto', value: fmtR(summary.revenue), color: B.text, href: undefined },
             { label: 'Impostos + Tarifas + ADS', value: fmtR(summary.taxes + summary.commission + summary.fixedFees + summary.ads + summary.discounts - summary.freteNeto - summary.rebates), color: '#dc2626', href: undefined },
             { label: 'CMV (Custo Landed)', value: fmtR(summary.cmv), color: '#dc2626', href: undefined },
-            { label: 'Lucro Bruto', value: fmtR(grossProfit), color: grossProfit >= 0 ? '#16a34a' : '#dc2626', href: undefined },
-            { label: 'Margem Média', value: summary.marginCount > 0 ? fmtPct(avgMargin) : '—', color: avgMargin >= 0.35 ? '#16a34a' : avgMargin >= 0.20 ? '#d97706' : '#dc2626', href: undefined },
+            { label: 'Lucro Real', value: fmtR(grossProfit), color: grossProfit >= 0 ? '#16a34a' : '#dc2626', href: undefined },
+            { label: 'Margem Real', value: summary.marginBase > 0 ? fmtPct(avgMargin) : '—', color: avgMargin >= 0.35 ? '#16a34a' : avgMargin >= 0.20 ? '#d97706' : '#dc2626', href: undefined },
           ].map((card, i) => (
             <div key={i} className="bg-white rounded-xl px-4 py-3" style={{ border: `1px solid ${B.border}` }}>
               <div className="text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: B.muted }}>{card.label}</div>
