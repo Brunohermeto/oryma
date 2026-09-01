@@ -2,6 +2,7 @@ import { TopBar } from '@/components/layout/TopBar'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { isReturned } from '@/lib/sales/returned'
 import { format, startOfMonth, endOfMonth, subMonths, subDays, eachDayOfInterval } from 'date-fns'
+import { brazilToday } from '@/lib/utils/brazil-time'
 import { RevenueLineChart } from '@/components/charts/RevenueLineChart'
 import { MarginDailyChart, type MarginDailyPoint } from '@/components/charts/MarginDailyChart'
 import { MarketplaceBarChart } from '@/components/charts/MarketplaceBarChart'
@@ -27,7 +28,9 @@ export default async function DashboardPage(
 ) {
   const sp = await searchParams
   const db = createSupabaseServiceClient()
-  const now = new Date()
+  // "hoje" ancorado no fuso do Brasil (a Vercel roda em UTC; às 21h+ BRT o
+  // new Date() puro já virou o dia/mês seguinte e o dashboard pulava de mês cedo).
+  const now = new Date(`${brazilToday()}T12:00:00`)
 
   // ── Período = MÊS (vigente por padrão, ou ?mes=YYYY-MM) ──
   const mesAtual = format(now, 'yyyy-MM')

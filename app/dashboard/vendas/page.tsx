@@ -1,7 +1,7 @@
 import { TopBar } from '@/components/layout/TopBar'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
-import { startOfMonth, endOfMonth } from 'date-fns'
-import { toBrazilDate } from '@/lib/utils/brazil-time'
+import { startOfMonth, endOfMonth, format } from 'date-fns'
+import { brazilToday } from '@/lib/utils/brazil-time'
 import { SalesFilters } from '@/components/vendas/SalesFilters'
 import { SalesTable } from '@/components/vendas/SalesTable'
 import { isReturned } from '@/lib/sales/returned'
@@ -32,10 +32,12 @@ export default async function VendasPage({
 }) {
   const db = createSupabaseServiceClient()
   const params = await searchParams
-  const now = new Date()
-  // Usa fuso Brasil para que o filtro padrão reflita o mês correto para o usuário
-  const dateFrom   = params.from ?? toBrazilDate(startOfMonth(now))
-  const dateTo     = params.to ?? toBrazilDate(endOfMonth(now))
+  // "hoje" ancorado ao meio-dia do fuso Brasil: a Vercel roda em UTC e, às 21h+
+  // BRT, um new Date() puro já virou o dia/mês seguinte. Com o meio-dia, format()
+  // (server-local) devolve a data BR correta sem cruzar a meia-noite.
+  const now = new Date(`${brazilToday()}T12:00:00`)
+  const dateFrom   = params.from ?? format(startOfMonth(now), 'yyyy-MM-dd')
+  const dateTo     = params.to ?? format(endOfMonth(now), 'yyyy-MM-dd')
   const marketplace = params.mp ?? ''
   const productId  = params.product ?? ''
   const fulfillment = params.fulfillment ?? ''
