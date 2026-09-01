@@ -9,7 +9,10 @@
 #   Amazon: vendas (bruto = produto+imposto) + taxas reais/FBA/fixa (8b) +
 #           DEVOLUCOES como cancellation (painel Amazon e liquido de devolucoes);
 #           impostos: aguardando funcao restrita Faturamento de Impostos (NF-e)
-#   Shopee: entra quando o app for aprovado
+#   Shopee: vendas + chaves NF + impostos Full (FBS via API) + impostos galpao
+#           (XML da NF via Bling por chave, 3b) + custos liquidos (comissao/servico,
+#           8d4) + devolucoes (8e) + estoque CD Full (9c). Frete e NEUTRO (comprador
+#           paga, Shopee repassa a logistica). UF do galpao vem do XML da NF.
 #
 # Ordem e por quê:
 #   1. Vendas marketplaces (ultimos 2 dias)
@@ -24,7 +27,7 @@
 #   9. Estoque Full ML
 #  10. Relink: CMP por vigencia de NF + margens
 #  11. Auditoria automatica (alertas na Visao Geral)
-import json, time, urllib.request, datetime, os
+import json, time, urllib.request, urllib.error, datetime, os
 
 BASE = os.environ.get("ORYMA_BASE", "https://www.oryma.com.br")
 # Senha: variavel de ambiente (nuvem/GitHub Actions) tem prioridade; senao le o
@@ -42,9 +45,19 @@ ANTEONTEM = (TODAY - datetime.timedelta(days=2)).isoformat()
 
 def post(path, body=None, timeout=170):
     data = json.dumps(body).encode() if body is not None else b""
-    req = urllib.request.Request(BASE + path, data=data, headers=HDRS, method="POST")
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.loads(r.read())
+    # Retry so em erro de REDE (conexao resetada, timeout de SSL) — as rotas sao
+    # idempotentes. HTTPError (401/400/500 real) sobe na hora, sem retry.
+    for tent in range(3):
+        try:
+            req = urllib.request.Request(BASE + path, data=data, headers=HDRS, method="POST")
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return json.loads(r.read())
+        except urllib.error.HTTPError:
+            raise
+        except (urllib.error.URLError, OSError):
+            if tent == 2:
+                raise
+            time.sleep(5 * (tent + 1))
 
 def get(path):
     req = urllib.request.Request(BASE + path, headers=HDRS)
