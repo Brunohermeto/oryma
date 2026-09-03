@@ -18,7 +18,7 @@ async function testBling(): Promise<{ ok: boolean; error?: string; expires_at?: 
     const token = await getValidBlingToken()
     if (!token) return { ok: false, error: 'Token nulo' }
     // Testa com uma chamada leve
-    const res = await fetch('https://www.bling.com.br/Api/v3/situacoes/modulos', {
+    const res = await fetch('https://api.bling.com.br/Api/v3/situacoes/modulos', {
       headers: { Authorization: `Bearer ${token}` },
     })
     const cred = await getCredential('bling')

@@ -11,7 +11,7 @@ import { gunzipSync } from 'zlib'
 export const dynamic         = 'force-dynamic'
 export const preferredRegion = 'gru1'
 
-const BLING_BASE = 'https://www.bling.com.br/Api/v3'
+const BLING_BASE = 'https://api.bling.com.br/Api/v3'
 
 async function blingFetch(token: string, path: string, params?: Record<string, string>) {
   const url = new URL(`${BLING_BASE}${path}`)

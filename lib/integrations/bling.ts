@@ -1,8 +1,11 @@
 import { getCredential, saveCredential, isTokenExpired } from './credentials'
 import { gunzipSync } from 'zlib'
 
-const BLING_BASE = 'https://www.bling.com.br/Api/v3'
-const BLING_TOKEN_URL = 'https://www.bling.com.br/Api/v3/oauth/token'
+// Bling bloqueou www.bling.com.br para requisições de API (set/2026): endpoints
+// de dados e token PRECISAM usar api.bling.com.br. O oauth/authorize continua no
+// www (é a página de login no navegador, não uma requisição de API).
+const BLING_BASE = 'https://api.bling.com.br/Api/v3'
+const BLING_TOKEN_URL = 'https://api.bling.com.br/Api/v3/oauth/token'
 
 export function getBlingAuthUrl(): string {
   const params = new URLSearchParams({

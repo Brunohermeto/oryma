@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 8000)
 
-      const res = await fetch('https://www.bling.com.br/Api/v3/oauth/token', {
+      const res = await fetch('https://api.bling.com.br/Api/v3/oauth/token', {
         method: 'POST',
         signal: controller.signal,
         headers: {
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     try {
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 8000)
-      const res = await fetch(`https://www.bling.com.br/Api/v3${path}`, {
+      const res = await fetch(`https://api.bling.com.br/Api/v3${path}`, {
         signal: controller.signal,
         headers: { Authorization: `Bearer ${cred!.access_token}` },
       })
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 8000)
       const res = await fetch(
-        `https://www.bling.com.br/Api/v3/nfe?pagina=1&limite=1&dataEmissaoInicio=${startDate}&dataEmissaoFim=${endDate}`,
+        `https://api.bling.com.br/Api/v3/nfe?pagina=1&limite=1&dataEmissaoInicio=${startDate}&dataEmissaoFim=${endDate}`,
         { signal: controller.signal, headers: { Authorization: `Bearer ${cred.access_token}` } }
       )
       clearTimeout(timeout)
