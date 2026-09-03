@@ -487,6 +487,7 @@ export default async function DashboardPage(
               value: fmtR(totalRevenue), color: '#125BFF',
               delta: prevRevenue > 0 ? revenueChange : null, deltaFmt: (d: number) => `${d > 0 ? '+' : ''}${d.toFixed(1)}%`,
               perMp: (mp: string) => fmtR(byMP[mp].revenue),
+              note: undefined as string | undefined,
             },
             {
               label: `Lucro Real (${mesCurto})`, href: '/dashboard/dre',
@@ -494,6 +495,8 @@ export default async function DashboardPage(
               delta: prevProfit !== 0 ? ((grossProfit - prevProfit) / Math.abs(prevProfit)) * 100 : null,
               deltaFmt: (d: number) => `${d > 0 ? '+' : ''}${d.toFixed(0)}%`,
               perMp: (mp: string) => fmtR(byMP[mp].marginValue),
+              // por que lucro ≠ faturamento×margem: só conta as vendas já apuradas
+              note: emCalculo > 0 ? `apurado sobre ${fmtR(marginBase)} (${marginBase > 0 ? Math.round(marginBase / totalRevenue * 100) : 0}% do faturamento) · ${emCalculo} vendas em cálculo` : undefined,
             },
             {
               label: 'Margem Real', href: '/dashboard/dre',
@@ -501,6 +504,7 @@ export default async function DashboardPage(
               delta: prevMargin !== null ? grossMargin - prevMargin : null,
               deltaFmt: (d: number) => `${d > 0 ? '+' : ''}${d.toFixed(1)}pp`,
               perMp: (mp: string) => byMP[mp].marginBase > 0 ? fmtPct((byMP[mp].marginValue / byMP[mp].marginBase) * 100) : '—',
+              note: emCalculo > 0 ? 'calculada só sobre as vendas já apuradas' : undefined,
             },
             {
               label: 'Pedidos', href: `/dashboard/vendas?from=${start}&to=${end}`,
@@ -508,6 +512,7 @@ export default async function DashboardPage(
               delta: prevOrders > 0 ? ((totalOrders - prevOrders) / prevOrders) * 100 : null,
               deltaFmt: (d: number) => `${d > 0 ? '+' : ''}${d.toFixed(0)}%`,
               perMp: (mp: string) => String(byMP[mp].orders),
+              note: undefined as string | undefined,
             },
           ].map(k => (
             <a key={k.label} href={k.href} className="block rounded-2xl px-5 py-4 bg-white" style={{
@@ -527,6 +532,9 @@ export default async function DashboardPage(
                   </span>
                   <span className="text-[11px]" style={{ color: '#94a3b8' }}>vs mês anterior</span>
                 </div>
+              )}
+              {k.note && (
+                <div className="text-[10px] mt-1.5 leading-tight" style={{ color: '#94a3b8' }}>{k.note}</div>
               )}
               {/* Totalizador aberto por marketplace */}
               <div className="mt-3 pt-2 space-y-1" style={{ borderTop: '1px solid oklch(0.94 0.01 258)' }}>
