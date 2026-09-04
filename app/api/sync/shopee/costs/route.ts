@@ -24,8 +24,11 @@ export async function POST(request: NextRequest) {
     || (process.env.CRON_SECRET ? cronSecret === process.env.CRON_SECRET : cronSecret === 'internal')
   if (!isAuthorized) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const days  = Number(request.nextUrl.searchParams.get('days') ?? 15)
-  const limit = Number(request.nextUrl.searchParams.get('limit') ?? 40)
+  const days   = Number(request.nextUrl.searchParams.get('days') ?? 15)
+  const limit  = Number(request.nextUrl.searchParams.get('limit') ?? 40)
+  // offset pagina a fila toda (backfill/correção one-time — reprocessa mesmo os
+  // pedidos "completos", pra reescrever valores após mudança de fórmula).
+  const offset = Number(request.nextUrl.searchParams.get('offset') ?? 0)
   const db = createSupabaseServiceClient()
   const since = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10)
 
@@ -50,8 +53,9 @@ export async function POST(request: NextRequest) {
   // Assim o backfill histórico de repasse (pedidos que já têm comissão mas ainda
   // não têm o escrow gravado) também é alcançado, não só os pedidos novos.
   const completo = (its: Item[]) => its.every(x => x.hasComm && x.pay != null)
-  const fila = [...byOrder.entries()].sort((a, b) =>
+  const filaFull = [...byOrder.entries()].sort((a, b) =>
     Number(completo(a[1])) - Number(completo(b[1])))
+  const fila = offset > 0 ? filaFull.slice(offset) : filaFull
 
   let processed = 0, updated = 0
   for (const [sn, items] of fila) {
