@@ -46,8 +46,12 @@ export async function POST(request: NextRequest) {
       pay: s.payout_actual == null ? null : Number(s.payout_actual),
     })
   }
+  // prioriza pedidos INCOMPLETOS: sem comissão OU sem repasse (payout_actual).
+  // Assim o backfill histórico de repasse (pedidos que já têm comissão mas ainda
+  // não têm o escrow gravado) também é alcançado, não só os pedidos novos.
+  const completo = (its: Item[]) => its.every(x => x.hasComm && x.pay != null)
   const fila = [...byOrder.entries()].sort((a, b) =>
-    Number(a[1].every(x => x.hasComm)) - Number(b[1].every(x => x.hasComm)))
+    Number(completo(a[1])) - Number(completo(b[1])))
 
   let processed = 0, updated = 0
   for (const [sn, items] of fila) {
