@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { brazilDaysAgo, brazilToday } from '@/lib/utils/brazil-time'
 import { isReturned } from '@/lib/sales/returned'
+import { isPayoutDivergent, payoutDiff } from '@/lib/sales/payout'
 
 export const dynamic         = 'force-dynamic'
 export const maxDuration     = 60
@@ -22,7 +23,7 @@ const UF_EMITENTE = 'MG'  // MCL é de Belo Horizonte
 const SALES_AUDIT_RULES = [
   'nf_icms_difal_duplicado', 'nf_difal_interno', 'nf_carga_alta', 'sem_nf',
   'sem_tarifas', 'sem_frete', 'sem_produto', 'sem_custo',
-  'custo_incompativel', 'margem_negativa',
+  'custo_incompativel', 'margem_negativa', 'repasse_divergente',
 ]
 
 interface Finding { sale_id: string; rule: string; severity: string; message: string }
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
   const { data: sales } = await db.from('sales')
     .select(`id, sku, sale_date, gross_price, cancellation, quantity, product_id, nfe_saida_key, uf_destino,
       marketplace, fulfillment_type, marketplace_commission, marketplace_shipping_fee,
-      marketplace_fixed_fee, rebate,
+      marketplace_fixed_fee, rebate, ads_cost, discounts, payout_actual,
       sale_taxes(icms, icms_difal, pis, cofins, total_taxes),
       sale_costs(total_cost, margin_pct)`)
     .gte('sale_date', from)
@@ -110,6 +111,13 @@ export async function POST(request: NextRequest) {
     if (c?.margin_pct !== null && c?.margin_pct !== undefined && Number(c.margin_pct) < -0.2) {
       add(s, 'margem_negativa', 'info',
         `${s.sku} (${s.sale_date}): margem de ${(Number(c.margin_pct) * 100).toFixed(0)}% — prejuízo relevante.`)
+    }
+
+    // ── Repasse: marketplace pagou diferente do esperado ──
+    if (isPayoutDivergent(s)) {
+      const dif = payoutDiff(s)
+      add(s, 'repasse_divergente', 'critical',
+        `${s.sku} (${s.sale_date}): repasse ${dif < 0 ? 'MENOR' : 'maior'} que o esperado em R$${Math.abs(dif).toFixed(2)} — conferir extrato do ${s.marketplace}.`)
     }
   }
 
