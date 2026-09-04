@@ -213,11 +213,18 @@ except Exception as e:
     print(f"8d2. shopee chaves NF: ERRO {str(e)[:70]}", flush=True)
 
 # ── 8d3. impostos do Shopee Full (FBS) — 100% automático via API ──
-try:
-    r = post("/api/sync/shopee/full-taxes?days=20", timeout=170)
-    print(f"8d3. shopee full taxes: {json.dumps(r, ensure_ascii=False)[:120]}", flush=True)
-except Exception as e:
-    print(f"8d3. shopee full taxes: ERRO {str(e)[:70]}", flush=True)
+#        A Shopee gera o lote de XMLs de forma assíncrona; em dias lentos passa
+#        dos ~39s que a rota espera e volta 504. Repete até 3x (rota idempotente,
+#        cada tentativa é uma invocação nova de 60s + pausa dá tempo de gerar).
+for tent in range(3):
+    try:
+        r = post("/api/sync/shopee/full-taxes?days=20", timeout=170)
+        print(f"8d3. shopee full taxes t{tent}: {json.dumps(r, ensure_ascii=False)[:120]}", flush=True)
+        if r.get("ok"): break
+    except Exception as e:
+        print(f"8d3. shopee full taxes t{tent}: ERRO {str(e)[:70]}", flush=True)
+    if tent < 2:
+        time.sleep(20)
 
 # ── 8d4. custos Shopee (comissão/serviço líquidos) — reprocessa 15d conforme a
 #        Shopee finaliza o financeiro (o sync só relê 2 dias) ──

@@ -40,9 +40,12 @@ export async function POST(request: NextRequest) {
   const reqId = gen.result_list?.[0]?.request_id
   if (!reqId) return NextResponse.json({ ok: false, step: 'generate', resp: gen }, { status: 502 })
 
-  // 2. espera ficar disponível (costuma ser imediato)
+  // 2. espera ficar disponível (costuma ser imediato; em dias lentos a Shopee
+  //    demora a gerar o lote). 13×3s=39s deixa folga p/ baixar+processar o ZIP
+  //    dentro do maxDuration=60. Se ainda assim não sair, o catchup repete a
+  //    etapa (rota idempotente) numa nova invocação de 60s.
   let link: string | null = null
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 13; i++) {
     await sleep(3000)
     const dl = await shopeePost<{ response?: Array<{ file_link?: string }> }>(
       '/order/download_fbs_invoices', { request_id_list: { request_id: [reqId] } }
