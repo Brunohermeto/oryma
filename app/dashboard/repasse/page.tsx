@@ -2,7 +2,7 @@ import { TopBar } from '@/components/layout/TopBar'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { brazilDaysAgo } from '@/lib/utils/brazil-time'
 import { isReturned } from '@/lib/sales/returned'
-import { expectedPayout, payoutDiff, isPayoutDivergent, type PayoutSale } from '@/lib/sales/payout'
+import { expectedPayout, isPayoutAuditable, type PayoutSale } from '@/lib/sales/payout'
 import { mpLabel } from '@/components/marketplaces'
 
 export const dynamic = 'force-dynamic'
@@ -58,7 +58,9 @@ export default async function RepassePage({
   }
   const all = [...byOrder.values()].map(r => {
     r.diff = Math.round((r.actual - r.expected) * 100) / 100
-    r.divergent = Math.abs(r.diff) > 1 && (r.expected === 0 || Math.abs(r.diff) / Math.abs(r.expected) > 0.02)
+    // Shopee entra só como referência (fonte não-independente) — nunca divergente
+    r.divergent = isPayoutAuditable(r.marketplace)
+      && Math.abs(r.diff) > 1 && (r.expected === 0 || Math.abs(r.diff) / Math.abs(r.expected) > 0.02)
     return r
   }).sort((a, b) => a.diff - b.diff)   // mais negativo (pagou menos) no topo
 
@@ -67,7 +69,7 @@ export default async function RepassePage({
   const totActual   = all.reduce((s, r) => s + r.actual, 0)
   const totDiff     = Math.round((totActual - totExpected) * 100) / 100
   const nDiv        = all.filter(r => r.divergent).length
-  const perdido     = all.filter(r => r.diff < 0).reduce((s, r) => s + r.diff, 0)
+  const perdido     = all.filter(r => r.divergent && r.diff < 0).reduce((s, r) => s + r.diff, 0)
 
   const chip = (label: string, href: string, active: boolean) => (
     <a href={href} className="text-[12px] font-semibold px-3 py-1.5 rounded-lg"
@@ -139,7 +141,7 @@ export default async function RepassePage({
         </div>
         <p className="text-[11px]" style={{ color: B.muted }}>
           Esperado = bruto − devolução − comissão − taxa fixa − frete do vendedor − ADS − cupom + rebate. Frete do comprador não entra (neutro).
-          Só aparecem pedidos cujo repasse real já foi registrado pelo marketplace.
+          Só aparecem pedidos cujo repasse já foi registrado. A <b>Shopee</b> entra como referência (a API devolve a Renda estimada dela, não um extrato independente), então não é marcada como divergente — a conciliação com alerta vale para Mercado Livre, Amazon e Magalu.
         </p>
       </div>
     </>

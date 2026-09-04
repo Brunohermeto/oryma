@@ -14,9 +14,12 @@ eq(expectedPayout({ gross_price: 100, marketplace_shipping_fee: 10, ads_cost: 5,
 eq(payoutDiff({ gross_price: 100, marketplace_commission: 12, payout_actual: 88 }), 0, 'bate certinho')
 eq(payoutDiff({ gross_price: 100, marketplace_commission: 12, payout_actual: 80 }), -8, 'pagou 8 a menos')
 
-// divergência relevante: > R$1 E > 2%
-if (isPayoutDivergent({ gross_price: 100, marketplace_commission: 12, payout_actual: 87.5 })) throw new Error('0,50 nao deveria alertar')
-if (!isPayoutDivergent({ gross_price: 100, marketplace_commission: 12, payout_actual: 80 })) throw new Error('8 deveria alertar')
-if (isPayoutDivergent({ gross_price: 100, marketplace_commission: 12 })) throw new Error('sem payout_actual nao concilia')
+// divergência relevante: > R$1 E > 2%, só em canal auditável (ML/Amazon/Magalu)
+const ml = (extra: any) => ({ marketplace: 'mercado_livre', gross_price: 100, marketplace_commission: 12, ...extra })
+if (isPayoutDivergent(ml({ payout_actual: 87.5 }))) throw new Error('0,50 nao deveria alertar')
+if (!isPayoutDivergent(ml({ payout_actual: 80 }))) throw new Error('8 deveria alertar')
+if (isPayoutDivergent(ml({}))) throw new Error('sem payout_actual nao concilia')
+// Shopee = referência, nunca alerta (fonte não-independente)
+if (isPayoutDivergent({ marketplace: 'shopee', gross_price: 100, marketplace_commission: 12, payout_actual: 80 })) throw new Error('shopee nao deveria alertar')
 
 console.log('payout: todos os checks passaram ✓')

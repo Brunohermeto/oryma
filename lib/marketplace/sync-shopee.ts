@@ -142,13 +142,9 @@ export async function syncShopee(startDate: string, endDate: string): Promise<nu
           ads_cost: ((income as any)?.ads_campaign_cost ?? 0) * share,
           // cupom que reduz a receita do vendedor (Shopee desconta do repasse)
           discounts: (((income as any)?.voucher_from_seller ?? 0) + ((income as any)?.voucher_from_shopee ?? 0)) * share,
-          // repasse REAL = escrow_amount + crédito da ação comercial (bruto−líquido de
-          // comissão/serviço, creditado à parte). Rateado por item — base da auditoria
-          // de repasse. 0/ausente = ainda não liberado.
-          ...((Number((income as any)?.escrow_amount) > 0) ? { payout_actual: ((income as any).escrow_amount
-            + Math.max(0, Number((income as any)?.commission_fee ?? 0) - Number((income as any)?.net_commission_fee ?? 0))
-            + Math.max(0, Number((income as any)?.service_fee ?? 0) - Number((income as any)?.net_service_fee ?? 0))
-          ) * share } : {}),
+          // escrow_amount (Renda estimada) rateado — referência da Shopee, não é
+          // repasse independente (fica fora do alerta). 0/ausente = não liberado.
+          ...((Number((income as any)?.escrow_amount) > 0) ? { payout_actual: (income as any).escrow_amount * share } : {}),
           cancellation: 0,
           // não sobrescrever UF vinda do XML da NF quando a API vier mascarada
           ...(uf ? { uf_destino: uf } : {}),

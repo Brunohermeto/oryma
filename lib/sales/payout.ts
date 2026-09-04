@@ -6,7 +6,14 @@
  *            − cupom + rebate. Frete do COMPRADOR não entra (é neutro: comprador
  *            paga, marketplace repassa à logística), seguindo a regra canônica.
  */
+// Canais cujo repasse vem de um extrato INDEPENDENTE (dá pra auditar de verdade).
+// Shopee fica de fora: a API só devolve a "Renda estimada", derivada das mesmas
+// taxas que já temos e instável com a finalização — reconciliar seria circular.
+const CANAIS_AUDITAVEIS = new Set(['mercado_livre', 'amazon', 'magalu'])
+export const isPayoutAuditable = (mp?: string | null) => !!mp && CANAIS_AUDITAVEIS.has(mp)
+
 export type PayoutSale = {
+  marketplace?: string | null
   gross_price: number | string | null
   cancellation?: number | string | null
   marketplace_commission?: number | string | null
@@ -38,6 +45,7 @@ export function payoutDiff(s: PayoutSale): number {
  */
 export function isPayoutDivergent(s: PayoutSale): boolean {
   if (s.payout_actual == null) return false
+  if (!isPayoutAuditable(s.marketplace)) return false  // Shopee = referência, não alerta
   const exp = expectedPayout(s)
   const diff = Math.abs(payoutDiff(s))
   return diff > 1 && (exp === 0 || diff / Math.abs(exp) > 0.02)

@@ -72,12 +72,10 @@ export async function POST(request: NextRequest) {
     const comm = ((Number(inc.net_commission_fee) > 0 ? inc.net_commission_fee : inc.commission_fee) ?? 0)
     const serv = ((Number(inc.net_service_fee) > 0 ? inc.net_service_fee : inc.service_fee) ?? 0)
     const cupom = (Number(inc.voucher_from_seller ?? 0) + Number(inc.voucher_from_shopee ?? 0))
-    // repasse REAL da Shopee = escrow_amount + crédito da ação comercial. O escrow
-    // usa a comissão/serviço BRUTOS; o desconto (bruto − líquido) é creditado
-    // depois, separado. Somando de volta chega-se ao que o vendedor recebe de fato.
-    const rebateComercial = Math.max(0, Number(inc.commission_fee ?? 0) - Number(inc.net_commission_fee ?? 0))
-      + Math.max(0, Number(inc.service_fee ?? 0) - Number(inc.net_service_fee ?? 0))
-    const escrow = Number(inc.escrow_amount ?? 0) + (Number(inc.escrow_amount ?? 0) > 0 ? rebateComercial : 0)
+    // repasse da Shopee = escrow_amount (Renda estimada). É a própria estimativa
+    // da Shopee (derivada das mesmas taxas + muda com a finalização), então NÃO é
+    // um repasse independente — fica só como referência, fora do alerta.
+    const escrow = Number(inc.escrow_amount ?? 0)
     if (comm <= 0) continue // financeiro ainda não liberado
     const total = items.reduce((a, x) => a + x.gross_price, 0)
     for (const it of items) {
