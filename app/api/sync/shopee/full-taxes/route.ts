@@ -32,13 +32,22 @@ export async function POST(request: NextRequest) {
   const now = new Date()
   const start = new Date(now.getTime() - days * 864e5)
 
-  // 1. gera o lote (assíncrono)
-  const gen = await shopeePost<{ result_list?: Array<{ request_id: number }>; error?: string; message?: string }>(
-    '/order/generate_fbs_invoices',
-    { batch_download: { start: ymd(start), end: ymd(now), document_type: 4, file_type: 1, document_status: 1 } }
-  )
-  const reqId = gen.result_list?.[0]?.request_id
-  if (!reqId) return NextResponse.json({ ok: false, step: 'generate', resp: gen }, { status: 502 })
+  // 1. gera o lote (assíncrono) — OU retoma um já em geração (?request_id=N).
+  // A Shopee gera de forma assíncrona; em dias lentos passa dos 39s. Reabrir o
+  // MESMO request_id numa nova chamada dá tempo cumulativo pro job terminar, em
+  // vez de recomeçar do zero e nunca alcançar.
+  const resumeId = request.nextUrl.searchParams.get('request_id')
+  let reqId: number | undefined
+  if (resumeId) {
+    reqId = Number(resumeId)
+  } else {
+    const gen = await shopeePost<{ result_list?: Array<{ request_id: number }>; error?: string; message?: string }>(
+      '/order/generate_fbs_invoices',
+      { batch_download: { start: ymd(start), end: ymd(now), document_type: 4, file_type: 1, document_status: 1 } }
+    )
+    reqId = gen.result_list?.[0]?.request_id
+    if (!reqId) return NextResponse.json({ ok: false, step: 'generate', resp: gen }, { status: 502 })
+  }
 
   // 2. espera ficar disponível (costuma ser imediato; em dias lentos a Shopee
   //    demora a gerar o lote). 13×3s=39s deixa folga p/ baixar+processar o ZIP

@@ -216,15 +216,21 @@ except Exception as e:
 #        A Shopee gera o lote de XMLs de forma assíncrona; em dias lentos passa
 #        dos ~39s que a rota espera e volta 504. Repete até 3x (rota idempotente,
 #        cada tentativa é uma invocação nova de 60s + pausa dá tempo de gerar).
-for tent in range(3):
+reqid = None
+for tent in range(4):
+    q = "/api/sync/shopee/full-taxes?days=20" + (f"&request_id={reqid}" if reqid else "")
     try:
-        r = post("/api/sync/shopee/full-taxes?days=20", timeout=170)
+        r = post(q, timeout=170)
         print(f"8d3. shopee full taxes t{tent}: {json.dumps(r, ensure_ascii=False)[:120]}", flush=True)
         if r.get("ok"): break
+    except urllib.error.HTTPError as e:
+        try: reqid = json.loads(e.read()).get("request_id") or reqid
+        except Exception: pass
+        print(f"8d3. shopee full taxes t{tent}: 504 (retoma req {reqid})", flush=True)
     except Exception as e:
         print(f"8d3. shopee full taxes t{tent}: ERRO {str(e)[:70]}", flush=True)
-    if tent < 2:
-        time.sleep(20)
+    if tent < 3:
+        time.sleep(25)
 
 # ── 8d4. custos Shopee (comissão/serviço líquidos) — reprocessa 15d conforme a
 #        Shopee finaliza o financeiro (o sync só relê 2 dias) ──
