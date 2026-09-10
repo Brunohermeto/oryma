@@ -284,10 +284,12 @@ try:
 except Exception as e:
     print(f"9b. stock FBA: ERRO {str(e)[:70]}", flush=True)
 
-# ── 10. CMP + margens ──
+# ── 10. CMP + margens (INCREMENTAL: só vendas recentes — o relink completo de
+#        ~9600 vendas estourava os 60s da Vercel (504) e deixava as margens sem
+#        recalcular. days=45 cobre o que muda; recálculo completo roda manual. ──
 try:
-    r = post("/api/landed-cost/relink")
-    print(f"10. relink: {json.dumps(r, ensure_ascii=False)[:120]}", flush=True)
+    r = post("/api/landed-cost/relink", {"days": 45})
+    print(f"10. relink (45d): {json.dumps(r, ensure_ascii=False)[:120]}", flush=True)
 except Exception as e:
     print(f"10. relink: ERRO {str(e)[:70]}", flush=True)
 

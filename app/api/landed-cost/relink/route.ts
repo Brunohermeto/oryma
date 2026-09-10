@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { recalculateLandedCost } from '@/lib/landed-cost/calculator'
 import { isReturned } from '@/lib/sales/returned'
+import { brazilDaysAgo } from '@/lib/utils/brazil-time'
 
 export const dynamic         = 'force-dynamic'
 export const maxDuration     = 60
@@ -29,6 +30,13 @@ export async function POST(request: NextRequest) {
   }
 
   const db = createSupabaseServiceClient()
+
+  // days>0 = modo INCREMENTAL (ciclo diário): recalcula só as vendas recentes e
+  // pula o recálculo de TODAS as ordens de importação — assim não estoura os 60s
+  // da Vercel (504). Sem days = recálculo COMPLETO (rodar manual quando o CMP muda).
+  const body = await request.json().catch(() => ({}))
+  const days = Number(body?.days ?? 0)
+  const desde = days > 0 ? brazilDaysAgo(days) : null
 
   // 1. Busca todos os import_items sem product_id mas com sku
   const { data: unlinked } = await db
@@ -52,9 +60,17 @@ export async function POST(request: NextRequest) {
     linked++
   }
 
-  // 4. Recalcula TODAS as ordens (gera cmp_costs com effective_date = issue_date da NF-e)
-  const { data: allOrders } = await db.from('import_orders').select('id')
-  for (const order of allOrders ?? []) ordersToRecalc.add(order.id)
+  // 4. Recalcula as ordens (gera cmp_costs com effective_date = issue_date da NF-e).
+  //    No modo incremental, só as ordens com item recém-vinculado (ordersToRecalc);
+  //    no completo, TODAS. Recalcular todas todo dia é o que mais pesava no 504.
+  if (!desde) {
+    const { data: allOrders } = await db.from('import_orders').select('id')
+    for (const order of allOrders ?? []) ordersToRecalc.add(order.id)
+  } else {
+    // incremental: recalcula também ordens com NF recente (compras novas → CMP novo)
+    const { data: recentes } = await db.from('import_orders').select('id').gte('issue_date', desde)
+    for (const order of recentes ?? []) ordersToRecalc.add(order.id)
+  }
 
   let recalculated = 0
   for (const orderId of ordersToRecalc) {
@@ -111,11 +127,13 @@ export async function POST(request: NextRequest) {
         .order('effective_date', { ascending: true })
         .order('calculated_at', { ascending: true })
     ),
-    fetchAll<any>(() =>
-      db.from('sales')
+    fetchAll<any>(() => {
+      let q = db.from('sales')
         .select('id, product_id, marketplace, gross_price, shipping_received, marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, ads_cost, cancellation, discounts, rebate, quantity, sale_date')
         .not('product_id', 'is', null)
-    ),
+      if (desde) q = q.gte('sale_date', desde)  // incremental: só vendas recentes
+      return q
+    }),
     fetchAll<any>(() =>
       db.from('sale_taxes')
         .select('sale_id, pis, cofins, icms, icms_difal, ipi')
