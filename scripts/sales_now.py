@@ -26,15 +26,19 @@ def get(path):
     with urllib.request.urlopen(req, timeout=60) as r:
         return json.loads(r.read())
 
-try:
-    r = post(f"/api/sync/marketplaces?from={ONTEM}&to={HOJE}")
-    sid = r.get("sync_id")
-    print(f"vendas {ONTEM}..{HOJE}: {sid}", flush=True)
-    for _ in range(18):
-        time.sleep(10)
-        st = get(f"/api/sync/marketplaces/status?id={sid}")
-        if st.get("status") != "running":
-            print("   ->", json.dumps(st, ensure_ascii=False)[:200], flush=True)
-            break
-except Exception as e:
-    print(f"vendas: ERRO {str(e)[:120]}", flush=True)
+# Fatiado por DIA (hoje e ontem, chamadas separadas): a janela de 2 dias com todos
+# os canais estoura os 60s da Vercel por dentro do job e volta status=error,
+# perdendo Amazon/Magalu. 1 dia por chamada cabe.
+for dia in (HOJE, ONTEM):
+    try:
+        r = post(f"/api/sync/marketplaces?from={dia}&to={dia}")
+        sid = r.get("sync_id")
+        st = {}
+        for _ in range(15):
+            time.sleep(8)
+            st = get(f"/api/sync/marketplaces/status?id={sid}")
+            if st.get("status") != "running":
+                break
+        print(f"vendas {dia}: {json.dumps(st, ensure_ascii=False)[:180]}", flush=True)
+    except Exception as e:
+        print(f"vendas {dia}: ERRO {str(e)[:120]}", flush=True)
