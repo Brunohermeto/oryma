@@ -83,13 +83,22 @@ export async function GET(request: NextRequest) {
     } catch {}
   }
 
-  const [usuariosMe, nfeList, nfeCategoria] = await Promise.all([
-    testEndpoint('/usuarios/me'),
+  // Testa SÓ os módulos que o app realmente usa (produtos e NF-e). /usuarios/me e
+  // /situacoes/modulos davam 403 de escopo (endpoints que não usamos) e passavam
+  // a falsa impressão de "Bling desconectado".
+  const [produtos, nfeList] = await Promise.all([
+    testEndpoint('/produtos?pagina=1&limite=1'),
     testEndpoint('/nfe?pagina=1&limite=1'),
-    testEndpoint('/situacoes/modulos'),
   ])
+  // Conectado = algum endpoint usado respondeu autenticado (2xx OU 429 rate-limit).
+  // 401/403 em ambos, ou erro de host, = não conectado.
+  const conectado = /HTTP (2\d\d|429)/.test(produtos) || /HTTP (2\d\d|429)/.test(nfeList)
 
   return NextResponse.json({
+    conectado,
+    diagnostico: conectado
+      ? 'Bling OK — produtos e NF-e respondendo.'
+      : 'Bling com problema — conferir token/conexão (produtos e NF-e não responderam).',
     credentials: {
       has_access_token: !!cred?.access_token,
       has_refresh_token: !!cred?.refresh_token,
@@ -99,9 +108,8 @@ export async function GET(request: NextRequest) {
     },
     token_refresh_test: isTokenExpired(cred?.expires_at ?? null) ? refreshResult : 'não necessário (token válido)',
     api_tests: {
-      '/usuarios/me': usuariosMe,
+      '/produtos?pagina=1&limite=1': produtos,
       '/nfe?pagina=1&limite=1': nfeList,
-      '/situacoes/modulos': nfeCategoria,
     },
     nfe_first_object: nfeFullObject,  // todos os campos do primeiro NF-e
   })
