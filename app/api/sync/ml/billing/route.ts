@@ -62,12 +62,22 @@ export async function POST(request: NextRequest) {
   const padsByDay = new Map<string, number>()
   const seen = new Set<number>()
 
+  let apiError: string | null = null
   for (const key of keys) {
     let offset = 0
     for (let page = 0; page < 8; page++) {
-      const body = await mlGet<{ results?: BillingDetail[] }>(
-        `/billing/integration/periods/key/${key}/group/ML/details?document_type=BILL&limit=1000&sort_by=ID&order_by=DESC&offset=${offset}`
-      )
+      // O billing do ML limita a 5 req/min — se uma página estourar o retry
+      // (429/500), NÃO derruba a rota: para nesse período e segue com o que
+      // já pegou (rota idempotente, roda 2x/dia e completa na próxima).
+      let body: { results?: BillingDetail[] }
+      try {
+        body = await mlGet<{ results?: BillingDetail[] }>(
+          `/billing/integration/periods/key/${key}/group/ML/details?document_type=BILL&limit=1000&sort_by=ID&order_by=DESC&offset=${offset}`
+        )
+      } catch (e) {
+        apiError = String(e).slice(0, 120)
+        break
+      }
       const results = body.results ?? []
       if (!results.length) break
 
@@ -114,5 +124,6 @@ export async function POST(request: NextRequest) {
     tariff_orders: chargesByOrder.size, tariff_sales_updated: tariffSales,
     rebate_orders: rebateByOrder.size, rebate_sales_updated: rebateSales,
     ads_days: padsByDay.size, ads_sales_updated: adsSales,
+    ...(apiError ? { api_warning: `billing ML instável: ${apiError} (completa no próximo ciclo)` } : {}),
   })
 }
