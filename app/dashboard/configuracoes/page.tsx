@@ -5,6 +5,7 @@ import { TopBar } from '@/components/layout/TopBar'
 import { getAllCredentials } from '@/lib/integrations/credentials'
 import { ConfigCard } from '@/components/configuracoes/ConfigCard'
 import { BlingSyncButton } from '@/components/configuracoes/BlingSyncButton'
+import { AmazonNFUploadButton } from '@/components/configuracoes/AmazonNFUploadButton'
 import { MarketplaceSyncButton } from '@/components/configuracoes/MarketplaceSyncButton'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { getCredential, isTokenExpired } from '@/lib/integrations/credentials'
@@ -214,6 +215,12 @@ export default async function ConfiguracoesPage({
             <BlingSyncButton />
           </div>
         </div>
+
+        {/* Importar faturador da Amazon FBA */}
+        <div className="text-[11px] font-bold uppercase tracking-widest mt-6 mb-2" style={{ color: B.muted }}>
+          Amazon FBA — NF-e de venda
+        </div>
+        <AmazonNFUploadButton />
 
       </div>
     </>

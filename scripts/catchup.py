@@ -84,24 +84,24 @@ def loop_rota(nome, path, body_base, max_rodadas=8, pausa=3):
         time.sleep(pausa)
     return total
 
-# ── 1. vendas FATIADAS por DIA (hoje, ontem, anteontem). A janela de 3 dias com
-#        TODOS os canais estoura os 60s da Vercel por dentro do job (desde que a
-#        Shopee entrou) e voltava status=error — perdendo Amazon/Magalu. 1 dia por
-#        chamada cabe. ──
+# ── 1. vendas FATIADAS por DIA e por CANAL (D-0, D-1, D-2). Mesmo 1 dia com TODOS
+#        os canais estoura os 60s da Vercel em dia de pico (ex: 09/09, 197 vendas).
+#        1 dia × 1 canal cabe sempre. Amazon tem o backfill 1b (D-2..D-15). ──
 for k in range(0, 3):  # D-0, D-1, D-2
     dia = (TODAY - datetime.timedelta(days=k)).isoformat()
-    try:
-        r = post(f"/api/sync/marketplaces?from={dia}&to={dia}")
-        sid = r.get("sync_id")
-        st = {}
-        for _ in range(15):
-            time.sleep(8)
-            st = get(f"/api/sync/marketplaces/status?id={sid}")
-            if st.get("status") != "running":
-                break
-        print(f"1. vendas {dia}: {json.dumps(st, ensure_ascii=False)[:130]}", flush=True)
-    except Exception as e:
-        print(f"1. vendas {dia}: ERRO {str(e)[:90]}", flush=True)
+    for canal in ("mercado_livre", "shopee", "amazon", "magalu"):
+        try:
+            r = post(f"/api/sync/marketplaces?channel={canal}&from={dia}&to={dia}")
+            sid = r.get("sync_id")
+            st = {}
+            for _ in range(12):
+                time.sleep(6)
+                st = get(f"/api/sync/marketplaces/status?id={sid}")
+                if st.get("status") != "running":
+                    break
+            print(f"1. vendas {dia} {canal}: {json.dumps(st, ensure_ascii=False)[:90]}", flush=True)
+        except Exception as e:
+            print(f"1. vendas {dia} {canal}: ERRO {str(e)[:70]}", flush=True)
 
 # ── 1b. backfill da Amazon FATIADO por DIA (pedidos publicados com atraso que a
 #        janela de 2 dias perdia). Uma janela de 15 dias estoura os 60s da Vercel

@@ -250,7 +250,12 @@ export async function POST(request: NextRequest) {
     // Venda devolvida fica SEM margem (null): dinheiro estornado ao comprador e
     // mercadoria de volta no estoque — margem calculada aqui seria só prejuízo
     // fantasma. Null já é ignorado por todos os agregadores de margem.
-    const contaMargem = hasTaxes && !isReturned(sale)
+    // Comissão do marketplace ausente = dados incompletos (a Amazon, p.ex., libera
+    // a taxa dias depois). Sem ela a margem infla (Amazon aparecia 40% em vez de
+    // ~23%). Todos os 4 canais SEMPRE cobram comissão, então 0 = ainda não veio →
+    // margem fica NULL ("em cálculo") até a taxa chegar.
+    const hasComm     = Number(sale.marketplace_commission ?? 0) > 0
+    const contaMargem = hasTaxes && hasComm && !isReturned(sale)
     const marginValue = contaMargem ? netRevenue - totalCost + importCredit : null
     // Margem % sobre o faturamento bruto (definição do Bruno)
     const gross       = Number(sale.gross_price)
