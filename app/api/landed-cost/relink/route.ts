@@ -93,7 +93,9 @@ export async function POST(request: NextRequest) {
       '0210MG': '7908488108351', '021084MG': '7908488108313',
     }
     const skuUp = sale.sku?.toUpperCase()
-    const productId = productMap[skuUp] ?? productMap[SKU_ALIASES[skuUp] ?? '']
+    // SKU da Amazon vem com sufixo -FBA/_FBA (ex: RAGA003-BG-FBA) — casa pelo base
+    const skuBase = skuUp?.replace(/[-_]FBA$/i, '')
+    const productId = productMap[skuUp] ?? productMap[skuBase] ?? productMap[SKU_ALIASES[skuUp] ?? '']
     if (!productId) continue
     await db.from('sales').update({ product_id: productId }).eq('id', sale.id)
     salesLinked++
