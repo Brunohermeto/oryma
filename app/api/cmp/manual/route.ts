@@ -88,7 +88,9 @@ export async function POST(request: NextRequest) {
   let relinkResult = null
   try {
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/api/landed-cost/relink`,
+      // URL da própria requisição (na Vercel a NEXT_PUBLIC_APP_URL pode apontar p/
+      // localhost e a chamada interna falharia em silêncio, sem recalcular margem)
+      `${request.nextUrl.origin}/api/landed-cost/relink`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Cookie: `mi_auth=${process.env.APP_PASSWORD}` },
