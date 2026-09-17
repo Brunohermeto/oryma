@@ -196,24 +196,6 @@ function SaleDetailPanel({ sale }: { sale: SaleRow }) {
                     <span style={{ color: B.muted }}>Subtotal impostos s/ venda</span>
                     <span className="num" style={{ color: '#dc2626', fontFamily: 'var(--font-geist-mono)' }}>({fmtR(totalTaxes)})</span>
                   </div>
-                  {/* Créditos de importação */}
-                  {(pisCredito > 0 || cofinsCredito > 0) && <>
-                    <div className="text-[10px] font-semibold uppercase tracking-wide mt-1.5" style={{ color: '#16a34a' }}>
-                      Créditos de importação (Lucro Real)
-                    </div>
-                    {pisCredito > 0 && (
-                      <div className="flex justify-between text-xs">
-                        <span style={{ color: B.muted }}>PIS crédito import.</span>
-                        <span className="num" style={{ color: '#16a34a', fontFamily: 'var(--font-geist-mono)' }}>+{fmtR(pisCredito)}</span>
-                      </div>
-                    )}
-                    {cofinsCredito > 0 && (
-                      <div className="flex justify-between text-xs">
-                        <span style={{ color: B.muted }}>COFINS crédito import.</span>
-                        <span className="num" style={{ color: '#16a34a', fontFamily: 'var(--font-geist-mono)' }}>+{fmtR(cofinsCredito)}</span>
-                      </div>
-                    )}
-                  </>}
                   {/* Imposto líquido */}
                   <div className="flex justify-between text-xs pt-1.5 font-semibold" style={{ borderTop: `1px solid ${B.border}` }}>
                     <span style={{ color: B.subtle }}>Imposto líquido</span>
@@ -233,15 +215,6 @@ function SaleDetailPanel({ sale }: { sale: SaleRow }) {
                     {/* Full também tem NF-e (emitida via ML) — só demora algumas horas */}
                     NF-e ainda não emitida/vinculada — impostos em processamento
                   </div>
-                  {(pisCredito > 0 || cofinsCredito > 0) && (
-                    <div className="mt-2 pt-2" style={{ borderTop: `1px solid ${B.border}` }}>
-                      <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: '#16a34a' }}>
-                        Créditos estimados (importação)
-                      </div>
-                      {pisCredito > 0 && <div className="flex justify-between mt-1"><span>PIS crédito</span><span className="num" style={{ color: '#16a34a', fontFamily: 'var(--font-geist-mono)' }}>+{fmtR(pisCredito)}</span></div>}
-                      {cofinsCredito > 0 && <div className="flex justify-between"><span>COFINS crédito</span><span className="num" style={{ color: '#16a34a', fontFamily: 'var(--font-geist-mono)' }}>+{fmtR(cofinsCredito)}</span></div>}
-                    </div>
-                  )}
                 </div>
               )}
             </div>
