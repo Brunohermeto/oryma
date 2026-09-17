@@ -244,7 +244,10 @@ export async function POST(request: NextRequest) {
                       - totalTaxes  // impostos da NF-e saída
     // Sem NF-e de saída ainda (impostos ausentes) = dados incompletos →
     // margem fica NULL ("em cálculo") em vez de um número inflado e falso
-    // Crédito de importação das unidades (devolvido à margem — débito da saída entra cheio)
+    // NÃO somar crédito de importação à margem: os valores das NF-e de importação
+    // (que geram o CMV/landed cost) já entram LÍQUIDOS de crédito. Somar o crédito
+    // aqui contaria em dobro e inflava a margem (ex: 32,7% em vez de ~26%).
+    // (mantido calculado só como informação, fora da margem)
     const importCredit = getCreditForDate(sale.product_id, sale.sale_date) * qty
     const hasTaxes    = !!taxes
     // Venda devolvida fica SEM margem (null): dinheiro estornado ao comprador e
@@ -256,10 +259,11 @@ export async function POST(request: NextRequest) {
     // margem fica NULL ("em cálculo") até a taxa chegar.
     const hasComm     = Number(sale.marketplace_commission ?? 0) > 0
     const contaMargem = hasTaxes && hasComm && !isReturned(sale)
-    const marginValue = contaMargem ? netRevenue - totalCost + importCredit : null
-    // Margem % sobre o faturamento bruto (definição do Bruno)
-    const gross       = Number(sale.gross_price)
-    const marginPct   = contaMargem && gross > 0 ? (netRevenue - totalCost + importCredit) / gross : null
+    const marginValue = contaMargem ? netRevenue - totalCost : null
+    // Margem % sobre o FATURAMENTO líquido (bruto − devolução − cupom) — mesma base
+    // que o card da venda mostra, pra o % bater com lucro/faturamento exibidos.
+    const fatLiquido  = Number(sale.gross_price) - Number(sale.cancellation ?? 0) - Number(sale.discounts ?? 0)
+    const marginPct   = contaMargem && fatLiquido > 0 ? (netRevenue - totalCost) / fatLiquido : null
     saleCostRows.push({
       sale_id: sale.id, cmp_cost_id: cmp.id,
       unit_cost_applied: cmp.value, total_cost: totalCost,

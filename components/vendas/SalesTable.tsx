@@ -94,13 +94,10 @@ function SaleDetailPanel({ sale }: { sale: SaleRow }) {
   const rebate         = Number(sale.rebate ?? 0)
   const cmv            = Number(cost?.total_cost ?? 0)
 
-  // Créditos de importação (PIS/COFINS pagos na importação — recuperados como crédito)
-  const pisCredito     = costDetail?.pis_credit_total   ?? 0
-  const cofinsCredito  = costDetail?.cofins_credit_total ?? 0
-  const totalCreditos  = pisCredito + cofinsCredito
-
-  // Impostos líquidos = impostos s/ venda − créditos de importação
-  const impostoLiquido = Math.max(0, totalTaxes - totalCreditos)
+  // Crédito de importação NÃO entra na margem: as NF-e de importação (que geram o
+  // CMV) já entram líquidas de crédito — descontar de novo contaria em dobro.
+  const totalCreditos  = 0
+  const impostoLiquido = totalTaxes
 
   const fixedFee = Number((sale as any).marketplace_fixed_fee ?? 0)
 
