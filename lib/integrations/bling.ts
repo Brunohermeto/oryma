@@ -21,10 +21,21 @@ function blingAuthHeader(): string {
   return `Basic ${Buffer.from(`${process.env.BLING_CLIENT_ID}:${process.env.BLING_CLIENT_SECRET}`).toString('base64')}`
 }
 
+// Headers do endpoint de token. 'enable-jwt: 1' ativa o padrão JWT do Bling —
+// obrigatório a partir de 15/10/2026 (tokens opacos serão bloqueados). O JWT tem
+// 1500-3000 chars; a coluna access_token/refresh_token é TEXT (sem limite), ok.
+function blingTokenHeaders(): Record<string, string> {
+  return {
+    Authorization: blingAuthHeader(),
+    'Content-Type': 'application/x-www-form-urlencoded',
+    'enable-jwt': '1',
+  }
+}
+
 export async function exchangeBlingCode(code: string): Promise<void> {
   const res = await fetch(BLING_TOKEN_URL, {
     method: 'POST',
-    headers: { Authorization: blingAuthHeader(), 'Content-Type': 'application/x-www-form-urlencoded' },
+    headers: blingTokenHeaders(),
     body: new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: process.env.BLING_REDIRECT_URI! }),
   })
   if (!res.ok) throw new Error(`Bling token exchange failed: ${res.status}`)
@@ -55,7 +66,7 @@ export async function getValidBlingToken(): Promise<string | null> {
 
   const res = await fetch(BLING_TOKEN_URL, {
     method: 'POST',
-    headers: { Authorization: blingAuthHeader(), 'Content-Type': 'application/x-www-form-urlencoded' },
+    headers: blingTokenHeaders(),
     body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: cred.refresh_token! }),
   })
   if (!res.ok) return null

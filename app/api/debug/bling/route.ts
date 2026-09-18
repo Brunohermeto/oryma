@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
         headers: {
           Authorization: authHeader,
           'Content-Type': 'application/x-www-form-urlencoded',
+          'enable-jwt': '1',  // padrão JWT do Bling (obrigatório a partir de 15/10/2026)
         },
         body: new URLSearchParams({
           grant_type: 'refresh_token',
