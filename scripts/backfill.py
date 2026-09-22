@@ -94,9 +94,10 @@ def sync_janela(canal, a, b):
         if st.get("status") != "running": return st
     return {"status": "timeout"}
 
-def vendas_canal(canal):
+def vendas_canal(canal, ini=None, fim_periodo=None):
     win = 1 if canal == "amazon" else 2
-    cur, ok, falhas = INI, 0, []
+    cur, ok, falhas = ini or INI, 0, []
+    FIM = fim_periodo or globals()["FIM"]
     while cur <= FIM:
         fim = min(cur + datetime.timedelta(days=win - 1), FIM)
         try: st = sync_janela(canal, cur.isoformat(), fim.isoformat())
@@ -115,7 +116,14 @@ def vendas_canal(canal):
     log(f"vendas {canal}: {ok} vendas; dias com falha: {falhas or 'nenhum'}")
 
 if "vendas" in STEPS:
-    ths = [threading.Thread(target=vendas_canal, args=(c,)) for c in ("mercado_livre", "shopee", "amazon", "magalu")]
+    ths = [threading.Thread(target=vendas_canal, args=(c,)) for c in ("mercado_livre", "amazon", "magalu")]
+    # Shopee busca pedido a pedido (~1,3s cada, 35-60s por dia): 3 faixas do
+    # periodo em paralelo, senao 9 meses levam ~3,5h
+    passo = ((FIM - INI).days + 3) // 3
+    for k in range(3):
+        a = INI + datetime.timedelta(days=k * passo)
+        b = min(a + datetime.timedelta(days=passo - 1), FIM)
+        if a <= FIM: ths.append(threading.Thread(target=vendas_canal, args=("shopee", a, b)))
     for t in ths: t.start()
     for t in ths: t.join()
 
