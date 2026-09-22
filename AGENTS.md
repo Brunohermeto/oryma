@@ -15,6 +15,9 @@ Qualquer código novo que grave ou leia valores de venda DEVE segui-las.
 - `sales.rebate` = estornos/bônus SEPARADOS, positivos (BONUS exceto BFONPN +
   sale_fee.rebate). A margem soma o estorno de volta.
 - Motivo: gravar líquido e depois somar estorno de novo mascara a conta.
+- **Exceção decidida pelo Bruno (2026-09-22): Shopee grava a comissão JÁ
+  DESCONTADA** do ajuste de ação comercial (`net_commission_fee`), sem estorno
+  separado — a margem é a mesma, só o detalhamento muda. Não "corrigir".
 - **Dono único desses campos: `/api/sync/ml/tariffs`** (e o conserto automático
   em `/api/audit/fees`). A rota de billing NÃO grava comissão/estorno (o
   extrato por período só tem o CVVFN líquido).
