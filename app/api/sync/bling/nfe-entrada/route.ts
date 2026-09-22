@@ -107,6 +107,7 @@ export async function POST(request: NextRequest) {
   // A listagem do Bling é mista (saída+entrada) e ordenada DESC — 5 páginas
   // cobrem só ~38 dias de operação. Para histórico, aumente ?pages= (máx 30).
   const maxPages = Math.min(Number(request.nextUrl.searchParams.get('pages') ?? '5'), 30)
+  const batchLimit = Math.min(Number(request.nextUrl.searchParams.get('limit') ?? '10'), 30)
   const startDate = brazilDaysAgo(days)
   const endDate   = brazilToday()
 
@@ -116,8 +117,11 @@ export async function POST(request: NextRequest) {
     const allNfe: BlingNFeItem[] = []
     for (let page = 1; page <= maxPages; page++) {
       await sleep(250)
+      // tipo=0 é OBRIGATÓRIO: sem ele a API do Bling devolve só NF-e de SAÍDA,
+      // e a filtragem client-side abaixo nunca achava nada ("Nenhuma NF-e de
+      // entrada encontrada no período", mesmo com 2.001 entradas no Bling).
       const res = await blingGet<{ data: BlingNFeItem[] }>('/nfe', {
-        pagina: String(page), limite: '100',
+        pagina: String(page), limite: '100', tipo: '0',
         dataEmissaoInicio: startDate, dataEmissaoFim: endDate,
       }, 1)
       const items = res.data ?? []
@@ -156,9 +160,16 @@ export async function POST(request: NextRequest) {
     let skipped = 0
     const errors: string[] = []
 
-    for (const nfe of entradas.slice(0, 30)) {  // máx 30 por chamada
+    // Descarta as JÁ importadas ANTES de cortar o lote: cortando antes, as 30
+    // primeiras da lista (sempre as mesmas, já importadas) consumiam o lote
+    // inteiro e a rota nunca avançava no histórico. Agora é retomável: chame
+    // de novo até `synced` voltar 0.
+    const pendentes = entradas.filter(n => !existingKeys.has(n.chaveAcesso!))
+    skipped = entradas.length - pendentes.length
+
+    // ?limit= por chamada (cada nota baixa o XML; 30 estoura os 60s da Vercel)
+    for (const nfe of pendentes.slice(0, batchLimit)) {
       const chave = nfe.chaveAcesso!
-      if (existingKeys.has(chave)) { skipped++; continue }
 
       try {
         await sleep(300)

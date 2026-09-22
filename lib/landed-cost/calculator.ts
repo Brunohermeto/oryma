@@ -321,8 +321,10 @@ export async function applyCmpToSale(saleId: string): Promise<void> {
                    - Number(sale.discounts           ?? 0)
                    + Number(sale.rebate              ?? 0)
                    - saleTaxes
-  // Crédito da importação (PIS+COFINS+ICMS por unidade): devolvido à margem,
-  // pois o débito da saída entra cheio e a compra gera crédito por produto
+  // NÃO somar crédito de importação à margem: as NF-e de compra que formam o
+  // CMV/landed cost já entram LÍQUIDAS de crédito. Somar aqui conta em dobro e
+  // infla (32,7% em vez de 26,6%). Fica gravado só como informação.
+  // Mesma fórmula de /api/landed-cost/relink — as duas TÊM que andar juntas.
   const importCredit = (await getImportCreditAtDate(sale.product_id, sale.sale_date)) * qty
 
   // Sem NF-e ainda (impostos ausentes) → margem NULL ("em cálculo"),
@@ -330,14 +332,16 @@ export async function applyCmpToSale(saleId: string): Promise<void> {
   // Venda DEVOLVIDA também fica sem margem (mesma regra do relink): dinheiro
   // estornado, mercadoria de volta ao estoque, tarifas estornadas pelo canal.
   const hasTaxes    = !!t
-  // Amazon: comissao vem da API financeira com lag de quinzena — sem ela a
-  // margem sairia inflada; fica "em calculo" ate o repasse chegar
-  const feesPendentes = (sale as any).marketplace === 'amazon' && !(Number(sale.marketplace_commission ?? 0) > 0)
-  const contaMargem = hasTaxes && !feesPendentes && !isReturned(sale as any)
-  const marginValue = contaMargem ? netRevenue - totalCost + importCredit : null
-  // Margem % sobre o faturamento bruto (definição do Bruno)
-  const gross       = Number(sale.gross_price)
-  const marginPct   = contaMargem && gross > 0 ? (netRevenue - totalCost + importCredit) / gross : null
+  // Comissão ausente = dados incompletos (a Amazon libera a taxa com lag de
+  // quinzena; sem ela a margem aparecia 40% em vez de ~23%). Todos os 4 canais
+  // SEMPRE cobram comissão, então 0 = ainda não veio → margem "em cálculo".
+  const hasComm     = Number(sale.marketplace_commission ?? 0) > 0
+  const contaMargem = hasTaxes && hasComm && !isReturned(sale as any)
+  const marginValue = contaMargem ? netRevenue - totalCost : null
+  // Margem % sobre o faturamento LÍQUIDO (bruto − devolução − cupom) — mesma
+  // base que o card da venda mostra, pra o % bater com lucro/faturamento
+  const fatLiquido  = Number(sale.gross_price) - Number(sale.cancellation ?? 0) - Number(sale.discounts ?? 0)
+  const marginPct   = contaMargem && fatLiquido > 0 ? (netRevenue - totalCost) / fatLiquido : null
 
   await db.from('sale_costs').upsert({
     sale_id:           saleId,

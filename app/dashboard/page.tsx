@@ -60,12 +60,16 @@ export default async function DashboardPage(
   // de 1000 vendas (a partir de ago/2026, com a Shopee) truncavam o faturamento.
   const salesRaw: any[] = []
   for (let pg = 0; pg < 30; pg++) {
-    const { data } = await db
+    const { data, error } = await db
       .from('sales')
       .select('marketplace, gross_price, marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, rebate, ads_cost, cancellation, sale_date, sale_costs(total_cost, margin_value)')
       .gte('sale_date', start).lte('sale_date', end)
       .order('id', { ascending: true })
       .range(pg * 1000, pg * 1000 + 999)
+    // Banco fora do ar NÃO pode virar R$ 0 na tela: em 22/09/2026 o projeto do
+    // Supabase foi excluído e a Visão Geral mostrou o mês inteiro zerado (em vez
+    // de dizer que estava sem banco). Consulta que falha tem que aparecer.
+    if (error) throw new Error(`Falha ao consultar o banco: ${error.message}`)
     if (!data?.length) break
     salesRaw.push(...data)
     if (data.length < 1000) break
