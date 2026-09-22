@@ -45,6 +45,7 @@ interface BlingNFeItem {
   situacao: number       // 5=Autorizada
   dataEmissao: string
   chaveAcesso: string | null
+  naturezaOperacao?: { id?: number }
 }
 
 function extractStr(xml: string, tag: string): string | null {
@@ -108,8 +109,9 @@ export async function POST(request: NextRequest) {
   // cobrem só ~38 dias de operação. Para histórico, aumente ?pages= (máx 30).
   const maxPages = Math.min(Number(request.nextUrl.searchParams.get('pages') ?? '5'), 30)
   const batchLimit = Math.min(Number(request.nextUrl.searchParams.get('limit') ?? '10'), 30)
-  // ?situacoes=5,6,7 — 5=Autorizada (padrão), 6=Emitida DANFE, 7=Registrada
-  const situacoes = new Set((request.nextUrl.searchParams.get('situacoes') ?? '5').split(',').map(Number))
+  // ?situacoes= — 5=Autorizada, 6=Emitida DANFE, 7=Registrada (padrão: as três;
+  // as compras de fornecedor ficam em 6/7, a 5 era só devolução)
+  const situacoes = new Set((request.nextUrl.searchParams.get('situacoes') ?? '5,6,7').split(',').map(Number))
   const startDate = brazilDaysAgo(days)
   const endDate   = brazilToday()
 
@@ -148,8 +150,19 @@ export async function POST(request: NextRequest) {
 
     // tipo=2 → entrada | situacao=5 → Autorizada
     // Também aceita tipo=0 que é o indicador de entrada no próprio XML (tpNF)
+    // DEVOLUÇÃO NÃO É COMPRA. As NF-e de entrada de situação 5 eram, na
+    // prática, devoluções de clientes emitidas pela própria MCL (CFOP 1202/2202,
+    // destinatário CPF) — 22/09/2026 elas entraram como compra e o CMP virou o
+    // preço de venda (699). As compras reais (fornecedores) ficam em situação
+    // 6/7. Filtra pela natureza de operação (1 chamada) e, na dúvida, pelo CFOP do XML.
+    const devolucaoNat = new Set<number>()
+    try {
+      const nat = await blingGet<{ data?: Array<{ id: number; descricao?: string }> }>('/naturezas-operacoes', { limite: '100' }, 1)
+      for (const x of nat.data ?? []) if (/devolu|retorno/i.test(x.descricao ?? '')) devolucaoNat.add(x.id)
+    } catch { /* sem a lista, o CFOP do XML segura */ }
     const entradas = allNfe.filter(n =>
       n.chaveAcesso && (n.tipo === 2 || n.tipo === 0) && situacoes.has(n.situacao)
+      && !(n.naturezaOperacao?.id && devolucaoNat.has(n.naturezaOperacao.id))
     )
 
     if (entradas.length === 0) {
@@ -204,6 +217,10 @@ export async function POST(request: NextRequest) {
         const vFOB     = extractNum(xml, 'vProd')  // total dos produtos (FOB = sem impostos adicionais)
 
         if (!dhEmi || vNF <= 0) { errors.push(`${chave.slice(-8)}: data/valor inválido`); continue }
+        // devolução de venda (x201/x202) ou retorno (x41x) que escapou do filtro de natureza
+        if (/^[123](20[12]|41[0-9])$/.test(cfop) || /devolu|retorno/i.test(extractStr(xml, 'natOp') ?? '')) {
+          errors.push(`${chave.slice(-8)}: devolução (CFOP ${cfop}) ignorada`); continue
+        }
 
         // Cria import_order
         const { data: order, error: orderErr } = await db
