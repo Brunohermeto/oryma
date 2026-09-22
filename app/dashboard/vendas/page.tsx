@@ -104,9 +104,9 @@ export default async function VendasPage({
   const summary = summaryRows.filter(s => !isReturned(s)).reduce((acc, s) => {
     const taxes = unwrap<{ total_taxes: number }>(s.sale_taxes)
     const cost  = unwrap<{ total_cost: number; margin_value: number }>(s.sale_costs)
-    const bruto = Number(s.gross_price) - Number(s.cancellation)
-    // Faturamento BRUTO = gross - devolução (mesma fórmula do Dashboard). O cupom
-    // (discounts) NÃO sai do faturamento — entra como redução no balde de tarifas.
+    // Faturamento LÍQUIDO = bruto − devolução − cupom do vendedor (regra 5 do
+    // AGENTS.md; mesma base da coluna Faturamento da tabela e da Visão Geral)
+    const bruto = Number(s.gross_price) - Number(s.cancellation) - Number((s as any).discounts ?? 0)
     acc.revenue      += bruto
     // Frete do COMPRADOR (shipping_received) não é receita — vai para o ML.
     // Só o frete do VENDEDOR entra, como custo (negativo).

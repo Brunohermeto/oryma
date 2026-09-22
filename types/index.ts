@@ -212,6 +212,7 @@ export interface DRERow {
   mercado_livre: number
   shopee: number
   amazon: number
+  magalu: number
   total: number
 }
 

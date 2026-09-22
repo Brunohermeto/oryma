@@ -14,14 +14,16 @@ const MP_LABELS: Record<string, string> = {
   mercado_livre: 'Mercado Livre',
   shopee: 'Shopee',
   amazon: 'Amazon',
+  magalu: 'Magalu',
 }
 const MP_COLORS: Record<string, string> = {
   mercado_livre: '#125BFF',
   shopee: '#7B61FF',
   amazon: '#0097b2',
+  magalu: '#0086FF',
 }
 const FULFILLMENT: Record<string, string> = {
-  galpao: 'Galpão', full_ml: 'Full ML', fba_amazon: 'FBA',
+  galpao: 'Galpão', full_ml: 'Full ML', fba_amazon: 'FBA', full_shopee: 'Full Shopee', full_magalu: 'Full Magalu',
 }
 
 interface Sale {
@@ -39,7 +41,7 @@ interface Sale {
   cancellation: number
   discounts: number
   products: { name: string; sku: string } | null
-  sale_costs: { unit_cost_applied: number; total_cost: number; margin_pct: number | null } | null
+  sale_costs: { unit_cost_applied: number; total_cost: number; margin_pct: number | null; margin_value: number | null } | null
 }
 
 function fmtR(v: number) {
@@ -62,8 +64,12 @@ function calcSale(sale: Sale) {
   const totalFees     = commission + shippingFee + ads
   const totalCosts    = totalFees + cmv
   const receitaLiq    = faturamento - totalFees
-  const lucro         = sale.sale_costs ? receitaLiq - cmv : null
-  const margin        = lucro !== null && receitaLiq > 0 ? (lucro / receitaLiq) * 100 : null
+  // Lucro/margem = os GRAVADOS pelo relink (dono único, regra 5) — a conta
+  // própria ignorava impostos, tarifa fixa e estorno. NULL = em cálculo.
+  const mv            = sale.sale_costs?.margin_value
+  const lucro         = mv === null || mv === undefined ? null : Number(mv)
+  const mp            = sale.sale_costs?.margin_pct
+  const margin        = mp === null || mp === undefined ? null : Number(mp) * 100
   return { grossPrice, shippingRec, cancellation, discounts, commission, shippingFee, ads, cmv, faturamento, totalFees, totalCosts, receitaLiq, lucro, margin }
 }
 
@@ -233,8 +239,9 @@ function Totals({ sales }: { sales: Sale[] }) {
     return acc
   }, { faturamento: 0, fees: 0, cmv: 0, lucro: 0, withCMV: 0, count: 0 })
 
-  const margin = totals.faturamento - totals.fees > 0
-    ? (totals.lucro / (totals.faturamento - totals.fees)) * 100 : null
+  // margem % sobre o faturamento líquido (regra 5), só das vendas apuradas
+  const margin = totals.withCMV > 0 && totals.faturamento > 0
+    ? (totals.lucro / totals.faturamento) * 100 : null
 
   const cards = [
     { label: 'Vendas',          value: totals.count,          fmt: (v: number) => `${v}`, color: B.brand },

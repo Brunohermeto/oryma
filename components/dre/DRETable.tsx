@@ -15,6 +15,7 @@ const MP_COLS = [
   { key: 'mercado_livre' as const, label: 'Merc. Livre', color: '#125BFF' },
   { key: 'shopee'        as const, label: 'Shopee',      color: '#7B61FF' },
   { key: 'amazon'        as const, label: 'Amazon',      color: '#00D6FF' },
+  { key: 'magalu'        as const, label: 'Magalu',      color: '#0086FF' },
 ]
 
 function fmt(v: number): string {

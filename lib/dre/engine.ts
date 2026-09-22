@@ -1,35 +1,32 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { fetchAll } from '@/lib/supabase/fetch-all'
 import { isReturned } from '@/lib/sales/returned'
 import type { DRERow } from '@/types'
 import { startOfMonth, endOfMonth, format } from 'date-fns'
 
-type MP = 'mercado_livre' | 'shopee' | 'amazon'
-const MPs: MP[] = ['mercado_livre', 'shopee', 'amazon']
+// Auditoria 22/09/2026: a Magalu ficava FORA do DRE inteiro (canal virou
+// marketplace depois do DRE nascer). Canal novo = entra aqui e no DRETable.
+const MPs = ['mercado_livre', 'shopee', 'amazon', 'magalu'] as const
+type MP = typeof MPs[number]
+type Key = MP | 'total'
+type MPNumbers = Record<Key, number>
+const KEYS: readonly Key[] = [...MPs, 'total']
 
-interface MPNumbers {
-  mercado_livre: number
-  shopee: number
-  amazon: number
-  total: number
-}
-
-function zero(): MPNumbers {
-  return { mercado_livre: 0, shopee: 0, amazon: 0, total: 0 }
-}
+const zero = (): MPNumbers => ({ mercado_livre: 0, shopee: 0, amazon: 0, magalu: 0, total: 0 })
 
 function add(a: MPNumbers, mp: MP, value: number): void {
   a[mp] += value
   a.total += value
 }
 
-function subtract(a: MPNumbers, b: MPNumbers): MPNumbers {
-  return {
-    mercado_livre: a.mercado_livre - b.mercado_livre,
-    shopee: a.shopee - b.shopee,
-    amazon: a.amazon - b.amazon,
-    total: a.total - b.total,
-  }
+/** Monta um MPNumbers aplicando fn a cada canal (e ao total). */
+function calc(fn: (k: Key) => number): MPNumbers {
+  const r = zero()
+  for (const k of KEYS) r[k] = fn(k)
+  return r
 }
+
+const subtract = (a: MPNumbers, b: MPNumbers): MPNumbers => calc(k => a[k] - b[k])
 
 function toRow(label: string, data: MPNumbers, opts?: { isHeader?: boolean; isTotal?: boolean; isHighlight?: boolean; negate?: boolean }): DRERow {
   const m = opts?.negate ? -1 : 1
@@ -38,35 +35,32 @@ function toRow(label: string, data: MPNumbers, opts?: { isHeader?: boolean; isTo
     isHeader: opts?.isHeader,
     isTotal: opts?.isTotal,
     isHighlight: opts?.isHighlight,
-    mercado_livre: data.mercado_livre * m,
-    shopee: data.shopee * m,
-    amazon: data.amazon * m,
-    total: data.total * m,
+    ...(calc(k => data[k] * m)),
   }
 }
 
-function headerRow(label: string): DRERow {
-  return { label, isHeader: true, mercado_livre: 0, shopee: 0, amazon: 0, total: 0 }
-}
+const headerRow = (label: string): DRERow => ({ label, isHeader: true, ...zero() })
 
 export async function buildDRE(period: Date): Promise<DRERow[]> {
   const db = createSupabaseServiceClient()
   const startDate = format(startOfMonth(period), 'yyyy-MM-dd')
   const endDate = format(endOfMonth(period), 'yyyy-MM-dd')
 
-  // Load sales with taxes and costs
-  const { data: sales } = await db
+  // Paginado: o PostgREST corta em 1000 linhas e o mês ficava incompleto sem aviso
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sales = await fetchAll<any>(() => db
     .from('sales')
-    .select('marketplace, fulfillment_type, gross_price, cancellation, discounts, marketplace_commission, marketplace_fixed_fee, rebate, marketplace_shipping_fee, ads_cost, sale_taxes(*), sale_costs(total_cost, import_credit)')
+    .select('marketplace, fulfillment_type, gross_price, cancellation, discounts, marketplace_commission, marketplace_fixed_fee, rebate, marketplace_shipping_fee, ads_cost, sale_taxes(*), sale_costs(total_cost)')
     .gte('sale_date', startDate)
     .lte('sale_date', endDate)
+    .order('id', { ascending: true }))
 
-  // Load operational expenses
-  const { data: expenses } = await db
+  const { data: expenses, error: expErr } = await db
     .from('operational_expenses')
     .select('*')
     .gte('period', startDate)
     .lte('period', endDate)
+  if (expErr) throw new Error(`Falha ao consultar o banco: ${expErr.message}`)
 
   // ── Aggregate sales data by marketplace ──────────────────────────────
   const grossRevenue = zero()
@@ -83,9 +77,8 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
   const ads = zero()
   const ipi = zero()
   const cmv = zero()
-  const importCredit = zero()
 
-  for (const sale of sales ?? []) {
+  for (const sale of sales) {
     const mp = sale.marketplace as MP
     if (!MPs.includes(mp)) continue
 
@@ -98,8 +91,8 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
 
     add(discounts, mp, Number(sale.discounts))
     add(commissions, mp, Number(sale.marketplace_commission))
-    add(fixedFees, mp, Number((sale as any).marketplace_fixed_fee ?? 0))
-    add(rebates, mp, Number((sale as any).rebate ?? 0))
+    add(fixedFees, mp, Number(sale.marketplace_fixed_fee ?? 0))
+    add(rebates, mp, Number(sale.rebate ?? 0))
     add(shippingFees, mp, Number(sale.marketplace_shipping_fee))
     add(ads, mp, Number(sale.ads_cost))
 
@@ -115,63 +108,39 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
     }
 
     const costRaw = sale.sale_costs as unknown
-    const cost = costRaw ? (Array.isArray(costRaw) ? (costRaw as any[])[0] : costRaw) as { total_cost: number; import_credit?: number } : null
-    if (cost) {
-      add(cmv, mp, Number(cost.total_cost))
-      // Crédito de importação das UNIDADES VENDIDAS — mesma régua da margem
-      // por venda (PIS+COFINS+ICMS por produto, lote vigente)
-      add(importCredit, mp, Number(cost.import_credit ?? 0))
-    }
+    const cost = costRaw ? (Array.isArray(costRaw) ? (costRaw as any[])[0] : costRaw) as { total_cost: number } : null
+    if (cost) add(cmv, mp, Number(cost.total_cost))
   }
 
   // ── Computed subtotals ────────────────────────────────────────────────
-  const netMarket: MPNumbers = {
-    mercado_livre: grossRevenue.mercado_livre - cancellations.mercado_livre - discounts.mercado_livre,
-    shopee: grossRevenue.shopee - cancellations.shopee - discounts.shopee,
-    amazon: grossRevenue.amazon - cancellations.amazon - discounts.amazon,
-    total: grossRevenue.total - cancellations.total - discounts.total,
-  }
+  const netMarket = calc(k => grossRevenue[k] - cancellations[k] - discounts[k])
 
-  // Impostos líquidos = débitos da saída − crédito de importação das vendas
-  const totalTaxes: MPNumbers = {
-    mercado_livre: pis.mercado_livre + cofins.mercado_livre + icms.mercado_livre + icmsDifal.mercado_livre + ipi.mercado_livre - importCredit.mercado_livre,
-    shopee:        pis.shopee        + cofins.shopee        + icms.shopee        + icmsDifal.shopee        + ipi.shopee        - importCredit.shopee,
-    amazon:        pis.amazon        + cofins.amazon        + icms.amazon        + icmsDifal.amazon        + ipi.amazon        - importCredit.amazon,
-    total:         pis.total         + cofins.total         + icms.total         + icmsDifal.total         + ipi.total         - importCredit.total,
-  }
+  // Impostos = débitos da saída. SEM crédito de importação: as NF-e de compra
+  // que formam o CMV já entram LÍQUIDAS de crédito (regra 5 do AGENTS.md,
+  // 2026-09-15) — somar aqui contava em dobro e inflava lucro bruto/EBITDA/IRPJ.
+  const totalTaxes = calc(k => pis[k] + cofins[k] + icms[k] + icmsDifal[k] + ipi[k])
 
   const afterTaxes = subtract(netMarket, totalTaxes)
 
   // Canal = comissão bruta + tarifa fixa + frete + ads − estorno (crédito do ML)
-  const totalChannel: MPNumbers = {
-    mercado_livre: commissions.mercado_livre + fixedFees.mercado_livre + shippingFees.mercado_livre + ads.mercado_livre - rebates.mercado_livre,
-    shopee: commissions.shopee + fixedFees.shopee + shippingFees.shopee + ads.shopee - rebates.shopee,
-    amazon: commissions.amazon + fixedFees.amazon + shippingFees.amazon + ads.amazon - rebates.amazon,
-    total: commissions.total + fixedFees.total + shippingFees.total + ads.total - rebates.total,
-  }
+  const totalChannel = calc(k => commissions[k] + fixedFees[k] + shippingFees[k] + ads[k] - rebates[k])
 
   const operationalRevenue = subtract(afterTaxes, totalChannel)
   const grossProfit = subtract(operationalRevenue, cmv)
-  // Margens % sobre o FATURAMENTO BRUTO (regra do Bruno), não sobre receita operacional
-  const grossBase = grossRevenue.total || 1
+  // Margens % sobre o faturamento LÍQUIDO (bruto − devolução − cupom), mesma
+  // base da margem por venda (regra 5)
+  const grossBase = netMarket.total || 1
   const grossMarginPct = (grossProfit.total / grossBase) * 100
 
   // ── Expenses: distribute by revenue share ────────────────────────────
   const expensesByCategory: Record<string, MPNumbers> = {}
   const revTotal = grossRevenue.total || 1
-  const revShare = {
-    mercado_livre: grossRevenue.mercado_livre / revTotal,
-    shopee: grossRevenue.shopee / revTotal,
-    amazon: grossRevenue.amazon / revTotal,
-  }
 
   for (const exp of expenses ?? []) {
     const cat = exp.dre_category as string
     if (!expensesByCategory[cat]) expensesByCategory[cat] = zero()
     const amount = Number(exp.amount)
-    expensesByCategory[cat].mercado_livre += amount * revShare.mercado_livre
-    expensesByCategory[cat].shopee += amount * revShare.shopee
-    expensesByCategory[cat].amazon += amount * revShare.amazon
+    for (const mp of MPs) expensesByCategory[cat][mp] += amount * (grossRevenue[mp] / revTotal)
     expensesByCategory[cat].total += amount
   }
 
@@ -179,34 +148,10 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
   const pessoalCats = ['salarios', 'inss_patronal', 'fgts', 'vale_transporte', 'vale_alimentacao', 'plano_saude', 'ferias_13', 'prolabore']
   const opCats = ['energia', 'agua', 'escritorio', 'aluguel', 'frete_operacional', 'publicidade_marketing', 'sistemas_software', 'contabilidade_consultoria', 'outras_despesas']
 
-  const totalPessoal = zero()
-  const totalOp = zero()
-
-  for (const cat of pessoalCats) {
-    const d = expensesByCategory[cat]
-    if (d) {
-      totalPessoal.mercado_livre += d.mercado_livre
-      totalPessoal.shopee += d.shopee
-      totalPessoal.amazon += d.amazon
-      totalPessoal.total += d.total
-    }
-  }
-  for (const cat of opCats) {
-    const d = expensesByCategory[cat]
-    if (d) {
-      totalOp.mercado_livre += d.mercado_livre
-      totalOp.shopee += d.shopee
-      totalOp.amazon += d.amazon
-      totalOp.total += d.total
-    }
-  }
-
-  const totalExpenses: MPNumbers = {
-    mercado_livre: totalPessoal.mercado_livre + totalOp.mercado_livre,
-    shopee: totalPessoal.shopee + totalOp.shopee,
-    amazon: totalPessoal.amazon + totalOp.amazon,
-    total: totalPessoal.total + totalOp.total,
-  }
+  const sumCats = (cats: string[]) => calc(k => cats.reduce((s, c) => s + (expensesByCategory[c]?.[k] ?? 0), 0))
+  const totalPessoal = sumCats(pessoalCats)
+  const totalOp = sumCats(opCats)
+  const totalExpenses = calc(k => totalPessoal[k] + totalOp[k])
 
   const ebitda = subtract(grossProfit, totalExpenses)
   const ebitdaMarginPct = (ebitda.total / grossBase) * 100
@@ -219,12 +164,9 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
   const csll = Math.max(0, lucroBase) * 0.09
 
   const irpjCsllTotal = irpj + irpjAdicional + csll
-  const resultadoLiquido: MPNumbers = {
-    mercado_livre: ebitda.mercado_livre - (ebitda.total > 0 ? irpjCsllTotal * (ebitda.mercado_livre / ebitda.total) : 0),
-    shopee:        ebitda.shopee        - (ebitda.total > 0 ? irpjCsllTotal * (ebitda.shopee        / ebitda.total) : 0),
-    amazon:        ebitda.amazon        - (ebitda.total > 0 ? irpjCsllTotal * (ebitda.amazon        / ebitda.total) : 0),
-    total:         ebitda.total - irpjCsllTotal,
-  }
+  const resultadoLiquido = calc(k => k === 'total'
+    ? ebitda.total - irpjCsllTotal
+    : ebitda[k] - (ebitda.total > 0 ? irpjCsllTotal * (ebitda[k] / ebitda.total) : 0))
   const netMarginPct = (resultadoLiquido.total / grossBase) * 100
 
   // ── Build rows ────────────────────────────────────────────────────────
@@ -241,8 +183,7 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
     toRow('(-) ICMS', icms, { negate: true }),
     toRow('(-) ICMS DIFAL', icmsDifal, { negate: true }),
     ...(ipi.total > 0 ? [toRow('(-) IPI', ipi, { negate: true })] : []),
-    ...(importCredit.total > 0 ? [toRow('(+) Créditos de importação (PIS/COFINS/ICMS das vendas)', importCredit)] : []),
-    toRow('= Receita após Impostos Líquidos', afterTaxes, { isTotal: true }),
+    toRow('= Receita após Impostos', afterTaxes, { isTotal: true }),
 
     headerRow('Custos do Canal de Venda'),
     toRow('(-) Comissões (brutas)', commissions, { negate: true }),
@@ -269,8 +210,8 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
     { ...toRow('= EBITDA', ebitda, { isTotal: true, isHighlight: true }), label: `= EBITDA  (${ebitdaMarginPct.toFixed(1)}% mg. EBITDA)` },
 
     headerRow('Apuração Tributária (Lucro Real)'),
-    toRow('(-) IRPJ (15% + adicional 10%)', { mercado_livre: 0, shopee: 0, amazon: 0, total: irpj + irpjAdicional }, { negate: true }),
-    toRow('(-) CSLL (9%)', { mercado_livre: 0, shopee: 0, amazon: 0, total: csll }, { negate: true }),
+    toRow('(-) IRPJ (15% + adicional 10%)', { ...zero(), total: irpj + irpjAdicional }, { negate: true }),
+    toRow('(-) CSLL (9%)', { ...zero(), total: csll }, { negate: true }),
 
     { ...toRow('= RESULTADO LÍQUIDO', resultadoLiquido, { isTotal: true, isHighlight: true }), label: `= RESULTADO LÍQUIDO  (${netMarginPct.toFixed(1)}% mg. líquida)` },
   ]

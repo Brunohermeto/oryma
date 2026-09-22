@@ -1,4 +1,5 @@
 import { TopBar } from '@/components/layout/TopBar'
+import { brazilToday } from '@/lib/utils/brazil-time'
 import { DRETable } from '@/components/dre/DRETable'
 import { buildDRE } from '@/lib/dre/engine'
 import { Button } from '@/components/ui/button'
@@ -12,7 +13,7 @@ export default async function DREPage({
   searchParams: Promise<{ month?: string }>
 }) {
   const params = await searchParams
-  const period = params.month ? new Date(`${params.month}-01`) : new Date()
+  const period = params.month ? new Date(`${params.month}-01`) : new Date(brazilToday() + 'T12:00:00')
   const rows = await buildDRE(period)
   const currentMonth = period.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
 

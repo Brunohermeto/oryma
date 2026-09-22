@@ -1,4 +1,5 @@
 import { TopBar } from '@/components/layout/TopBar'
+import { brazilDaysAgo } from '@/lib/utils/brazil-time'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { getCurrentCmp } from '@/lib/landed-cost/calculator'
 import { MARKETPLACE_LABELS } from '@/types'
@@ -29,7 +30,7 @@ const MP_BADGE: Record<string, { bg: string; color: string }> = {
 
 export default async function PrecificacaoPage() {
   const db = createSupabaseServiceClient()
-  const since = format(subDays(new Date(), 30), 'yyyy-MM-dd')
+  const since = brazilDaysAgo(30)
   const targetMargin = 0.40
 
   const { data: products } = await db.from('products').select('id, name, sku')

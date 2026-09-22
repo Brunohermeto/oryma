@@ -1,4 +1,5 @@
 import { TopBar } from '@/components/layout/TopBar'
+import { brazilToday } from '@/lib/utils/brazil-time'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { isReturned } from '@/lib/sales/returned'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
@@ -81,7 +82,7 @@ export default async function TributarioPage({
   searchParams: Promise<{ month?: string }>
 }) {
   const params = await searchParams
-  const period = params.month ? new Date(`${params.month}-01`) : new Date()
+  const period = params.month ? new Date(`${params.month}-01`) : new Date(brazilToday() + 'T12:00:00')
   const start = format(startOfMonth(period), 'yyyy-MM-dd')
   const end = format(endOfMonth(period), 'yyyy-MM-dd')
   const currentMonth = period.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })

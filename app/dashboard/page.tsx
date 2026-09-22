@@ -1,4 +1,5 @@
 import { TopBar } from '@/components/layout/TopBar'
+import { fetchAll } from '@/lib/supabase/fetch-all'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { isReturned } from '@/lib/sales/returned'
 import { format, startOfMonth, endOfMonth, subMonths, subDays, eachDayOfInterval } from 'date-fns'
@@ -56,13 +57,18 @@ export default async function DashboardPage(
     return { key: format(d, 'yyyy-MM'), label: d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace('. de ', '/').replace('.', '') }
   })
 
+  // Faturamento LÍQUIDO = bruto − devolução − cupom do vendedor (regra 5 do
+  // AGENTS.md) — mesma base da tabela de vendas, pra os cards baterem com ela
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const liq = (x: any) => Number(x.gross_price) - Number(x.cancellation ?? 0) - Number(x.discounts ?? 0)
+
   // Paginação: o PostgREST devolve no máx. 1000 linhas por query. Meses com mais
   // de 1000 vendas (a partir de ago/2026, com a Shopee) truncavam o faturamento.
   const salesRaw: any[] = []
   for (let pg = 0; pg < 30; pg++) {
     const { data, error } = await db
       .from('sales')
-      .select('marketplace, gross_price, marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, rebate, ads_cost, cancellation, sale_date, sale_costs(total_cost, margin_value)')
+      .select('marketplace, gross_price, marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, rebate, ads_cost, cancellation, discounts, sale_date, sale_costs(total_cost, margin_value)')
       .gte('sale_date', start).lte('sale_date', end)
       .order('id', { ascending: true })
       .range(pg * 1000, pg * 1000 + 999)
@@ -83,7 +89,7 @@ export default async function DashboardPage(
   const prevSalesRaw: any[] = []
   for (let pg = 0; pg < 30; pg++) {
     const { data } = await db.from('sales')
-      .select('gross_price, cancellation, marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, rebate, ads_cost, sale_costs(margin_value)')
+      .select('gross_price, cancellation, discounts, marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, rebate, ads_cost, sale_costs(margin_value)')
       .gte('sale_date', prevStart).lte('sale_date', prevEnd)
       .order('id', { ascending: true }).range(pg * 1000, pg * 1000 + 999)
     if (!data?.length) break
@@ -102,7 +108,7 @@ export default async function DashboardPage(
   const trendSalesRaw: any[] = []
   for (let pg = 0; pg < 30; pg++) {
     const { data } = await db.from('sales')
-      .select('marketplace, gross_price, cancellation, sale_date')
+      .select('marketplace, gross_price, cancellation, discounts, sale_date')
       .gte('sale_date', start).lte('sale_date', format(now, 'yyyy-MM-dd'))
       .order('id', { ascending: true }).range(pg * 1000, pg * 1000 + 999)
     if (!data?.length) break
@@ -128,7 +134,7 @@ export default async function DashboardPage(
   const topProductSalesRaw: any[] = []
   for (let pg = 0; pg < 30; pg++) {
     const { data } = await db.from('sales')
-      .select('product_id, gross_price, cancellation, marketplace_commission, sale_costs(total_cost, margin_pct), products(name, sku)')
+      .select('product_id, gross_price, cancellation, discounts, marketplace_commission, sale_costs(total_cost, margin_pct), products(name, sku)')
       .gte('sale_date', start).lte('sale_date', end)
       .not('sale_costs', 'is', null)
       .order('id', { ascending: true }).range(pg * 1000, pg * 1000 + 999)
@@ -147,9 +153,9 @@ export default async function DashboardPage(
   const yearSales: Array<{ marketplace: string; gross_price: number; cancellation: number; sale_date: string; sale_costs: unknown }> = []
   for (let page = 0; page < 20; page++) {
     const { data: chunk } = await db.from('sales')
-      .select('marketplace, gross_price, cancellation, sale_date, sale_costs(margin_value)')
+      .select('marketplace, gross_price, cancellation, discounts, sale_date, sale_costs(margin_value)')
       .gte('sale_date', yearStart)
-      .order('sale_date', { ascending: true })
+      .order('id', { ascending: true })
       .range(page * 1000, page * 1000 + 999)
     if (!chunk?.length) break
     yearSales.push(...(chunk as any[]).filter(s => !isReturned(s)))
@@ -161,7 +167,7 @@ export default async function DashboardPage(
     const m = Number(s.sale_date.slice(5, 7)) - 1
     if (!yearAgg.has(m)) yearAgg.set(m, { byMp: {}, total: 0, mv: 0, mb: 0, pedidos: 0 })
     const a = yearAgg.get(m)!
-    const g = Number(s.gross_price) - Number(s.cancellation ?? 0)
+    const g = liq(s)
     a.byMp[s.marketplace] = (a.byMp[s.marketplace] ?? 0) + g
     a.total += g
     a.pedidos++
@@ -210,22 +216,24 @@ export default async function DashboardPage(
       agg.fixa     += Number((r as any).marketplace_fixed_fee ?? 0)
       agg.ads      += Number(r.ads_cost ?? 0)
       agg.estorno  += Number((r as any).rebate ?? 0)
-      agg.revenue  += Number(r.gross_price ?? 0) - Number(r.cancellation ?? 0)
+      agg.revenue  += liq(r)
     }
   }
   const feeSum = (a: FeeAgg) => a.comissao + a.frete + a.fixa + a.ads - a.estorno
   const feesTotal = feeSum(fees)
 
   // ── Margem por produto (período próprio via ?days=) ──
-  const { data: marginSales } = await db.from('sales')
-    .select(`product_id, marketplace, gross_price, cancellation, quantity, uf_destino, ads_cost,
+  // paginado: .limit(5000) cortava em 1000 (limite do PostgREST) sem aviso;
+  // devolvidas ficam fora, como em todos os outros indicadores
+  const marginSales = (await fetchAll<any>(() => db.from('sales')
+    .select(`product_id, marketplace, gross_price, cancellation, discounts, quantity, uf_destino, ads_cost,
       marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, rebate,
       sale_taxes(icms, icms_difal, pis, cofins), sale_costs(total_cost, margin_value),
       products(id, name, sku)`)
     .gte('sale_date', start)
     .lte('sale_date', end)
     .not('product_id', 'is', null)
-    .limit(5000)
+    .order('id', { ascending: true }))).filter(x => !isReturned(x))
 
   const byProduct = new Map<string, any>()
   for (const s of marginSales ?? []) {
@@ -233,7 +241,7 @@ export default async function DashboardPage(
     if (!p) continue
     const c = uw(s.sale_costs) as any
     const t = uw(s.sale_taxes) as any
-    const g = Number(s.gross_price) - Number(s.cancellation ?? 0)
+    const g = liq(s)
     let row = byProduct.get(p.id)
     if (!row) {
       row = { productId: p.id, name: p.name, sku: p.sku, units: 0, revenue: 0,
@@ -274,7 +282,7 @@ export default async function DashboardPage(
     const uf = s.uf_destino || '??'
     if (!ufGlobal.has(uf)) ufGlobal.set(uf, { units: 0, revenue: 0, mv: 0, mg: 0, byMp: {} })
     const u = ufGlobal.get(uf)!
-    const g = Number(s.gross_price) - Number(s.cancellation ?? 0)
+    const g = liq(s)
     u.units   += Number(s.quantity)
     u.revenue += g
     const smp = (s as any).marketplace as string
@@ -312,8 +320,8 @@ export default async function DashboardPage(
   })).sort((a, b) => b.revenue - a.revenue)
 
   // ── KPIs ──
-  const totalRevenue = (sales ?? []).reduce((s, r) => s + Number(r.gross_price) - Number(r.cancellation), 0)
-  const prevRevenue = (prevSales ?? []).reduce((s, r) => s + Number(r.gross_price) - Number(r.cancellation ?? 0), 0)
+  const totalRevenue = (sales ?? []).reduce((s, r) => s + liq(r), 0)
+  const prevRevenue = (prevSales ?? []).reduce((s, r) => s + liq(r), 0)
   const revenueChange = prevRevenue > 0 ? ((totalRevenue - prevRevenue) / prevRevenue) * 100 : 0
 
   // ── Período anterior (comparação em tudo) ──
@@ -322,7 +330,7 @@ export default async function DashboardPage(
     const mv = (uw(r.sale_costs) as any)?.margin_value
     if (mv === null || mv === undefined) continue
     prevProfit     += Number(mv)
-    prevMarginBase += Number(r.gross_price) - Number(r.cancellation ?? 0)
+    prevMarginBase += liq(r)
   }
   const prevMargin = prevMarginBase > 0 ? (prevProfit / prevMarginBase) * 100 : null
   const prevOrders = (prevSales ?? []).length
@@ -346,7 +354,7 @@ export default async function DashboardPage(
     const mv = (uw(r.sale_costs) as any)?.margin_value
     if (mv === null || mv === undefined) continue
     grossProfit += Number(mv)
-    marginBase  += Number(r.gross_price) - Number(r.cancellation)
+    marginBase  += liq(r)
   }
   const grossMargin = marginBase > 0 ? (grossProfit / marginBase) * 100 : 0
   const totalOrders = (sales ?? []).length
@@ -356,7 +364,7 @@ export default async function DashboardPage(
   for (const s of sales ?? []) {
     const mp = s.marketplace
     if (!byMP[mp]) byMP[mp] = { revenue: 0, marginValue: 0, marginBase: 0, orders: 0 }
-    const g = Number(s.gross_price) - Number(s.cancellation)
+    const g = liq(s)
     byMP[mp].revenue += g
     const mv = (uw(s.sale_costs) as any)?.margin_value
     if (mv !== null && mv !== undefined) {
@@ -390,7 +398,7 @@ export default async function DashboardPage(
     if (!dayAgg.has(d)) dayAgg.set(d, { mv: 0, base: 0 })
     const a = dayAgg.get(d)!
     a.mv   += Number(mv)
-    a.base += Number(s.gross_price) - Number(s.cancellation ?? 0)
+    a.base += liq(s)
   }
   const marginTrend: MarginDailyPoint[] = days.map(day => {
     const key = format(day, 'yyyy-MM-dd')

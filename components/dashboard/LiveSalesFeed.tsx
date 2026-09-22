@@ -35,7 +35,7 @@ interface Sale {
   cancellation: number
   discounts: number
   products: { name: string; sku: string } | null
-  sale_costs: { unit_cost_applied: number; total_cost: number; margin_pct: number | null } | null
+  sale_costs: { unit_cost_applied: number; total_cost: number; margin_pct: number | null; margin_value: number | null } | null
 }
 
 function fmtR(v: number) {
@@ -98,9 +98,13 @@ function SaleCard({ sale }: { sale: Sale }) {
   // shippingRec (frete do comprador) não é receita — fica com o ML
   const faturamento     = grossPrice - cancellation - discounts
   const totalFees       = commission + shippingFee + ads
-  const receitaLiquida  = faturamento - totalFees
-  const lucro           = sale.sale_costs ? receitaLiquida - cmv : null
-  const marginPct       = lucro !== null && receitaLiquida > 0 ? (lucro / receitaLiquida) * 100 : null
+  // Lucro/margem = os GRAVADOS pelo relink (dono único do cálculo, regra 5):
+  // a conta própria daqui ignorava impostos, tarifa fixa e estorno e mostrava
+  // margem muito acima da real, na mesma tela da Margem Real. NULL = em cálculo.
+  const mv              = sale.sale_costs?.margin_value
+  const lucro           = mv === null || mv === undefined ? null : Number(mv)
+  const mp              = sale.sale_costs?.margin_pct
+  const marginPct       = mp === null || mp === undefined ? null : Number(mp) * 100
 
   const totalCosts = totalFees + cmv
 
@@ -230,11 +234,10 @@ export function LiveSalesFeed() {
   // Totais por canal
   function channelTotals(channelSales: Sale[]) {
     return channelSales.reduce((acc, s) => {
-      const fat = Number(s.gross_price) - Number(s.cancellation)
-      const fees = Number(s.marketplace_commission) + Number(s.marketplace_shipping_fee) + Number(s.ads_cost)
-      const cmv = Number(s.sale_costs?.total_cost ?? 0)
+      const fat = Number(s.gross_price) - Number(s.cancellation) - Number(s.discounts ?? 0)
+      const mv  = s.sale_costs?.margin_value
       acc.faturamento += fat
-      acc.lucro += s.sale_costs ? fat - fees - cmv : 0
+      acc.lucro += mv === null || mv === undefined ? 0 : Number(mv)  // só apuradas
       acc.count++
       return acc
     }, { faturamento: 0, lucro: 0, count: 0 })

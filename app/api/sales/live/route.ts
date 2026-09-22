@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
       id, marketplace, fulfillment_type, sku, sale_date, quantity,
       gross_price, shipping_received, marketplace_commission, marketplace_shipping_fee, ads_cost, cancellation, discounts,
       products(name, sku),
-      sale_costs(unit_cost_applied, total_cost, margin_pct)
+      sale_costs(unit_cost_applied, total_cost, margin_pct, margin_value)
     `)
     .gte('sale_date', since)
     .lte('sale_date', today)
