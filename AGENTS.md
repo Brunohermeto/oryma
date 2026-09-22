@@ -112,3 +112,22 @@ Qualquer código novo que grave ou leia valores de venda DEVE segui-las.
   estava sem banco. Consulta que falha deve aparecer como erro, nunca como 0.
 - Validação: `npx tsc --noEmit` + gabarito contra dados reais de produção
   (centavo a centavo contra o painel do ML) antes de dar por pronto.
+
+## Regras de código aprendidas na auditoria de 2026-09-22
+- **Re-sync nunca zera custo.** Toda gravação de venda passa por
+  `lib/marketplace/upsert-sale.ts`: venda nova = insere tudo; venda existente =
+  atualiza os campos-base e só PREENCHE lacunas (nulo/0/galpao) nos campos que
+  outras rotas enriquecem (comissão, frete, ads, devolução, estorno, Full, NF,
+  produto). Antes, o ciclo diário (que revê D-0..D-2 e Amazon D-2..D-15 porque
+  os marketplaces atrasam) apagava tudo isso todo dia.
+- **Toda consulta que pode passar de 1000 linhas usa `lib/supabase/fetch-all.ts`**
+  (o PostgREST corta em 1000 e `.limit(5000)` não ajuda), ordenada por `id`
+  (ordenar por `sale_date` repetido pula/duplica linhas) — e ela LANÇA o erro.
+- **Telas não recalculam margem.** Lucro/margem exibidos = `sale_costs.margin_value`
+  / `margin_pct` gravados pelo relink. Feeds, cards e DRE que "refaziam a conta"
+  divergiam da margem real (sem imposto/tarifa fixa/estorno, com crédito de
+  importação).
+- **Amazon Orders API ≈ 1 chamada/min** (rajada 20): backfill em janelas de 7
+  dias com 65s de pausa; 429 = esperar e repetir a MESMA janela.
+- **Pedido da Shopee é alfanumérico** — nunca casar `external_order_id` com `\d+`.
+- Cron da Vercel (`vercel.json`) fica VAZIO: o ciclo vive no GitHub Actions.

@@ -140,7 +140,7 @@ export function BlingSyncButton() {
 
       // Notas novas mudam impostos/custos → recalcula margens
       setProgress('Recalculando custos e margens…')
-      await fetch('/api/landed-cost/relink', { method: 'POST' }).catch(() => null)
+      await fetch('/api/landed-cost/relink', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ days: 90 }) }).catch(() => null)
 
       setResult(`✓ ${totalSynced} NF-e saída vinculadas (180 dias varridos) — margens recalculadas`)
       setStatus('done')
@@ -327,7 +327,7 @@ function NFeEntradaButton() {
           ? ` (${data.skipped_already_imported} já importadas)`
           : ''
         // NF de entrada nova muda o custo vigente → recalcula margens
-        await fetch('/api/landed-cost/relink', { method: 'POST' }).catch(() => null)
+        await fetch('/api/landed-cost/relink', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ days: 90 }) }).catch(() => null)
         setResult(`✓ ${data.synced} NF-e de entrada importadas${skippedMsg} — custos recalculados`)
         setStatus('done')
       } else throw new Error(data.error ?? 'Erro desconhecido')

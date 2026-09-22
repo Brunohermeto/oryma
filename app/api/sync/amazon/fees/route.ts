@@ -10,6 +10,7 @@
  * (NUNCA receita); bruto = Principal + Tax (= valor da NF).
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { fetchAll } from '@/lib/supabase/fetch-all'
 import { amazonGet } from '@/lib/integrations/amazon'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 
@@ -56,11 +57,11 @@ export async function POST(request: NextRequest) {
 
   // Fila: vendas do período — sem taxas ainda OU todas (p/ capturar devoluções tardias).
   // O painel da Amazon é líquido de devoluções; gravamos devolução em cancellation.
-  const { data: sales } = await db.from('sales')
+  const sales = await fetchAll<any>(() => db.from('sales')
     .select('id, external_order_id, marketplace_commission, cancellation, rebate, sale_date')
     .eq('marketplace', 'amazon')
     .gte('sale_date', since)
-    .order('sale_date', { ascending: true })
+    .order('id', { ascending: true }))  // paginado: >1000 vendas sumiam da fila
 
   // agrupa por pedido: external_order_id = amz_{orderId}_{SellerSKU cru}
   const byOrder = new Map<string, Array<{ id: string; external_order_id: string; marketplace_commission: number; cancellation: number; rebate: number }>>()

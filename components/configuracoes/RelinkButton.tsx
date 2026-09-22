@@ -17,14 +17,24 @@ export function RelinkButton() {
     setStatus('running')
     setResult('')
     try {
-      const res  = await fetch('/api/landed-cost/relink', { method: 'POST' })
-      const data = await res.json()
-      if (data.ok) {
-        setResult(data.message ?? `✓ ${data.sales_updated} vendas atualizadas`)
-        setStatus('done')
-      } else {
-        throw new Error(data.error ?? data.message ?? 'Erro desconhecido')
+      // O relink completo (~10 mil vendas) estoura os 60s da Vercel (504). Roda
+      // em fatias de 30 dias sobre os últimos 12 meses (body {days, until}).
+      let total = 0
+      const hoje = Date.now()
+      for (let k = 12; k >= 1; k--) {
+        const days  = 30 * k
+        const until = new Date(hoje - (days - 30) * 864e5).toISOString().slice(0, 10)
+        setResult(`fatia ${13 - k}/12…`)
+        const res  = await fetch('/api/landed-cost/relink', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ days, until }),
+        })
+        const data = await res.json()
+        if (!data.ok) throw new Error(data.error ?? data.message ?? 'Erro desconhecido')
+        total += Number(data.sales_updated ?? 0)
       }
+      setResult(`✓ ${total} vendas atualizadas (12 meses)`)
+      setStatus('done')
     } catch (err) {
       setResult(`Erro: ${String(err).replace('Error: ', '')}`)
       setStatus('error')

@@ -1,4 +1,5 @@
 import { TopBar } from '@/components/layout/TopBar'
+import { fetchAll } from '@/lib/supabase/fetch-all'
 import { brazilToday } from '@/lib/utils/brazil-time'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { isReturned } from '@/lib/sales/returned'
@@ -88,11 +89,13 @@ export default async function TributarioPage({
   const currentMonth = period.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
   const db = createSupabaseServiceClient()
 
-  const { data: saleTaxes } = await db
+  // paginado: o PostgREST corta em 1000 e os débitos do mês ficavam menores
+  const saleTaxes = await fetchAll<any>(() => db
     .from('sale_taxes')
     .select('pis, cofins, icms, icms_difal, sale_id, sales!inner(sale_date, fulfillment_type)')
     .gte('sales.sale_date', start)
     .lte('sales.sale_date', end)
+    .order('id', { ascending: true }))
 
   const debitoPIS    = (saleTaxes ?? []).reduce((s, t) => s + Number(t.pis), 0)
   const debitoCOFINS = (saleTaxes ?? []).reduce((s, t) => s + Number(t.cofins), 0)
@@ -120,11 +123,12 @@ export default async function TributarioPage({
   const totalCreditoICMS = creditoICMSImp + creditoICMSEntradas
   const saldoICMS   = debitoICMS - totalCreditoICMS
 
-  const { data: salesRaw } = await db
+  const salesRaw = await fetchAll<any>(() => db
     .from('sales')
-    .select('gross_price, marketplace_commission, marketplace_shipping_fee, ads_cost, cancellation, sale_costs(total_cost)')
+    .select('gross_price, marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, rebate, ads_cost, cancellation, discounts, sale_costs(total_cost)')
     .gte('sale_date', start)
     .lte('sale_date', end)
+    .order('id', { ascending: true }))
 
   // Devolvida não entra em faturamento nem em custo (valor estornado)
   const sales = (salesRaw ?? []).filter(s => !isReturned(s))
@@ -135,8 +139,10 @@ export default async function TributarioPage({
     .gte('period', start)
     .lte('period', end)
 
-  const totalRevenue  = (sales ?? []).reduce((s, r) => s + Number(r.gross_price) - Number(r.cancellation), 0)
-  const totalFees     = (sales ?? []).reduce((s, r) => s + Number(r.marketplace_commission) + Number(r.marketplace_shipping_fee) + Number(r.ads_cost), 0)
+  // mesma régua do DRE (regra 5): faturamento líquido de devolução E cupom;
+  // tarifas com tarifa fixa e estorno (antes faltavam e o IRPJ divergia do DRE)
+  const totalRevenue  = (sales ?? []).reduce((s, r) => s + Number(r.gross_price) - Number(r.cancellation) - Number(r.discounts ?? 0), 0)
+  const totalFees     = (sales ?? []).reduce((s, r) => s + Number(r.marketplace_commission) + Number(r.marketplace_shipping_fee) + Number(r.marketplace_fixed_fee ?? 0) + Number(r.ads_cost) - Number(r.rebate ?? 0), 0)
   const uw = (v: unknown) => !v ? null : Array.isArray(v) ? (v as any[])[0] ?? null : v
   const totalCMV      = (sales ?? []).reduce((s, r) => s + Number((uw(r.sale_costs) as any)?.total_cost ?? 0), 0)
   const totalExpenses = (expenses ?? []).reduce((s, e) => s + Number(e.amount), 0)

@@ -122,7 +122,7 @@ export function MarketplaceSyncButton() {
 
       // 7/7 margens + auditoria + vistoria de taxas
       setProgress('Etapa 7/7 — Recalculando custos, margens e auditoria…')
-      await fetch('/api/landed-cost/relink', { method: 'POST' })
+      await fetch('/api/landed-cost/relink', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ days: 90 }) })
       await fetch('/api/audit/sales?days=45', { method: 'POST' }).catch(() => null)
 
       // Vistoria de taxas vs tabela oficial (fatiada por anúncio, skip numérico)

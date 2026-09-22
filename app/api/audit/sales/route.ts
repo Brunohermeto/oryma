@@ -9,6 +9,7 @@
  * warn = dado ainda incompleto; info = fora do padrão, olhar quando puder.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { fetchAll } from '@/lib/supabase/fetch-all'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { brazilDaysAgo, brazilToday } from '@/lib/utils/brazil-time'
 import { isReturned } from '@/lib/sales/returned'
@@ -41,14 +42,14 @@ export async function POST(request: NextRequest) {
   const hoje = brazilToday()
   const d = (n: number) => brazilDaysAgo(n)
 
-  const { data: sales } = await db.from('sales')
+  const sales = await fetchAll<any>(() => db.from('sales')
     .select(`id, sku, sale_date, gross_price, cancellation, quantity, product_id, nfe_saida_key, uf_destino,
       marketplace, fulfillment_type, marketplace_commission, marketplace_shipping_fee,
       marketplace_fixed_fee, rebate, ads_cost, discounts, payout_actual,
       sale_taxes(icms, icms_difal, pis, cofins, total_taxes),
       sale_costs(total_cost, margin_pct)`)
     .gte('sale_date', from)
-    .limit(2000)
+    .order('id', { ascending: true }))  // paginado: .limit(2000) cortava em 1000
 
   const findings: Finding[] = []
   const add = (s: any, rule: string, severity: string, message: string) =>

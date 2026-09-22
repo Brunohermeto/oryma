@@ -8,6 +8,7 @@
  *   comissão líquida (ou bruta provisória) · serviço líquido · frete = 0 (neutro).
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { fetchAll } from '@/lib/supabase/fetch-all'
 import { shopeeGet } from '@/lib/integrations/shopee'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 
@@ -32,9 +33,10 @@ export async function POST(request: NextRequest) {
   const db = createSupabaseServiceClient()
   const since = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10)
 
-  const { data: sales } = await db.from('sales')
+  const sales = await fetchAll<any>(() => db.from('sales')
     .select('id, external_order_id, gross_price, marketplace_commission, marketplace_fixed_fee, marketplace_shipping_fee, discounts, payout_actual')
     .eq('marketplace', 'shopee').gte('sale_date', since)
+    .order('id', { ascending: true }))  // paginado: >1000 vendas sumiam da fila
 
   // agrupa por pedido; prioriza os que ainda estão SEM comissão
   type Item = { id: string; gross_price: number; hasComm: boolean; comm: number; serv: number; ship: number; disc: number; pay: number | null }

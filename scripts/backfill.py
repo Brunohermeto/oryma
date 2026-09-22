@@ -24,8 +24,10 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--from", dest="ini", default="2026-01-01")
 ap.add_argument("--to", dest="fim", default=datetime.date.today().isoformat())
 ap.add_argument("--steps", default="vendas,bling,ml,amazon,shopee,magalu,estoque,relink,audit")
+ap.add_argument("--channels", default="mercado_livre,shopee,amazon,magalu")
 args = ap.parse_args()
 STEPS = set(args.steps.split(","))
+CHANNELS = set(args.channels.split(","))
 INI = datetime.date.fromisoformat(args.ini)
 FIM = datetime.date.fromisoformat(args.fim)
 TODAY = datetime.date.today()
@@ -95,8 +97,12 @@ def sync_janela(canal, a, b):
     return {"status": "timeout"}
 
 def vendas_canal(canal, ini=None, fim_periodo=None):
-    win = 1 if canal == "amazon" else 2
-    cur, ok, falhas = ini or INI, 0, []
+    # Amazon: a Orders API aceita ~1 chamada/min (rajada de 20) — 1 dia a cada
+    # 7s dava 429 em serie. Poucos pedidos/dia: janela de 7 dias + 65s de pausa,
+    # e bloqueio = espera e repete a MESMA janela (nao adianta fatiar).
+    win = 7 if canal == "amazon" else 2
+    pausa = 65 if canal == "amazon" else 1
+    cur, ok, falhas, tent = ini or INI, 0, [], 0
     FIM = fim_periodo or globals()["FIM"]
     while cur <= FIM:
         fim = min(cur + datetime.timedelta(days=win - 1), FIM)
@@ -105,25 +111,28 @@ def vendas_canal(canal, ini=None, fim_periodo=None):
         if st.get("status") == "success":
             ok += st.get("records_synced") or 0
             log(f"vendas {canal} {cur}..{fim}: {st.get('records_synced')}")
-            cur = fim + datetime.timedelta(days=1)
+            cur = fim + datetime.timedelta(days=1); tent = 0
+        elif canal == "amazon" and tent < 3:
+            tent += 1; log(f"vendas amazon {cur}..{fim}: bloqueio da API, aguardando 2 min (tentativa {tent})")
+            time.sleep(120); continue
         elif fim > cur:
             log(f"vendas {canal} {cur}..{fim}: {st.get('status')} — refazendo dia a dia")
             win = 1  # refaz a janela dia a dia (rota idempotente)
         else:
             log(f"vendas {canal} {cur}: FALHOU {str(st.get('error_message'))[:80]}")
-            falhas.append(cur.isoformat()); cur = fim + datetime.timedelta(days=1)
-        time.sleep(1)
+            falhas.append(cur.isoformat()); cur = fim + datetime.timedelta(days=1); tent = 0
+        time.sleep(pausa)
     log(f"vendas {canal}: {ok} vendas; dias com falha: {falhas or 'nenhum'}")
 
 if "vendas" in STEPS:
-    ths = [threading.Thread(target=vendas_canal, args=(c,)) for c in ("mercado_livre", "amazon", "magalu")]
+    ths = [threading.Thread(target=vendas_canal, args=(c,)) for c in ("mercado_livre", "amazon", "magalu") if c in CHANNELS]
     # Shopee busca pedido a pedido (~1,3s cada, 35-60s por dia): 3 faixas do
     # periodo em paralelo, senao 9 meses levam ~3,5h
     passo = ((FIM - INI).days + 3) // 3
     for k in range(3):
         a = INI + datetime.timedelta(days=k * passo)
         b = min(a + datetime.timedelta(days=passo - 1), FIM)
-        if a <= FIM: ths.append(threading.Thread(target=vendas_canal, args=("shopee", a, b)))
+        if a <= FIM and "shopee" in CHANNELS: ths.append(threading.Thread(target=vendas_canal, args=("shopee", a, b)))
     for t in ths: t.start()
     for t in ths: t.join()
 
