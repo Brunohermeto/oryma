@@ -10,7 +10,9 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    # pior caso das etapas (Amazon dia a dia, tarifas com pausa, Shopee Full)
+    # chega perto de 40 min — e relink/auditoria são as ÚLTIMAS etapas
+    timeout-minutes: 120
     steps:
       - name: Baixar o código
         uses: actions/checkout@v4

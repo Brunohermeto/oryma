@@ -293,26 +293,27 @@ try:
 except Exception as e:
     print(f"10. relink: ERRO {str(e)[:70]}", flush=True)
 
-# ── 11. auditoria automatica ──
-try:
-    r = post("/api/audit/sales?days=45")
-    print(f"11. auditoria: {json.dumps(r.get('por_regra', {}), ensure_ascii=False)[:150]}", flush=True)
-except Exception as e:
-    print(f"11. auditoria: ERRO {str(e)[:70]}", flush=True)
-
-# ── 12. vistoria de taxas (comissao/fixa vs tabela oficial + frete vs padrao) ──
+# ── 11. vistoria de taxas (comissao/fixa vs tabela oficial + frete vs padrao) ──
 skip = 0
 while skip < 400:
     try:
         r = post("/api/audit/fees", {"days": 30, "limit": 25, "skip": skip})
     except Exception as e:
-        print(f"12. fees skip={skip}: ERRO {str(e)[:70]}", flush=True)
+        print(f"11. fees skip={skip}: ERRO {str(e)[:70]}", flush=True)
         break
-    print(f"12. fees skip={skip}: items={r.get('processed_items')} achados={r.get('achados')} restam={r.get('remaining_items')}", flush=True)
+    print(f"11. fees skip={skip}: items={r.get('processed_items')} achados={r.get('achados')} restam={r.get('remaining_items')}", flush=True)
     if not r.get("ok") or r.get("remaining_items", 0) <= 0:
         break
     skip += 25
     time.sleep(2)
+
+# ── 12. auditoria automatica (DEPOIS da vistoria: ela conserta comissao e
+#        recalcula a margem — auditar antes gerava alerta do estado velho) ──
+try:
+    r = post("/api/audit/sales?days=45")
+    print(f"12. auditoria: {json.dumps(r.get('por_regra', {}), ensure_ascii=False)[:150]}", flush=True)
+except Exception as e:
+    print(f"12. auditoria: ERRO {str(e)[:70]}", flush=True)
 
 # ── 13. arquivamento de SKUs mortos (sem venda 6m + sem estoque; desarquiva se reviver) ──
 try:

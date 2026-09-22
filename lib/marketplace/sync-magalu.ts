@@ -2,6 +2,7 @@ import { magaluGet } from '@/lib/integrations/magalu'
 import { getCredential } from '@/lib/integrations/credentials'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { toBrazilDate } from '@/lib/utils/brazil-time'
+import { upsertSale } from './upsert-sale'
 import { buildBlingProductIndex, resolveSkuFromBling, type BlingProductIndex } from '@/lib/bling/product-index'
 
 /**
@@ -167,7 +168,7 @@ export async function syncMagalu(startDate: string, endDate: string): Promise<nu
         const freight = it.amounts?.freight?.total ?? 0
         const share = itemsTotal > 0 ? itemTotal / itemsTotal : 1
 
-        const { data: savedSale } = await db.from('sales').upsert({
+        const savedSale = await upsertSale(db, {
           external_order_id: `magalu_${order.code}_${it.info?.sku ?? ''}`,
           marketplace: 'magalu',
           fulfillment_type: fulfillment,
@@ -187,7 +188,7 @@ export async function syncMagalu(startDate: string, endDate: string): Promise<nu
           cancellation: 0,
           uf_destino: uf,
           synced_at: new Date().toISOString(),
-        }, { onConflict: 'external_order_id' }).select('id').single()
+        })
 
         // Fulfillment: impostos direto do XML da NF da Magalu (galpão fica com o Bling)
         if (fulfillment === 'full_magalu' && nfeKey && deliveryId && savedSale?.id) {

@@ -1,6 +1,7 @@
 import { mlGet, getMercadoLivreSellerId } from '@/lib/integrations/mercado-livre'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { toBrazilDate } from '@/lib/utils/brazil-time'
+import { upsertSale } from './upsert-sale'
 
 interface MLFeeDetail {
   type: string      // 'ml_fee' | 'coupon_ml' | 'financing_fee' | 'campaign' | etc.
@@ -162,7 +163,9 @@ function extractAllFeesFromDetails(feeDetails: MLFeeDetail[]) {
       commission = Math.abs(amount)
     } else if (amount > 0 && (SHIPPING_TYPES.has(type) || type.includes('shipping') || type.includes('envios') || type.includes('frete'))) {
       shipping += amount
-    } else if (amount < 0) {
+    } else if (amount < 0 && !type.includes('coupon')) {
+      // cupom bancado pelo ML (coupon_ml) não é receita nem estorno do vendedor
+      // (regra 3 do AGENTS.md) — só bônus/estornos reais entram no rebate
       rebate += Math.abs(amount)
     }
   }
@@ -269,7 +272,7 @@ export async function syncMercadoLivre(
 
         const productId = productMap[sku] ?? null
 
-        const { error: upsertErr } = await db.from('sales').upsert({
+        const { error: upsertErr } = await upsertSale(db, {
           external_order_id:        `ml_${order.id}_${item.item.id}`,
           marketplace:              'mercado_livre',
           fulfillment_type:         fulfillmentType,
@@ -290,7 +293,7 @@ export async function syncMercadoLivre(
           discounts:                couponSeller * itemShare,
           rebate:                   itemRebate,
           synced_at:                new Date().toISOString(),
-        }, { onConflict: 'external_order_id' })
+        })
 
         if (upsertErr) throw new Error(`Falha ao salvar venda ml_${order.id}: ${upsertErr.message}`)
         synced++

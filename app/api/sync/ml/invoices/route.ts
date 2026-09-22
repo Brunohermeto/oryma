@@ -106,8 +106,12 @@ export async function POST(request: NextRequest) {
       if (inv?.status !== 'authorized' || !chave) { notFound++; continue }
 
       for (const sale of items) {
-        // casa item da nota com a venda pelo MLB id; fallback: primeiro item
-        const invItem = (inv.items ?? []).find(i => i.external_product_id === sale.mlb) ?? inv.items?.[0]
+        // casa item da nota com a venda pelo MLB id; fallback para o primeiro
+        // item SÓ quando a nota tem um item — em pedido multi-item o item que
+        // não casa herdava o imposto de outro (imposto em dobro)
+        const invItems = inv.items ?? []
+        const invItem = invItems.find(i => i.external_product_id === sale.mlb) ?? (invItems.length === 1 ? invItems[0] : undefined)
+        if (!invItem) { notFound++; continue }
         const rules   = invItem?.fiscal_data?.rules ?? []
         const t       = taxesFromRules(rules)
 

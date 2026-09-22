@@ -50,17 +50,23 @@ export async function POST(request: NextRequest) {
 
   let updated = 0
   const semVenda: string[] = []
+  // SOMA por pedido: duas devoluções parciais do mesmo pedido são um estorno só
+  // (antes a última apagava a primeira)
+  const porPedido = new Map<string, number>()
   for (const r of returns) {
     // só reembolso efetivado conta como estorno
     if (!['REFUND_PAID', 'ACCEPTED', 'CLOSED'].includes(r.status) || !(Number(r.refund_amount) > 0)) continue
+    porPedido.set(r.order_sn, (porPedido.get(r.order_sn) ?? 0) + Number(r.refund_amount))
+  }
+  for (const [orderSn, refund] of porPedido) {
     const { data: sales } = await db.from('sales')
       .select('id, gross_price, cancellation')
-      .like('external_order_id', `shopee_${r.order_sn}_%`)
-    if (!sales?.length) { semVenda.push(r.order_sn); continue }
+      .like('external_order_id', `shopee_${orderSn}_%`)
+    if (!sales?.length) { semVenda.push(orderSn); continue }
     const total = sales.reduce((s, x) => s + Number(x.gross_price), 0)
     for (const s of sales) {
       const share = total > 0 ? Number(s.gross_price) / total : 1 / sales.length
-      const cancel = Math.round(Number(r.refund_amount) * share * 100) / 100
+      const cancel = Math.round(refund * share * 100) / 100
       if (Math.abs(Number(s.cancellation ?? 0) - cancel) < 0.01) continue
       const { error } = await db.from('sales').update({ cancellation: cancel }).eq('id', s.id)
       if (!error) updated++

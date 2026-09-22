@@ -2,6 +2,7 @@ import { shopeeGet } from '@/lib/integrations/shopee'
 import { getCredential } from '@/lib/integrations/credentials'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { toBrazilDate } from '@/lib/utils/brazil-time'
+import { upsertSale } from './upsert-sale'
 
 interface ShopeeOrderListResponse {
   response?: {
@@ -120,7 +121,7 @@ export async function syncShopee(startDate: string, endDate: string): Promise<nu
         const productId = productMap[sku] ?? null
 
         const income = escrow?.order_income
-        await db.from('sales').upsert({
+        await upsertSale(db, {
           external_order_id: `shopee_${orderDetail.order_sn}_${sku}`,
           marketplace: 'shopee',
           fulfillment_type: 'galpao',
@@ -140,8 +141,10 @@ export async function syncShopee(startDate: string, endDate: string): Promise<nu
           marketplace_fixed_fee:  (((income as any)?.net_service_fee > 0 ? (income as any).net_service_fee : income?.service_fee) ?? 0) * share,
           marketplace_shipping_fee: 0,
           ads_cost: ((income as any)?.ads_campaign_cost ?? 0) * share,
-          // cupom que reduz a receita do vendedor (Shopee desconta do repasse)
-          discounts: (((income as any)?.voucher_from_seller ?? 0) + ((income as any)?.voucher_from_shopee ?? 0)) * share,
+          // cupom que reduz a receita do vendedor (Shopee desconta do repasse).
+          // Só a parte do VENDEDOR: o voucher bancado pela Shopee não sai do
+          // repasse (regra 3 do AGENTS.md — estava subestimando a margem)
+          discounts: ((income as any)?.voucher_from_seller ?? 0) * share,
           // escrow_amount (Renda estimada) rateado — referência da Shopee, não é
           // repasse independente (fica fora do alerta). 0/ausente = não liberado.
           ...((Number((income as any)?.escrow_amount) > 0) ? { payout_actual: (income as any).escrow_amount * share } : {}),
@@ -149,7 +152,7 @@ export async function syncShopee(startDate: string, endDate: string): Promise<nu
           // não sobrescrever UF vinda do XML da NF quando a API vier mascarada
           ...(uf ? { uf_destino: uf } : {}),
           synced_at: new Date().toISOString(),
-        }, { onConflict: 'external_order_id' })
+        })
 
         synced++
       }

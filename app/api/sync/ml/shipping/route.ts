@@ -85,7 +85,8 @@ export async function POST(request: NextRequest) {
         const amount = Number(fee.amount ?? fee.fee_amount ?? 0)
         const type   = (fee.type ?? '').toLowerCase()
         if (amount > 0 && isShippingFee(type)) shipping += amount
-        else if (amount < 0) rebate += Math.abs(amount)
+        // coupon_ml = cupom bancado pelo ML: não é estorno do vendedor (regra 3)
+        else if (amount < 0 && !type.includes('coupon')) rebate += Math.abs(amount)
       }
 
       // logistic_type só existe no shipment (não vem em /orders) — é a única

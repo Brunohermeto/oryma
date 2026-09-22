@@ -121,6 +121,16 @@ export async function POST(request: NextRequest) {
     let matchedSaleIds: string[] = []  // pode ser >1 para pedidos multi-item
     const numeroPedidoLoja = nfeData.numeroPedidoLoja?.trim() ?? null
 
+    // Todos os itens do pedido ainda sem NF (a NF é do pedido inteiro; o
+    // imposto é rateado entre eles). Pedido da Shopee é ALFANUMÉRICO — o regex
+    // antigo (\d+) falhava e jogava 100% do imposto num item só; depois o
+    // /nfe-taxes rateava a mesma NF de novo nos outros (imposto em dobro).
+    const itensDoPedido = async (canal: string, pedido: string, fallbackId: string) => {
+      const { data } = await db.from('sales').select('id')
+        .like('external_order_id', `${canal}_${pedido}_%`).is('nfe_saida_key', null)
+      return data?.length ? data.map(s => s.id) : [fallbackId]
+    }
+
     // Estratégia 1a: numeroPedidoLoja numérico direto
     // Usa o canal do intermediador como primeira tentativa (mais preciso)
     if (numeroPedidoLoja) {
@@ -132,15 +142,7 @@ export async function POST(request: NextRequest) {
           .like('external_order_id', `${canal}_${numeroPedidoLoja}_%`).limit(1)
         if (data?.[0]) {
           saleId = data[0].id
-          // Busca todos os itens do mesmo pedido
-          const orderMatch = data[0].external_order_id?.match(new RegExp(`^${canal}_(\\d+)_`))
-          if (orderMatch) {
-            const { data: orderItems } = await db.from('sales').select('id')
-              .like('external_order_id', `${canal}_${orderMatch[1]}_%`)
-              .is('nfe_saida_key', null)
-            matchedSaleIds = (orderItems ?? []).map(s => s.id)
-          }
-          if (!matchedSaleIds.length) matchedSaleIds = [saleId as string]
+          matchedSaleIds = await itensDoPedido(canal, numeroPedidoLoja, saleId as string)
           break
         }
       }
@@ -151,9 +153,13 @@ export async function POST(request: NextRequest) {
       const alphaMatch = numeroPedidoLoja.match(/[A-Z][A-Z0-9]{5,}$/i)
       if (alphaMatch) {
         const suffix = alphaMatch[0]
-        const { data } = await db.from('sales').select('id')
+        const { data } = await db.from('sales').select('id, external_order_id')
           .like('external_order_id', `%${suffix}%`).is('nfe_saida_key', null).limit(1)
-        if (data?.[0]) { saleId = data[0].id; matchedSaleIds = [saleId as string] }
+        if (data?.[0]) {
+          saleId = data[0].id
+          const [canal, pedido] = String(data[0].external_order_id).split('_')
+          matchedSaleIds = await itensDoPedido(canal, pedido, saleId as string)
+        }
       }
     }
 
@@ -165,9 +171,11 @@ export async function POST(request: NextRequest) {
       const pedidoMatch = infCpl.match(/Numero Pedido Loja:\s*([^\s]+)/i)
       const numeroPedido = pedidoMatch?.[1] ?? null
       if (canal && numeroPedido) {
+        // prefixo real das chaves: ml_ / shopee_ / amz_ (não 'mercado_livre_'/'amazon_')
+        const prefixo = canal === 'mercado_livre' ? 'ml' : canal === 'amazon' ? 'amz' : canal
         const { data } = await db.from('sales').select('id')
-          .like('external_order_id', `${canal}_${numeroPedido}_%`).limit(1)
-        if (data?.[0]) { saleId = data[0].id; matchedSaleIds = [saleId as string] }
+          .like('external_order_id', `${prefixo}_${numeroPedido}_%`).limit(1)
+        if (data?.[0]) { saleId = data[0].id; matchedSaleIds = await itensDoPedido(prefixo, numeroPedido, saleId as string) }
       }
     }
 
@@ -280,8 +288,9 @@ export async function POST(request: NextRequest) {
     // ── Salva para todos os sales do pedido (distribuição proporcional) ──────
 
     // Busca valores dos sales para calcular proporção
-    const { data: saleValues } = await db.from('sales').select('id, gross_price').in('id', matchedSaleIds)
+    const { data: saleValues } = await db.from('sales').select('id, gross_price, marketplace_shipping_fee').in('id', matchedSaleIds)
     const salePriceMap = Object.fromEntries((saleValues ?? []).map(s => [s.id, Number(s.gross_price ?? 0)]))
+    const freteAtual   = Object.fromEntries((saleValues ?? []).map(s => [s.id, Number(s.marketplace_shipping_fee ?? 0)]))
     const totalOrder   = matchedSaleIds.reduce((sum, id) => sum + (salePriceMap[id] ?? 0), 0)
     const n            = matchedSaleIds.length
 
@@ -290,7 +299,10 @@ export async function POST(request: NextRequest) {
       return {
         id,
         nfe_saida_key: chave,
-        ...(frete > 0 ? { marketplace_shipping_fee: frete * share } : {}),
+        // vFrete da NF é o frete cobrado do COMPRADOR, não o custo do vendedor
+        // (regra 2 do AGENTS.md: fonte oficial é /shipments/costs). Entra SÓ
+        // como reserva quando a venda ainda está com frete zero.
+        ...(frete > 0 && !(freteAtual[id] > 0) ? { marketplace_shipping_fee: frete * share } : {}),
       }
     })
 

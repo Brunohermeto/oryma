@@ -2,6 +2,7 @@ import { getValidAmazonToken } from '@/lib/integrations/amazon'
 import { getCredential } from '@/lib/integrations/credentials'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { toBrazilDate } from '@/lib/utils/brazil-time'
+import { upsertSale } from './upsert-sale'
 
 const AMAZON_BASE = 'https://sellingpartnerapi-na.amazon.com'
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
@@ -95,9 +96,10 @@ export async function syncAmazon(startDate: string, endDate: string): Promise<nu
         // ItemPrice já é o TOTAL da linha (não multiplicar por qty) e vem SEM o
         // imposto — o bruto real (= NF) é ItemPrice + ItemTax
         const grossPrice = parseFloat(item.ItemPrice?.Amount ?? '0') + parseFloat(item.ItemTax?.Amount ?? '0')
-        const { data: product } = await db.from('products').select('id').eq('sku', sku).single()
+        // maybeSingle: SKU duplicado no cadastro dava erro e apagava o vínculo
+        const { data: product } = await db.from('products').select('id').eq('sku', sku).eq('archived', false).limit(1).maybeSingle()
 
-        await db.from('sales').upsert({
+        await upsertSale(db, {
           external_order_id: `amz_${order.AmazonOrderId}_${item.SellerSKU}`,
           marketplace: 'amazon',
           fulfillment_type: fulfillmentType,
@@ -113,7 +115,7 @@ export async function syncAmazon(startDate: string, endDate: string): Promise<nu
           cancellation: 0,
           discounts: parseFloat(item.PromotionDiscount?.Amount ?? '0'),
           synced_at: new Date().toISOString(),
-        }, { onConflict: 'external_order_id' })
+        })
 
         synced++
       }
