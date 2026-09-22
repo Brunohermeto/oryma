@@ -129,6 +129,19 @@ export async function POST(request: NextRequest) {
       if (items.length < 100) break
     }
 
+    // ?debug=1: como as NF-e do período estão registradas no Bling (por mês ×
+    // tipo × situação × chave). Diagnóstico do buraco set/2025–mar/2026.
+    if (request.nextUrl.searchParams.get('debug')) {
+      const porMes: Record<string, Record<string, number>> = {}
+      for (const n of allNfe) {
+        const mes = (n.dataEmissao ?? '').slice(0, 7) || '?'
+        const k = `tipo=${n.tipo} sit=${n.situacao} chave=${n.chaveAcesso ? 'sim' : 'nao'}`
+        porMes[mes] = porMes[mes] ?? {}
+        porMes[mes][k] = (porMes[mes][k] ?? 0) + 1
+      }
+      return NextResponse.json({ total_listadas: allNfe.length, paginas: maxPages, porMes })
+    }
+
     // tipo=2 → entrada | situacao=5 → Autorizada
     // Também aceita tipo=0 que é o indicador de entrada no próprio XML (tpNF)
     const entradas = allNfe.filter(n =>

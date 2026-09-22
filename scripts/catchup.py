@@ -256,6 +256,13 @@ try:
 except Exception as e:
     print(f"8e. shopee returns: ERRO {str(e)[:70]}", flush=True)
 
+# ── 8g. cancelamentos ML + Magalu → cancellation (Shopee=8e, Amazon=8b) ──
+try:
+    r = post("/api/sync/cancellations?days=30", timeout=170)
+    print(f"8g. cancelamentos ML/Magalu: {json.dumps(r, ensure_ascii=False)[:120]}", flush=True)
+except Exception as e:
+    print(f"8g. cancelamentos: ERRO {str(e)[:70]}", flush=True)
+
 # ── 8f. UF de destino da Amazon (getOrderAddress, lote) ──
 try:
     r = post("/api/sync/amazon/uf?limit=60", timeout=170)

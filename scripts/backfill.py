@@ -135,6 +135,7 @@ if "vendas" in STEPS:
         if a <= FIM and "shopee" in CHANNELS: ths.append(threading.Thread(target=vendas_canal, args=("shopee", a, b)))
     for t in ths: t.start()
     for t in ths: t.join()
+    safe("cancelamentos ML/Magalu", lambda: post(f"/api/sync/cancellations?days={N}"))
 
 # ── bling: NF-e de saida por janelas de 30 dias + impostos por chave ─────────
 if "bling" in STEPS:
