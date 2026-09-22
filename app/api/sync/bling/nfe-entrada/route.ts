@@ -108,6 +108,8 @@ export async function POST(request: NextRequest) {
   // cobrem só ~38 dias de operação. Para histórico, aumente ?pages= (máx 30).
   const maxPages = Math.min(Number(request.nextUrl.searchParams.get('pages') ?? '5'), 30)
   const batchLimit = Math.min(Number(request.nextUrl.searchParams.get('limit') ?? '10'), 30)
+  // ?situacoes=5,6,7 — 5=Autorizada (padrão), 6=Emitida DANFE, 7=Registrada
+  const situacoes = new Set((request.nextUrl.searchParams.get('situacoes') ?? '5').split(',').map(Number))
   const startDate = brazilDaysAgo(days)
   const endDate   = brazilToday()
 
@@ -139,13 +141,15 @@ export async function POST(request: NextRequest) {
         porMes[mes] = porMes[mes] ?? {}
         porMes[mes][k] = (porMes[mes][k] ?? 0) + 1
       }
-      return NextResponse.json({ total_listadas: allNfe.length, paginas: maxPages, porMes })
+      const mes = request.nextUrl.searchParams.get('mes')
+      const brutos = mes ? allNfe.filter(n => (n.dataEmissao ?? '').startsWith(mes)).slice(0, 60) : undefined
+      return NextResponse.json({ total_listadas: allNfe.length, paginas: maxPages, porMes, brutos })
     }
 
     // tipo=2 → entrada | situacao=5 → Autorizada
     // Também aceita tipo=0 que é o indicador de entrada no próprio XML (tpNF)
     const entradas = allNfe.filter(n =>
-      n.chaveAcesso && (n.tipo === 2 || n.tipo === 0) && n.situacao === 5
+      n.chaveAcesso && (n.tipo === 2 || n.tipo === 0) && situacoes.has(n.situacao)
     )
 
     if (entradas.length === 0) {
