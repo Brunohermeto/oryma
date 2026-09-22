@@ -1,0 +1,34 @@
+# Reconstrucao/reprocessamento de um periodo (scripts/backfill.py).
+# Disparo manual: GitHub → Actions → "Oryma — backfill de periodo" → Run workflow.
+name: Oryma — backfill de periodo
+
+on:
+  workflow_dispatch:
+    inputs:
+      from:
+        description: "Data inicial (YYYY-MM-DD)"
+        default: "2026-01-01"
+        required: true
+      to:
+        description: "Data final (YYYY-MM-DD, vazio = hoje)"
+        required: false
+      steps:
+        description: "Etapas (vendas,bling,ml,amazon,shopee,magalu,estoque,relink,audit)"
+        default: "vendas,bling,ml,amazon,shopee,magalu,estoque,relink,audit"
+        required: true
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Backfill
+        env:
+          APP_PASSWORD: ${{ secrets.ORYMA_APP_PASSWORD }}
+        run: |
+          TO="${{ github.event.inputs.to }}"
+          python scripts/backfill.py --from "${{ github.event.inputs.from }}" ${TO:+--to "$TO"} --steps "${{ github.event.inputs.steps }}"

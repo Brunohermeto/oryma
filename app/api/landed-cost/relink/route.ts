@@ -37,6 +37,10 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}))
   const days = Number(body?.days ?? 0)
   const desde = days > 0 ? brazilDaysAgo(days) : null
+  // until (YYYY-MM-DD) fecha a janela: [desde, until]. Usado pelo backfill
+  // (scripts/backfill.py) para recalcular o histórico em fatias de 30 dias —
+  // o recálculo completo de ~10 mil vendas estoura os 60s da Vercel.
+  const until = typeof body?.until === 'string' && desde ? body.until : null
 
   // 1. Busca todos os import_items sem product_id mas com sku
   const { data: unlinked } = await db
@@ -68,7 +72,9 @@ export async function POST(request: NextRequest) {
     for (const order of allOrders ?? []) ordersToRecalc.add(order.id)
   } else {
     // incremental: recalcula também ordens com NF recente (compras novas → CMP novo)
-    const { data: recentes } = await db.from('import_orders').select('id').gte('issue_date', desde)
+    let q = db.from('import_orders').select('id').gte('issue_date', desde)
+    if (until) q = q.lte('issue_date', until)
+    const { data: recentes } = await q
     for (const order of recentes ?? []) ordersToRecalc.add(order.id)
   }
 
@@ -134,6 +140,7 @@ export async function POST(request: NextRequest) {
         .select('id, product_id, marketplace, gross_price, shipping_received, marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, ads_cost, cancellation, discounts, rebate, quantity, sale_date')
         .not('product_id', 'is', null)
       if (desde) q = q.gte('sale_date', desde)  // incremental: só vendas recentes
+      if (until) q = q.lte('sale_date', until)  // backfill: janela fechada
       return q
     }),
     fetchAll<any>(() =>
