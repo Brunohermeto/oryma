@@ -211,7 +211,7 @@ export async function POST(request: NextRequest) {
     for (const nfe of pendentes) {
       // cada nota examinada baixa XML (~2-3s com os fallbacks): 12 por chamada
       // cabe nos 60s; 40 dava 504 e perdia a lista de ignoradas
-      if (processadas >= batchLimit || tentativas >= 8) break
+      if (processadas >= batchLimit || tentativas >= 6) break
       tentativas++
       const chave = nfe.chaveAcesso!
 
@@ -221,19 +221,20 @@ export async function POST(request: NextRequest) {
         // Baixa XML. /nfe/documento/{chave} só serve as notas EMITIDAS pela MCL;
         // a NF do FORNECEDOR (importada no Bling) vem em GET /nfe/{id} → data.xml
         // (XML cru ou URL no S3) — sem isso nenhuma compra entrava (22/09/2026).
-        let xml = await blingGetDocumentoXml(chave)
-        if (!xml) {
-          try {
-            const det = await blingGet<{ data?: { xml?: string } }>(`/nfe/${nfe.id}`, undefined, 0)
-            const raw = det.data?.xml ?? ''
-            if (raw.includes('<')) xml = raw
-            else if (/^https?:\/\//.test(raw)) {
-              const r = await fetch(raw)
-              const t = r.ok ? await r.text() : ''
-              if (t.includes('<')) xml = t
-            }
-          } catch { /* tenta o próximo caminho */ }
-        }
+        // GET /nfe/{id} PRIMEIRO: serve nota própria e de fornecedor (o /documento
+        // demora muito para falhar na nota de fornecedor e dava 504)
+        let xml: string | null = null
+        try {
+          const det = await blingGet<{ data?: { xml?: string } }>(`/nfe/${nfe.id}`, undefined, 0)
+          const raw = det.data?.xml ?? ''
+          if (raw.includes('<')) xml = raw
+          else if (/^https?:\/\//.test(raw)) {
+            const r = await fetch(raw, { signal: AbortSignal.timeout(8000) })
+            const t = r.ok ? await r.text() : ''
+            if (t.includes('<')) xml = t
+          }
+        } catch { /* tenta o próximo caminho */ }
+        if (!xml) xml = await blingGetDocumentoXml(chave)
         if (!xml) {
           try {
             const r = await blingGet<{ data?: { xml?: string } }>(`/nfe/${nfe.id}/xml`, undefined, 0)
