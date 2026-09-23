@@ -161,8 +161,12 @@ if "bling" in STEPS:
     for d_from in range(0, N, 30):
         d_to, skip, casadas = min(d_from + 30, N), [], 0
         for _ in range(30):
-            try: start = post("/api/sync/bling/start", {"daysFrom": d_from, "daysTo": d_to, "limit": 60, "skip": skip})
-            except Exception as e: log(f"bling saida D-{d_to}..D-{d_from}: ERRO {str(e)[:70]}"); break
+            start = None
+            for tent in range(4):  # 429 do Bling (3 req/s): espera e repete, nao pula a janela
+                try: start = post("/api/sync/bling/start", {"daysFrom": d_from, "daysTo": d_to, "limit": 60, "skip": skip}); break
+                except Exception as e:
+                    log(f"bling saida D-{d_to}..D-{d_from}: ERRO {str(e)[:70]} (tentativa {tent+1})"); time.sleep(20 * (tent + 1))
+            if start is None: break
             pend = start.get("pending", [])
             if not pend: break
             for nfe in pend:
