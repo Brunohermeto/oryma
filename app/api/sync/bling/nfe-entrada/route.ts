@@ -162,7 +162,9 @@ export async function POST(request: NextRequest) {
     const devolucaoNat = new Set<number>()
     try {
       const nat = await blingGet<{ data?: Array<{ id: number; descricao?: string }> }>('/naturezas-operacoes', { limite: '100' }, 1)
-      for (const x of nat.data ?? []) if (/devolu|retorno/i.test(x.descricao ?? '')) devolucaoNat.add(x.id)
+      // tudo que não é compra sai AQUI, sem baixar XML (transferência, bonificação,
+      // remessa, devolução, retorno) — baixar XML de cada uma dava 504
+      for (const x of nat.data ?? []) if (/devolu|retorno|transfer|bonific|brinde|remessa|conserto|demonstra/i.test(x.descricao ?? '')) devolucaoNat.add(x.id)
     } catch { /* sem a lista, o CFOP do XML segura */ }
     const entradas = allNfe.filter(n =>
       n.chaveAcesso && (n.tipo === 2 || n.tipo === 0) && situacoes.has(n.situacao)
@@ -209,7 +211,7 @@ export async function POST(request: NextRequest) {
     for (const nfe of pendentes) {
       // cada nota examinada baixa XML (~2-3s com os fallbacks): 12 por chamada
       // cabe nos 60s; 40 dava 504 e perdia a lista de ignoradas
-      if (processadas >= batchLimit || tentativas >= 12) break
+      if (processadas >= batchLimit || tentativas >= 8) break
       tentativas++
       const chave = nfe.chaveAcesso!
 
