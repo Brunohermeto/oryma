@@ -26,9 +26,11 @@ export async function POST(request: NextRequest) {
     || (process.env.CRON_SECRET ? cronSecret === process.env.CRON_SECRET : cronSecret === 'internal')
   if (!isAuthorized) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  // ?days=N (relativo) ou ?from=YYYY-MM-DD&to=YYYY-MM-DD (backfill por mês —
+  // 9 meses numa chamada só estoura os 60s)
   const days = Number(request.nextUrl.searchParams.get('days') ?? 30)
-  const startDate = brazilDaysAgo(days)
-  const endDate = brazilToday()
+  const startDate = request.nextUrl.searchParams.get('from') ?? brazilDaysAgo(days)
+  const endDate = request.nextUrl.searchParams.get('to') ?? brazilToday()
   const db = createSupabaseServiceClient()
 
   // Marca todos os itens do pedido como cancelados (integral); idempotente
