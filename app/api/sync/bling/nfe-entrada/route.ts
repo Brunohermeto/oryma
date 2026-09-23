@@ -139,7 +139,8 @@ export async function POST(request: NextRequest) {
 
     // ?debug=1: como as NF-e do período estão registradas no Bling (por mês ×
     // tipo × situação × chave). Diagnóstico do buraco set/2025–mar/2026.
-    if (request.nextUrl.searchParams.get('debug')) {
+    const dbg = request.nextUrl.searchParams.get('debug')
+    if (dbg === '1' || dbg === '2') {
       const porMes: Record<string, Record<string, number>> = {}
       for (const n of allNfe) {
         const mes = (n.dataEmissao ?? '').slice(0, 7) || '?'
