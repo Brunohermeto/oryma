@@ -241,9 +241,21 @@ export async function POST(request: NextRequest) {
         const vFOB     = extractNum(xml, 'vProd')  // total dos produtos (FOB = sem impostos adicionais)
 
         if (!dhEmi || vNF <= 0) { errors.push(`${chave.slice(-8)}: data/valor inválido`); continue }
-        // devolução de venda (x201/x202) ou retorno (x41x) que escapou do filtro de natureza
-        if (/^[123](20[12]|41[0-9])$/.test(cfop) || /devolu|retorno/i.test(extractStr(xml, 'natOp') ?? '')) {
-          errors.push(`${chave.slice(-8)}: devolução (CFOP ${cfop}) ignorada`); continue
+        // O CFOP do XML é o do EMITENTE. Compra de verdade:
+        //  - nota da própria MCL (emit = dest): só IMPORTAÇÃO (3xxx). As demais
+        //    são devolução de cliente (1202/2202) ou TRANSFERÊNCIA entre
+        //    estabelecimentos (5152 — uma de R$ 969 mil entrou como compra em 23/09);
+        //  - nota de fornecedor: só VENDA (x101–x119, x401–x405). Fora remessa/
+        //    bonificação (x910/x949), devolução (x20x) e transferência (x15x).
+        const emitCnpj = xml.match(/<emit>[\s\S]*?<CNPJ>(\d+)<\/CNPJ>/)?.[1] ?? ''
+        const destCnpj = xml.match(/<dest>[\s\S]*?<CNPJ>(\d+)<\/CNPJ>/)?.[1] ?? ''
+        const natOp = extractStr(xml, 'natOp') ?? ''
+        const propria = !!emitCnpj && emitCnpj === destCnpj
+        const ehCompra = propria
+          ? /^3\d{3}$/.test(cfop)
+          : /^[1256](1[01]\d|40[1-5])$/.test(cfop) && !/devolu|retorno|transfer|bonific|brinde/i.test(natOp)
+        if (!ehCompra) {
+          errors.push(`${chave.slice(-8)}: não é compra (CFOP ${cfop} ${propria ? 'própria' : supplier.slice(0, 18)} ${natOp.slice(0, 25)}) — ignorada`); continue
         }
 
         // Cria import_order
