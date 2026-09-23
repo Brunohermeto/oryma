@@ -65,12 +65,12 @@ function extractNum(xml: string, tag: string): number {
 function extractDets(xml: string): Array<{
   sku: string; description: string
   qty: number; unitValue: number; totalValue: number
-  ii: number; ipi: number; pis: number; cofins: number
+  ii: number; ipi: number; pis: number; cofins: number; icms: number
 }> {
-  // Totais globais de PIS e COFINS (no bloco <ICMSTot> ou <infAdic>/<infCpl>)
-  const totalPis    = extractNum(xml, 'vPIS')
-  const totalCofins = extractNum(xml, 'vCOFINS')
-
+  // Compra NACIONAL (Dorel, Grupo Multi...): PIS/COFINS/ICMS vêm POR ITEM dentro
+  // do <det>. O extrator antigo pegava o PRIMEIRO <vPIS> do XML (= o do 1º item)
+  // e rateava entre todos — crédito errado. Agora lê por item; só quando nenhum
+  // item traz o valor (NF de importação) usa os totais do <ICMSTot> rateados por FOB.
   const dets = xml.match(/<det[^>]*>([\s\S]*?)<\/det>/g) ?? []
   const items = dets.map(det => ({
     sku:        extractStr(det, 'cProd') ?? '',
@@ -80,18 +80,17 @@ function extractDets(xml: string): Array<{
     totalValue: extractNum(det, 'vProd'),
     ii:         extractNum(det, 'vII'),
     ipi:        extractNum(det, 'vIPI'),
-    pis:        0,    // preenchido abaixo
-    cofins:     0,
+    pis:        extractNum(det, 'vPIS'),
+    cofins:     extractNum(det, 'vCOFINS'),
+    icms:       extractNum(det, 'vICMS'),
   })).filter(d => d.sku !== '' && d.qty > 0)
 
-  // Distribui PIS/COFINS proporcionalmente ao FOB de cada item
+  const tot = xml.match(/<ICMSTot>([\s\S]*?)<\/ICMSTot>/)?.[1] ?? ''
   const totalFob = items.reduce((s, i) => s + i.totalValue, 0)
-  if (totalFob > 0 && (totalPis > 0 || totalCofins > 0)) {
-    for (const item of items) {
-      const share  = item.totalValue / totalFob
-      item.pis    = totalPis    * share
-      item.cofins = totalCofins * share
-    }
+  for (const campo of ['pis', 'cofins', 'icms'] as const) {
+    if (items.some(i => i[campo] > 0) || totalFob <= 0) continue
+    const total = extractNum(tot, campo === 'pis' ? 'vPIS' : campo === 'cofins' ? 'vCOFINS' : 'vICMS')
+    if (total > 0) for (const item of items) item[campo] = total * (item.totalValue / totalFob)
   }
 
   return items
@@ -197,16 +196,41 @@ export async function POST(request: NextRequest) {
     const pendentes = entradas.filter(n => !existingKeys.has(n.chaveAcesso!))
     skipped = entradas.length - pendentes.length
 
-    // ?limit= por chamada (cada nota baixa o XML; 30 estoura os 60s da Vercel)
-    for (const nfe of pendentes.slice(0, batchLimit)) {
+    // ?limit= por chamada (cada nota baixa o XML; 30 estoura os 60s da Vercel).
+    // Nota sem XML NÃO consome o lote (senão as mesmas travavam a fila para sempre).
+    let processadas = 0, tentativas = 0
+    for (const nfe of pendentes) {
+      if (processadas >= batchLimit || tentativas >= 40) break
+      tentativas++
       const chave = nfe.chaveAcesso!
 
       try {
         await sleep(300)
 
-        // Baixa XML
-        const xml = await blingGetDocumentoXml(chave)
+        // Baixa XML. /nfe/documento/{chave} só serve as notas EMITIDAS pela MCL;
+        // a NF do FORNECEDOR (importada no Bling) vem em GET /nfe/{id} → data.xml
+        // (XML cru ou URL no S3) — sem isso nenhuma compra entrava (22/09/2026).
+        let xml = await blingGetDocumentoXml(chave)
+        if (!xml) {
+          try {
+            const det = await blingGet<{ data?: { xml?: string } }>(`/nfe/${nfe.id}`, undefined, 0)
+            const raw = det.data?.xml ?? ''
+            if (raw.includes('<')) xml = raw
+            else if (/^https?:\/\//.test(raw)) {
+              const r = await fetch(raw)
+              const t = r.ok ? await r.text() : ''
+              if (t.includes('<')) xml = t
+            }
+          } catch { /* tenta o próximo caminho */ }
+        }
+        if (!xml) {
+          try {
+            const r = await blingGet<{ data?: { xml?: string } }>(`/nfe/${nfe.id}/xml`, undefined, 0)
+            if (r.data?.xml?.includes('<')) xml = r.data.xml
+          } catch { /* sem XML */ }
+        }
         if (!xml) { errors.push(`${chave.slice(-8)}: xml null`); continue }
+        processadas++
 
         // Extrai cabeçalho
         const supplier = extractStr(xml, 'xNome') ?? 'Fornecedor não identificado'
@@ -282,6 +306,8 @@ export async function POST(request: NextRequest) {
               unit_ipi:         d.qty > 0 ? d.ipi / d.qty : 0,
               unit_pis_imp:     d.qty > 0 ? d.pis / d.qty : 0,
               unit_cofins_imp:  d.qty > 0 ? d.cofins / d.qty : 0,
+              // crédito de ICMS da compra (nacional: abate do custo; importação: só informação)
+              unit_icms_gnre:   d.qty > 0 ? d.icms / d.qty : 0,
             }
           }))
           await db.from('import_items').insert(itemRows)
