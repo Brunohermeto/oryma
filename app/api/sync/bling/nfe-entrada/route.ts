@@ -113,6 +113,11 @@ export async function POST(request: NextRequest) {
   const situacoes = new Set((request.nextUrl.searchParams.get('situacoes') ?? '5,6,7').split(',').map(Number))
   const startDate = brazilDaysAgo(days)
   const endDate   = brazilToday()
+  // body.skip: chaves já examinadas e descartadas (não-compra / sem XML) —
+  // senão elas ficam sempre no início da fila e consomem as tentativas
+  const body = await request.json().catch(() => ({}))
+  const skip = new Set<string>(Array.isArray(body?.skip) ? body.skip : [])
+  const ignoradas: string[] = []
 
   try {
     // 1. Lista NF-e do Bling — o endpoint /nfe não filtra por tipo na query,
@@ -165,7 +170,9 @@ export async function POST(request: NextRequest) {
     )
 
     if (entradas.length === 0) {
-      return NextResponse.json({ ok: true, synced: 0, message: 'Nenhuma NF-e de entrada encontrada no período' })
+      return NextResponse.json({
+      ignoradas,
+      ok: true, synced: 0, message: 'Nenhuma NF-e de entrada encontrada no período' })
     }
 
     // 2. Chaves já importadas (pula duplicatas)
@@ -193,7 +200,7 @@ export async function POST(request: NextRequest) {
     // primeiras da lista (sempre as mesmas, já importadas) consumiam o lote
     // inteiro e a rota nunca avançava no histórico. Agora é retomável: chame
     // de novo até `synced` voltar 0.
-    const pendentes = entradas.filter(n => !existingKeys.has(n.chaveAcesso!))
+    const pendentes = entradas.filter(n => !existingKeys.has(n.chaveAcesso!) && !skip.has(n.chaveAcesso!))
     skipped = entradas.length - pendentes.length
 
     // ?limit= por chamada (cada nota baixa o XML; 30 estoura os 60s da Vercel).
@@ -229,7 +236,7 @@ export async function POST(request: NextRequest) {
             if (r.data?.xml?.includes('<')) xml = r.data.xml
           } catch { /* sem XML */ }
         }
-        if (!xml) { errors.push(`${chave.slice(-8)}: xml null`); continue }
+        if (!xml) { errors.push(`${chave.slice(-8)}: xml null`); ignoradas.push(chave); continue }
         processadas++
 
         // Extrai cabeçalho
@@ -255,7 +262,7 @@ export async function POST(request: NextRequest) {
           ? /^3\d{3}$/.test(cfop)
           : /^[1256](1[01]\d|40[1-5])$/.test(cfop) && !/devolu|retorno|transfer|bonific|brinde/i.test(natOp)
         if (!ehCompra) {
-          errors.push(`${chave.slice(-8)}: não é compra (CFOP ${cfop} ${propria ? 'própria' : supplier.slice(0, 18)} ${natOp.slice(0, 25)}) — ignorada`); continue
+          errors.push(`${chave.slice(-8)}: não é compra (CFOP ${cfop} ${propria ? 'própria' : supplier.slice(0, 18)} ${natOp.slice(0, 25)}) — ignorada`); ignoradas.push(chave); continue
         }
 
         // Cria import_order
