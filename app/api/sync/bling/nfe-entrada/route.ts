@@ -349,6 +349,7 @@ export async function POST(request: NextRequest) {
       synced,
       skipped_already_imported: skipped,
       total_entradas_found: entradas.length,
+      ignoradas,  // chaves descartadas — o chamador manda de volta em body.skip
       errors: errors.length > 0 ? errors.slice(0, 5) : undefined,
       message: `${synced} NF-e de entrada importadas`,
     })
