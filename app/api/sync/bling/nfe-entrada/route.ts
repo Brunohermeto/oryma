@@ -207,7 +207,9 @@ export async function POST(request: NextRequest) {
     // Nota sem XML NÃO consome o lote (senão as mesmas travavam a fila para sempre).
     let processadas = 0, tentativas = 0
     for (const nfe of pendentes) {
-      if (processadas >= batchLimit || tentativas >= 40) break
+      // cada nota examinada baixa XML (~2-3s com os fallbacks): 12 por chamada
+      // cabe nos 60s; 40 dava 504 e perdia a lista de ignoradas
+      if (processadas >= batchLimit || tentativas >= 12) break
       tentativas++
       const chave = nfe.chaveAcesso!
 
