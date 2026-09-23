@@ -135,7 +135,12 @@ if "vendas" in STEPS:
         if a <= FIM and "shopee" in CHANNELS: ths.append(threading.Thread(target=vendas_canal, args=("shopee", a, b)))
     for t in ths: t.start()
     for t in ths: t.join()
-    safe("cancelamentos ML/Magalu", lambda: post(f"/api/sync/cancellations?days={N}"))
+    # cancelamentos por MES (o periodo inteiro numa chamada estoura os 60s)
+    m = INI.replace(day=1)
+    while m <= FIM:
+        fim = min((m + datetime.timedelta(days=32)).replace(day=1) - datetime.timedelta(days=1), FIM)
+        safe(f"cancelamentos {m:%Y-%m}", lambda: post(f"/api/sync/cancellations?from={max(m, INI)}&to={fim}"))
+        m = (m + datetime.timedelta(days=32)).replace(day=1)
 
 # ── bling: NF-e de saida por janelas de 30 dias + impostos por chave ─────────
 if "bling" in STEPS:
