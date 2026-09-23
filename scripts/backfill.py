@@ -183,10 +183,12 @@ if "bling" in STEPS:
         time.sleep(2)
 
 # ── ML ───────────────────────────────────────────────────────────────────────
-if "ml" in STEPS:
-    loop_rota("ml invoices", "/api/sync/ml/invoices", {"days": N, "limit": 20})
-    loop_rota("ml shipping", "/api/sync/ml/shipping", {"days": N, "limit": 12}, pausa=1)
-    loop_rota("ml tariffs", "/api/sync/ml/tariffs", {"days": N, "limit": 30}, pausa=14)
+# sub-etapas (ml_invoices, ml_shipping, ml_tariffs, ml_billing) para retomar sem repetir
+sub = lambda k: "ml" in STEPS or k in STEPS
+if sub("ml_invoices"): loop_rota("ml invoices", "/api/sync/ml/invoices", {"days": N, "limit": 20})
+if sub("ml_shipping"): loop_rota("ml shipping", "/api/sync/ml/shipping", {"days": N, "limit": 12}, pausa=1)
+if sub("ml_tariffs"):  loop_rota("ml tariffs", "/api/sync/ml/tariffs", {"days": N, "limit": 30}, pausa=14)
+if sub("ml_billing"):
     mes = INI.replace(day=1)
     while mes <= FIM:
         safe(f"ml billing {mes:%Y-%m}", lambda: post(f"/api/sync/ml/billing?period={mes.isoformat()}"))
