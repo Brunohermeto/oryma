@@ -197,8 +197,10 @@ export async function syncMercadoLivre(
     const response = await mlGet<MLOrdersResponse>('/orders/search', {
       seller: sellerId,
       'order.status': 'paid',
-      'order.date_created.from': `${startDate}T00:00:00.000-03:00`,
-      'order.date_created.to': `${endDate}T23:59:59.000-03:00`,
+      // aceita 'YYYY-MM-DD' (dia inteiro) ou 'YYYY-MM-DDTHH:MM:SS' (fatia do dia —
+      // dia de pico com 100+ pedidos não cabe nos 60s da Vercel)
+      'order.date_created.from': `${startDate.includes('T') ? startDate : startDate + 'T00:00:00'}.000-03:00`,
+      'order.date_created.to': `${endDate.includes('T') ? endDate : endDate + 'T23:59:59'}.000-03:00`,
       limit: String(limit),
       offset: String(offset),
       sort: 'date_asc',

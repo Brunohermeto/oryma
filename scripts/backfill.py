@@ -118,6 +118,19 @@ def vendas_canal(canal, ini=None, fim_periodo=None):
         elif fim > cur:
             log(f"vendas {canal} {cur}..{fim}: {st.get('status')} — refazendo dia a dia")
             win = 1  # refaz a janela dia a dia (rota idempotente)
+        elif canal == "mercado_livre":
+            # dia de pico (100+ pedidos) nao cabe nos 60s: 4 fatias de 6 horas
+            okq = 0
+            for h in range(0, 24, 6):
+                a, b = f"{cur}T{h:02d}:00:00", f"{cur}T{h+5:02d}:59:59"
+                try: stq = sync_janela(canal, a, b)
+                except Exception as e: stq = {"status": "error"}
+                if stq.get("status") == "success": okq += 1; ok += stq.get("records_synced") or 0
+                else: log(f"vendas {canal} {a}..{b}: FALHOU")
+                time.sleep(1)
+            log(f"vendas {canal} {cur}: refeito em 4 fatias de 6h ({okq}/4 ok)")
+            if okq < 4: falhas.append(cur.isoformat())
+            cur = fim + datetime.timedelta(days=1); tent = 0
         else:
             log(f"vendas {canal} {cur}: FALHOU {str(st.get('error_message'))[:80]}")
             falhas.append(cur.isoformat()); cur = fim + datetime.timedelta(days=1); tent = 0
