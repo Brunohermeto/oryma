@@ -258,9 +258,10 @@ export async function POST(request: NextRequest) {
         const destCnpj = xml.match(/<dest>[\s\S]*?<CNPJ>(\d+)<\/CNPJ>/)?.[1] ?? ''
         const natOp = extractStr(xml, 'natOp') ?? ''
         const propria = !!emitCnpj && emitCnpj === destCnpj
-        const ehCompra = propria
-          ? /^3\d{3}$/.test(cfop)
-          : /^[1256](1[01]\d|40[1-5])$/.test(cfop) && !/devolu|retorno|transfer|bonific|brinde/i.test(natOp)
+        // importação (3xxx) é compra SEMPRE — no XML de importação o <dest> não
+        // bate com o emitente e a nota caía na regra de fornecedor
+        const ehCompra = /^3\d{3}$/.test(cfop)
+          || (!propria && /^[1256](1[01]\d|40[1-5])$/.test(cfop) && !/devolu|retorno|transfer|bonific|brinde/i.test(natOp))
         if (!ehCompra) {
           errors.push(`${chave.slice(-8)}: não é compra (CFOP ${cfop} ${propria ? 'própria' : supplier.slice(0, 18)} ${natOp.slice(0, 25)}) — ignorada`); ignoradas.push(chave); continue
         }
