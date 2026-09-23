@@ -152,6 +152,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ total_listadas: allNfe.length, paginas: maxPages, porMes, brutos })
     }
 
+    // ?debug=4&id=<id Bling>: itens crus do XML (cProd/xProd/cEAN/NCM) e como
+    // cada um seria resolvido — diagnóstico do vínculo NF → SKU (23/09/2026)
+    if (request.nextUrl.searchParams.get('debug') === '4') {
+      const id = request.nextUrl.searchParams.get('id')
+      const det = await blingGet<{ data?: { xml?: string; chaveAcesso?: string } }>(`/nfe/${id}`, undefined, 0)
+      let xml = det.data?.xml ?? ''
+      if (!xml.includes('<') && /^https?:/.test(xml)) xml = await (await fetch(xml)).text()
+      if (!xml.includes('<') && det.data?.chaveAcesso) xml = (await blingGetDocumentoXml(det.data.chaveAcesso)) ?? ''
+      const idx = await buildBlingProductIndex().catch(() => null)
+      const dets = (xml.match(/<det[^>]*>([\s\S]*?)<\/det>/g) ?? []).map(d => ({
+        cProd: extractStr(d, 'cProd'), xProd: extractStr(d, 'xProd'), cEAN: extractStr(d, 'cEAN'),
+        cEANTrib: extractStr(d, 'cEANTrib'), NCM: extractStr(d, 'NCM'), CFOP: extractStr(d, 'CFOP'), qCom: extractStr(d, 'qCom'),
+        resolvido: idx ? (resolveSkuFromBling(extractStr(d, 'cProd') ?? '', idx) ?? (extractStr(d, 'cEAN') ? resolveSkuFromBling(extractStr(d, 'cEAN')!, idx) : null)) : 'sem índice',
+      }))
+      return NextResponse.json({ id, emit: extractStr(xml, 'xNome'), natOp: extractStr(xml, 'natOp'), dets, catalogo: idx ? { total: idx.total, gtins: Object.keys(idx.byGtin).length, fabricantes: Object.keys(idx.byFabricante).length } : null })
+    }
+
     // tipo=2 → entrada | situacao=5 → Autorizada
     // Também aceita tipo=0 que é o indicador de entrada no próprio XML (tpNF)
     // DEVOLUÇÃO NÃO É COMPRA. As NF-e de entrada de situação 5 eram, na
