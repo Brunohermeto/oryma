@@ -98,6 +98,41 @@ function resolveProductSku(cProd: string, xProd: string, blingIndex?: BlingProdu
   return cProd
 }
 
+// Famílias Ragaluma nas NF-e da PRÓPRIA MCL (importação 3102 e transferência
+// matriz→filial 5152): o cProd vem "CFOP3102"/"CFOP5152" e o código real fica no
+// INÍCIO da descrição ("GRAY-3038 - BERCO…", "MUB004 - …", "MUH-035-1 - …"), com a
+// cor no texto. Item SEM cor (ex.: "CADEIRA … LUPPA 12 EM 1" da NF 1) vale para
+// todas as cores da família — o custo unitário é o mesmo por cor (NF 8, mar/2026).
+// Ordem das cores importa: RAJADO antes de CINZA.
+const FAMILIAS: Array<{ match: RegExp; cores: Array<[RegExp, string]> }> = [
+  { match: /BERCO PORTATIL DE METAL|GRAY-3038|PINK-3021|BLUE-3034|BEIGE-3045/,
+    cores: [[/GRAY|CINZA/, 'RAGA001-C'], [/PINK|ROSA/, 'RAGA001-R'], [/BLUE|AZUL/, 'RAGA001-A'], [/BEIGE|BEGE/, 'RAGA001-B']] },
+  { match: /LUPPA|MUH-035/,
+    cores: [[/RAJADO/, 'RAGA002-C'], [/ROSA|PINK/, 'RAGA002-R'], [/CINZA|GRAY|GREY/, 'RAGA002-CINZA']] },
+  { match: /MUB004|BEDSIDE SLEEPER|SLEEPGUARD/,
+    cores: [[/BEGE|BEIGE/, 'RAGA003-BG'], [/CINZA|GREY|GRAY/, 'RAGA003-C']] },
+  { match: /MUC101|GIO CONFORT/,
+    cores: [[/BEGE|BEIGE/, 'RAGA004-BG'], [/PRETO|BLACK/, 'RAGA004-P'], [/CINZA|GREY|GRAY/, 'RAGA004-C']] },
+]
+
+/**
+ * SKU(s) internos de um item de NF-e. [] = peça de reposição/caixa (não vira
+ * produto); 1 SKU = item normal; vários = item de família sem cor (o lote vale
+ * para todas as cores). Usado pelo upload manual E pela sync do Bling.
+ */
+export function resolveVariantSkus(cProd: string, xProd: string, blingIndex?: BlingProductIndex, cEAN?: string): string[] {
+  if (SKU_MAP[cProd]) return [SKU_MAP[cProd]]
+  const up = (xProd ?? '').toUpperCase()
+  if (/REPOSI[CÇ]/.test(up)) return []
+  const fam = FAMILIAS.find(f => f.match.test(up) || f.match.test(cProd.toUpperCase()))
+  if (fam) {
+    const cor = fam.cores.find(([re]) => re.test(up))
+    return cor ? [cor[1]] : fam.cores.map(c => c[1])
+  }
+  const sku = resolveProductSku(cProd, xProd, blingIndex, cEAN)
+  return /^CFOP\d+/i.test(sku) ? [] : [sku]
+}
+
 export async function processImportNFe(
   nfe: ParsedNFe,
   storagePath: string | null,
@@ -132,38 +167,36 @@ export async function processImportNFe(
   let itemsProcessed = 0
   const itemRows = []
   for (const item of nfe.items) {
-    const resolvedSku = resolveProductSku(item.cProd, item.xProd, blingIndex, (item as any).cEAN)
-
-    // Busca o produto — cria automaticamente se não existir
-    // (evita product_id=null que impede o cálculo de CMP)
-    let { data: product } = await db.from('products').select('id').eq('sku', resolvedSku).maybeSingle()
-    // NUNCA criar produto com SKU-lixo (cProd tipo "CFOP5152" ou embalagens):
-    // já poluiu o cadastro e escondeu custo de produto real. Fica sem vínculo
-    // para resolução manual/via EAN.
-    const skuLixo = /^CFOP\d+/i.test(resolvedSku)
-    if (!product && !skuLixo) {
-      const { data: newProd } = await db
-        .from('products')
-        .insert({ sku: resolvedSku, name: item.xProd })
-        .select('id')
-        .maybeSingle()
-      product = newProd
+    const skus = resolveVariantSkus(item.cProd, item.xProd, blingIndex, (item as any).cEAN)
+    // [] = peça/caixa: grava o item SEM produto (NUNCA criar produto-lixo "CFOP…")
+    const alvos = skus.length ? skus : [null]
+    for (const sku of alvos) {
+      let productId: string | null = null
+      if (sku) {
+        let { data: product } = await db.from('products').select('id').eq('sku', sku).maybeSingle()
+        if (!product) {
+          const { data: newProd } = await db.from('products').insert({ sku, name: item.xProd }).select('id').maybeSingle()
+          product = newProd
+        }
+        productId = product?.id ?? null
+      }
+      // família sem cor: a quantidade se divide entre as cores (custo unitário igual)
+      const qty = item.qCom / alvos.length
+      itemRows.push({
+        import_order_id:  order.id,
+        product_id:       productId,
+        sku:              sku ?? item.cProd,
+        description:      item.xProd,
+        quantity:         qty,
+        unit_fob_value:   item.vUnCom,
+        total_fob_value:  item.vProd / alvos.length,
+        unit_ii:          item.unitII,
+        unit_ipi:         item.unitIPI,
+        unit_pis_imp:     item.unitPisImp,
+        unit_cofins_imp:  item.unitCofinsImp,
+        unit_icms_gnre:   item.unitIcmsGnre,
+      })
     }
-
-    itemRows.push({
-      import_order_id:  order.id,
-      product_id:       product?.id ?? null,
-      sku:              resolvedSku,
-      description:      item.xProd,
-      quantity:         item.qCom,
-      unit_fob_value:   item.vUnCom,
-      total_fob_value:  item.vProd,
-      unit_ii:          item.unitII,
-      unit_ipi:         item.unitIPI,
-      unit_pis_imp:     item.unitPisImp,
-      unit_cofins_imp:  item.unitCofinsImp,
-      unit_icms_gnre:   item.unitIcmsGnre,
-    })
     itemsProcessed++
   }
 

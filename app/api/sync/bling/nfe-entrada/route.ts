@@ -32,6 +32,7 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { brazilToday, brazilDaysAgo } from '@/lib/utils/brazil-time'
 import { recalculateLandedCost } from '@/lib/landed-cost/calculator'
 import { buildBlingProductIndex, resolveSkuFromBling } from '@/lib/bling/product-index'
+import { resolveVariantSkus } from '@/lib/nfe/import-processor'
 
 export const dynamic         = 'force-dynamic'
 export const maxDuration     = 60
@@ -63,7 +64,7 @@ function extractNum(xml: string, tag: string): number {
  * Distribuímos PIS/COFINS proporcionalmente ao FOB de cada item.
  */
 function extractDets(xml: string): Array<{
-  sku: string; description: string
+  sku: string; cean: string; description: string
   qty: number; unitValue: number; totalValue: number
   ii: number; ipi: number; pis: number; cofins: number; icms: number
 }> {
@@ -74,6 +75,7 @@ function extractDets(xml: string): Array<{
   const dets = xml.match(/<det[^>]*>([\s\S]*?)<\/det>/g) ?? []
   const items = dets.map(det => ({
     sku:        extractStr(det, 'cProd') ?? '',
+    cean:       extractStr(det, 'cEAN') ?? '',
     description:extractStr(det, 'xProd') ?? '',
     qty:        extractNum(det, 'qCom'),
     unitValue:  extractNum(det, 'vUnCom'),
@@ -182,7 +184,7 @@ export async function POST(request: NextRequest) {
       const nat = await blingGet<{ data?: Array<{ id: number; descricao?: string }> }>('/naturezas-operacoes', { limite: '100' }, 1)
       // tudo que não é compra sai AQUI, sem baixar XML (transferência, bonificação,
       // remessa, devolução, retorno) — baixar XML de cada uma dava 504
-      for (const x of nat.data ?? []) if (/devolu|retorno|transfer|bonific|brinde|remessa|conserto|demonstra/i.test(x.descricao ?? '')) devolucaoNat.add(x.id)
+      for (const x of nat.data ?? []) if (/devolu|retorno|bonific|brinde|remessa|conserto|demonstra/i.test(x.descricao ?? '')) devolucaoNat.add(x.id)
     } catch { /* sem a lista, o CFOP do XML segura */ }
     const entradas = allNfe.filter(n =>
       n.chaveAcesso && (n.tipo === 2 || n.tipo === 0) && situacoes.has(n.situacao)
@@ -283,7 +285,12 @@ export async function POST(request: NextRequest) {
         const propria = !!emitCnpj && emitCnpj === destCnpj
         // importação (3xxx) é compra SEMPRE — no XML de importação o <dest> não
         // bate com o emitente e a nota caía na regra de fornecedor
+        // TRANSFERÊNCIA matriz→filial (5151/5152/6151/6152) É lote de custo: a
+        // filial vende o que recebeu por ela (commit 5d9c1f5 — créditos da filial
+        // entram depois por /api/import-orders/filial-credits). Descartá-la em
+        // 23/09 foi erro, corrigido no mesmo dia.
         const ehCompra = /^3\d{3}$/.test(cfop)
+          || (propria && /^[56]15[12]$/.test(cfop))
           || (!propria && /^[1256](1[01]\d|40[1-5])$/.test(cfop) && !/devolu|retorno|transfer|bonific|brinde/i.test(natOp))
         if (!ehCompra) {
           errors.push(`${chave.slice(-8)}: não é compra (CFOP ${cfop} ${propria ? 'própria' : supplier.slice(0, 18)} ${natOp.slice(0, 25)}) — ignorada`); ignoradas.push(chave); continue
@@ -314,45 +321,47 @@ export async function POST(request: NextRequest) {
         // Extrai e insere itens
         const dets = extractDets(xml)
         if (dets.length > 0) {
-          const itemRows = await Promise.all(dets.map(async d => {
-            // Resolve SKU: 1) catálogo Bling (codigoFabricante/gtin) 2) cProd direto
-            const resolvedSku = (blingIndex ? resolveSkuFromBling(d.sku, blingIndex) : null) ?? d.sku
-            const skuUp = resolvedSku.toUpperCase()
-
-            // Busca product_id — cria o produto automaticamente se não existir
-            let productId = productMap[skuUp] ?? null
-            if (!productId) {
-              const { data: existing } = await db.from('products').select('id').eq('sku', resolvedSku).maybeSingle()
-              if (existing) {
-                productId = existing.id
-                productMap[skuUp] = productId  // atualiza cache local
-              } else {
-                // Cria produto novo a partir dos dados da NF-e
-                const blingName = blingIndex?.byCodigo[resolvedSku]?.nome ?? d.description
-                const { data: newProd } = await db.from('products')
-                  .insert({ sku: resolvedSku, name: blingName })
-                  .select('id').maybeSingle()
-                productId = newProd?.id ?? null
-                if (productId) productMap[skuUp] = productId
+          // Resolvedor OFICIAL (lib/nfe/import-processor): mapa de códigos do
+          // fornecedor, famílias Ragaluma por código/cor na descrição, EAN e
+          // catálogo do Bling. [] = peça/caixa → item sem produto (nunca criar
+          // produto-lixo "CFOP…"); vários = família sem cor, qtd dividida.
+          const itemRows: Record<string, unknown>[] = []
+          for (const d of dets) {
+            const skus = resolveVariantSkus(d.sku, d.description, blingIndex ?? undefined, d.cean)
+            const alvos: Array<string | null> = skus.length ? skus : [null]
+            for (const sku of alvos) {
+              let productId: string | null = null
+              if (sku) {
+                productId = productMap[sku.toUpperCase()] ?? null
+                if (!productId) {
+                  const { data: existing } = await db.from('products').select('id').eq('sku', sku).maybeSingle()
+                  productId = existing?.id ?? null
+                  if (!productId) {
+                    const nome = blingIndex?.byCodigo[sku]?.nome ?? d.description
+                    const { data: novo } = await db.from('products').insert({ sku, name: nome }).select('id').maybeSingle()
+                    productId = novo?.id ?? null
+                  }
+                  if (productId) productMap[sku.toUpperCase()] = productId
+                }
               }
+              const n = alvos.length
+              itemRows.push({
+                import_order_id:  order.id,
+                product_id:       productId,
+                sku:              sku ?? d.sku,
+                description:      d.description,
+                quantity:         d.qty / n,
+                unit_fob_value:   d.qty > 0 ? d.unitValue : 0,
+                total_fob_value:  d.totalValue / n,
+                unit_ii:          d.qty > 0 ? d.ii / d.qty : 0,
+                unit_ipi:         d.qty > 0 ? d.ipi / d.qty : 0,
+                unit_pis_imp:     d.qty > 0 ? d.pis / d.qty : 0,
+                unit_cofins_imp:  d.qty > 0 ? d.cofins / d.qty : 0,
+                // crédito de ICMS da compra (nacional: abate do custo; importação: só informação)
+                unit_icms_gnre:   d.qty > 0 ? d.icms / d.qty : 0,
+              })
             }
-
-            return {
-              import_order_id:  order.id,
-              product_id:       productId,
-              sku:              resolvedSku,
-              description:      d.description,
-              quantity:         d.qty,
-              unit_fob_value:   d.qty > 0 ? d.unitValue : 0,
-              total_fob_value:  d.totalValue,
-              unit_ii:          d.qty > 0 ? d.ii / d.qty : 0,
-              unit_ipi:         d.qty > 0 ? d.ipi / d.qty : 0,
-              unit_pis_imp:     d.qty > 0 ? d.pis / d.qty : 0,
-              unit_cofins_imp:  d.qty > 0 ? d.cofins / d.qty : 0,
-              // crédito de ICMS da compra (nacional: abate do custo; importação: só informação)
-              unit_icms_gnre:   d.qty > 0 ? d.icms / d.qty : 0,
-            }
-          }))
+          }
           await db.from('import_items').insert(itemRows)
         }
 
