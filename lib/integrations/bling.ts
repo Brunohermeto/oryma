@@ -89,10 +89,16 @@ export async function blingGetDocumentoXml(chaveAcesso: string): Promise<string 
   const token = await getValidBlingToken()
   if (!token) throw new Error('Bling não conectado')
   const url = `${BLING_BASE}/nfe/documento/${chaveAcesso}?formato=xml`
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-    next: { revalidate: 0 },
-  })
+  // NF de fornecedor (sem XML aqui) demorava dezenas de segundos para falhar e
+  // estourava os 60s da rota de entrada — 6s é mais que o suficiente para a nota própria
+  let res: Response
+  try {
+    res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+      next: { revalidate: 0 },
+      signal: AbortSignal.timeout(6000),
+    })
+  } catch { return null }
   if (!res.ok) return null
   try {
     const json = await res.json() as { data?: Array<{ conteudo?: string }> }
