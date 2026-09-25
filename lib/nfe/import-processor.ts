@@ -105,6 +105,17 @@ function resolveProductSku(cProd: string, xProd: string, blingIndex?: BlingProdu
 // todas as cores da família — o custo unitário é o mesmo por cor (NF 8, mar/2026).
 // Ordem das cores importa: RAJADO antes de CINZA.
 const FAMILIAS: Array<{ match: RegExp; cores: Array<[RegExp, string]> }> = [
+  // Linha S500/Levvi (transferência 5152 de set/2026): "MODELO - TIPO - COR - …"
+  // igual ao nome do cadastro. Mais específico PRIMEIRO (+ BASE antes de + CAR SEAT).
+  { match: /^S500 - STROLLER \+ CAR SEAT \+ BASE/,
+    cores: [[/GOLD\/BLACK/, 'RAGA010-D'], [/GRAY\/BLACK/, 'RAGA010-PP'], [/GRAY\/GRAY/, 'RAGA010-C']] },
+  { match: /^S500 - STROLLER \+ CAR SEAT/,
+    cores: [[/GOLD\/BLACK/, 'RAGA009-D'], [/GRAY\/BLACK/, 'RAGA009-PP'], [/GRAY\/GRAY/, 'RAGA009-C']] },
+  { match: /^S500 - STROLLER/,
+    cores: [[/GOLD\/BLACK/, 'RAGA005-D'], [/GRAY\/BLACK/, 'RAGA005-PP'], [/GRAY\/GRAY/, 'RAGA005-C']] },
+  { match: /^DB03 - CAR SEAT/,
+    cores: [[/- BLACK -/, 'RAGA006-P'], [/- GRAY -/, 'RAGA006-C']] },
+  { match: /^ISOFIX BASE/, cores: [[/./, 'RAGA007']] },
   { match: /BERCO PORTATIL DE METAL|GRAY-3038|PINK-3021|BLUE-3034|BEIGE-3045/,
     cores: [[/GRAY|CINZA/, 'RAGA001-C'], [/PINK|ROSA/, 'RAGA001-R'], [/BLUE|AZUL/, 'RAGA001-A'], [/BEIGE|BEGE/, 'RAGA001-B']] },
   { match: /LUPPA|MUH-035/,
