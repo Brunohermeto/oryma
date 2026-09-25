@@ -282,7 +282,9 @@ export async function POST(request: NextRequest) {
         const emitCnpj = xml.match(/<emit>[\s\S]*?<CNPJ>(\d+)<\/CNPJ>/)?.[1] ?? ''
         const destCnpj = xml.match(/<dest>[\s\S]*?<CNPJ>(\d+)<\/CNPJ>/)?.[1] ?? ''
         const natOp = extractStr(xml, 'natOp') ?? ''
-        const propria = !!emitCnpj && emitCnpj === destCnpj
+        // mesma empresa = mesma RAIZ de CNPJ (8 dígitos): matriz e filial têm CNPJ
+        // completo diferente (0001 × 000x) — comparar o CNPJ inteiro recusava as transferências
+        const propria = emitCnpj.length >= 8 && emitCnpj.slice(0, 8) === destCnpj.slice(0, 8)
         // importação (3xxx) é compra SEMPRE — no XML de importação o <dest> não
         // bate com o emitente e a nota caía na regra de fornecedor
         // TRANSFERÊNCIA matriz→filial (5151/5152/6151/6152) É lote de custo: a
