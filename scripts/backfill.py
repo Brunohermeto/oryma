@@ -236,7 +236,8 @@ if "estoque" in STEPS:
 if "relink" in STEPS:
     cur = INI
     while cur <= FIM:
-        fim = min(cur + datetime.timedelta(days=29), FIM)
+        # 15 dias: janeiro/março (meses cheios + recálculo dos lotes) davam 504 em 30
+        fim = min(cur + datetime.timedelta(days=14), FIM)
         safe(f"relink {cur}..{fim}", lambda: post("/api/landed-cost/relink", {"days": (TODAY - cur).days + 1, "until": fim.isoformat()}))
         cur = fim + datetime.timedelta(days=1)
 
