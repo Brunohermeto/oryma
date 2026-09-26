@@ -141,10 +141,12 @@ export async function syncShopee(startDate: string, endDate: string): Promise<nu
           marketplace_fixed_fee:  (((income as any)?.net_service_fee > 0 ? (income as any).net_service_fee : income?.service_fee) ?? 0) * share,
           marketplace_shipping_fee: 0,
           ads_cost: ((income as any)?.ads_campaign_cost ?? 0) * share,
-          // cupom que reduz a receita do vendedor (Shopee desconta do repasse).
-          // Só a parte do VENDEDOR: o voucher bancado pela Shopee não sai do
-          // repasse (regra 3 do AGENTS.md — estava subestimando a margem)
-          discounts: ((income as any)?.voucher_from_seller ?? 0) * share,
+          // Cupom na SHOPEE: os DOIS reduzem a receita — voucher_from_seller E
+          // voucher_from_shopee (a Shopee desconta do repasse). Regra de 26/08/2026:
+          // 699 − comissão − serviço − voucher_from_shopee = escrow (Renda estimada).
+          // DIFERENTE do ML (lá só a parte do vendedor). Revertido em 26/09 após
+          // a auditoria de 22/09 aplicar a regra do ML aqui por engano.
+          discounts: (((income as any)?.voucher_from_seller ?? 0) + ((income as any)?.voucher_from_shopee ?? 0)) * share,
           // escrow_amount (Renda estimada) rateado — referência da Shopee, não é
           // repasse independente (fica fora do alerta). 0/ausente = não liberado.
           ...((Number((income as any)?.escrow_amount) > 0) ? { payout_actual: (income as any).escrow_amount * share } : {}),

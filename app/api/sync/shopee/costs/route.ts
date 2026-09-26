@@ -73,8 +73,9 @@ export async function POST(request: NextRequest) {
     if (!inc) continue
     const comm = ((Number(inc.net_commission_fee) > 0 ? inc.net_commission_fee : inc.commission_fee) ?? 0)
     const serv = ((Number(inc.net_service_fee) > 0 ? inc.net_service_fee : inc.service_fee) ?? 0)
-    // só o cupom do VENDEDOR reduz a receita (regra 3) — o da Shopee não sai do repasse
-    const cupom = Number(inc.voucher_from_seller ?? 0)
+    // Shopee: os DOIS cupons reduzem a receita (a Shopee desconta do repasse) —
+    // regra de 26/08/2026; diferente do ML. Ver sync-shopee.ts.
+    const cupom = Number(inc.voucher_from_seller ?? 0) + Number(inc.voucher_from_shopee ?? 0)
     // repasse da Shopee = escrow_amount (Renda estimada). É a própria estimativa
     // da Shopee (derivada das mesmas taxas + muda com a finalização), então NÃO é
     // um repasse independente — fica só como referência, fora do alerta.

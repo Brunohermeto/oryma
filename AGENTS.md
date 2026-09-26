@@ -31,7 +31,11 @@ Qualquer código novo que grave ou leia valores de venda DEVE segui-las.
   (regra 2026-07-29). Fica gravado só como informação — jamais somar em
   faturamento, margem ou DRE.
 
-## 3. Cupom: só a parte do vendedor desconta
+## 3. Cupom: só a parte do vendedor desconta (MERCADO LIVRE)
+- **Exceção SHOPEE (regra 2026-08-26): os DOIS cupons descontam** —
+  `voucher_from_seller` + `voucher_from_shopee` —, porque a Shopee tira o cupom
+  do repasse: 699 − comissão − serviço − voucher_from_shopee = escrow. Em 22/09
+  a auditoria aplicou a regra do ML na Shopee por engano (revertido em 26/09).
 - Fonte: `/orders/{id}/discounts` → `details[type=coupon].items[].amounts.seller`.
 - Cupom bancado pelo ML NÃO reduz receita nem margem.
 
