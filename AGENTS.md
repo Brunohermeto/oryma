@@ -40,6 +40,12 @@ Qualquer código novo que grave ou leia valores de venda DEVE segui-las.
 - CFOP 3xxx = importado: custo = FOB + II + IPI. Nacional: preço + IPI − créditos
   de ICMS/PIS/COFINS.
 - `products.cost_locked = true` (kits): NF NÃO altera o custo; só manual vale.
+- **Transferência matriz→filial (CFOP 5151/5152/6151/6152) NÃO define custo**
+  (decisão do Bruno, 2026-09-26). O valor dela embute impostos e margem interna
+  (RAGA004-P: lote de importação R$ 437 × transferência R$ 692) e derrubava as
+  margens. Custo = lote de importação (FOB + II + IPI) + frete/despachante
+  digitados; a transferência é importada só como registro. Custo SEMPRE líquido
+  dos impostos recuperáveis (ICMS/PIS/COFINS fora; II/IPI dentro).
 
 ## 5. Margem = todos os custos, sobre o faturamento LÍQUIDO
 - margem R$ = bruto − cancelamento − cupom-vendedor − comissão − tarifa fixa −

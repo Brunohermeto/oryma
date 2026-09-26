@@ -32,6 +32,19 @@ export async function recalculateLandedCost(importOrderId: string): Promise<void
 
   if (!items?.length) return
 
+  // TRANSFERÊNCIA matriz→filial (5151/5152/6151/6152) NÃO define custo (decisão
+  // do Bruno, 26/09/2026): o valor dela embute impostos/margem interna e ficava
+  // 25–60% acima do lote de importação (RAGA004-P: 437 × 692), derrubando as
+  // margens. Custo = lote de importação (FOB + II + IPI) + extras digitados; a
+  // transferência fica só como registro. Remove lotes de custo antigos dela e
+  // refaz a linha do tempo dos produtos.
+  if (/^[56]15[12]$/.test(String(order?.cfop ?? ''))) {
+    await db.from('unit_costs').delete().eq('import_order_id', importOrderId)
+    const pids = [...new Set(items.map(i => i.product_id).filter(Boolean) as string[])]
+    for (const pid of pids) await recalculateCmp(pid)
+    return
+  }
+
   // 3. Load all additional costs for this order
   const { data: costs } = await db
     .from('import_costs')
