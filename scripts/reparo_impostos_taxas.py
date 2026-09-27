@@ -38,18 +38,24 @@ while True:
     if not r.get("processados"): break
     off += r["processados"] - r.get("chaves_gravadas", 0)
 
-# 2. impostos do Full Shopee pela API (lote de XML assincrono, retomavel por request_id)
-reqid = None
-for t in range(10):
-    q = f"/api/sync/shopee/full-taxes?days={N}" + (f"&request_id={reqid}" if reqid else "")
-    try:
-        r = post(q); log(f"2. shopee full taxes t{t}: {json.dumps(r, ensure_ascii=False)[:160]}")
-        if r.get("ok"): break
-    except urllib.error.HTTPError as e:
-        try: reqid = json.loads(e.read()).get("request_id") or reqid
-        except Exception: pass
-        log(f"2. shopee full taxes t{t}: {e.code} (retoma {reqid})")
-    time.sleep(30)
+# 2. impostos do Full Shopee pela API, MES A MES (a Shopee recusa periodo longo);
+#    lote de XML assincrono, retomavel por request_id
+m = INI.replace(day=1)
+while m <= datetime.date.today():
+    fim = min((m + datetime.timedelta(days=32)).replace(day=1) - datetime.timedelta(days=1), datetime.date.today())
+    reqid = None
+    for t in range(8):
+        q = f"/api/sync/shopee/full-taxes?from={m}&to={fim}" + (f"&request_id={reqid}" if reqid else "")
+        try:
+            r = urllib.request.urlopen(urllib.request.Request(BASE + q, data=b"", headers=H, method="POST"), timeout=170)
+            r = json.loads(r.read()); log(f"2. shopee full {m:%Y-%m} t{t}: {json.dumps(r, ensure_ascii=False)[:140]}")
+            if r.get("ok"): break
+        except urllib.error.HTTPError as e:
+            try: reqid = json.loads(e.read()).get("request_id") or reqid
+            except Exception: pass
+            log(f"2. shopee full {m:%Y-%m} t{t}: {e.code} (retoma {reqid})")
+        time.sleep(20)
+    m = (m + datetime.timedelta(days=32)).replace(day=1)
 
 # 3. impostos por chave (galpao Shopee/Magalu/ML: XML da NF no Bling)
 parado = 0

@@ -29,8 +29,12 @@ export async function POST(request: NextRequest) {
 
   const days = Number(request.nextUrl.searchParams.get('days') ?? 20)
   const db = createSupabaseServiceClient()
-  const now = new Date()
-  const start = new Date(now.getTime() - days * 864e5)
+  // ?from=YYYY-MM-DD&to=YYYY-MM-DD: janela explícita (a Shopee recusa o lote
+  // de XML com período longo — 270 dias dava 500; o backfill pede mês a mês)
+  const qFrom = request.nextUrl.searchParams.get('from')
+  const qTo   = request.nextUrl.searchParams.get('to')
+  const now = qTo ? new Date(`${qTo}T12:00:00`) : new Date()
+  const start = qFrom ? new Date(`${qFrom}T12:00:00`) : new Date(now.getTime() - days * 864e5)
 
   // 1. gera o lote (assíncrono) — OU retoma um já em geração (?request_id=N).
   // A Shopee gera de forma assíncrona; em dias lentos passa dos 39s. Reabrir o
