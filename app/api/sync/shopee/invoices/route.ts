@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { shopeeGet } from '@/lib/integrations/shopee'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { fetchAll } from '@/lib/supabase/fetch-all'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -25,11 +26,16 @@ export async function POST(request: NextRequest) {
   const db = createSupabaseServiceClient()
   const since = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10)
 
-  const { data: sales } = await db.from('sales')
+  // paginado (>1000 vendas sumiam) + lote por chamada (?limit pedidos a partir
+  // de ?offset): 2.000 pendentes numa chamada estouravam os 60s no backfill
+  const limit  = Number(request.nextUrl.searchParams.get('limit') ?? 400)
+  const offset = Number(request.nextUrl.searchParams.get('offset') ?? 0)
+  const sales = await fetchAll<{ id: string; external_order_id: string }>(() => db.from('sales')
     .select('id, external_order_id')
     .eq('marketplace', 'shopee')
     .is('nfe_saida_key', null)
     .gte('sale_date', since)
+    .order('id', { ascending: true }))
 
   const byOrder = new Map<string, string[]>()
   for (const s of sales ?? []) {
@@ -37,7 +43,8 @@ export async function POST(request: NextRequest) {
     if (!byOrder.has(sn)) byOrder.set(sn, [])
     byOrder.get(sn)!.push(s.id)
   }
-  const sns = [...byOrder.keys()]
+  const todos = [...byOrder.keys()].sort()
+  const sns = todos.slice(offset, offset + limit)
 
   let comChave = 0
   for (let i = 0; i < sns.length; i += 50) {
@@ -58,5 +65,5 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, pedidos_sem_nf: sns.length, chaves_gravadas: comChave })
+  return NextResponse.json({ ok: true, pedidos_sem_nf: todos.length, processados: sns.length, proximo_offset: offset + sns.length, chaves_gravadas: comChave })
 }
