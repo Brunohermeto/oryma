@@ -238,7 +238,7 @@ if "relink" in STEPS:
     while cur <= FIM:
         # 15 dias: janeiro/março (meses cheios + recálculo dos lotes) davam 504 em 30
         fim = min(cur + datetime.timedelta(days=14), FIM)
-        safe(f"relink {cur}..{fim}", lambda: post("/api/landed-cost/relink", {"days": (TODAY - cur).days + 1, "until": fim.isoformat()}))
+        safe(f"relink {cur}..{fim}", lambda: post("/api/landed-cost/relink", {"days": (TODAY - cur).days + 1, "until": fim.isoformat(), "skipOrders": True}))
         cur = fim + datetime.timedelta(days=1)
 
 if "audit" in STEPS:

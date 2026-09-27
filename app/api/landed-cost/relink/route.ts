@@ -67,7 +67,12 @@ export async function POST(request: NextRequest) {
   // 4. Recalcula as ordens (gera cmp_costs com effective_date = issue_date da NF-e).
   //    No modo incremental, só as ordens com item recém-vinculado (ordersToRecalc);
   //    no completo, TODAS. Recalcular todas todo dia é o que mais pesava no 504.
-  if (!desde) {
+  // body.skipOrders: só recalcula MARGENS (o custo dos lotes já foi gerado na
+  // importação da NF). Usado pelo backfill — refazer ~19 lotes de janeiro por
+  // quinzena estourava os 60s (504) mesmo em janelas de 15 dias.
+  if (body?.skipOrders === true) {
+    ordersToRecalc.clear()
+  } else if (!desde) {
     const { data: allOrders } = await db.from('import_orders').select('id')
     for (const order of allOrders ?? []) ordersToRecalc.add(order.id)
   } else {
