@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     // impostos: dos totais da nota (ICMSTot)
     const tb = xml.match(/<ICMSTot>([\s\S]*?)<\/ICMSTot>/)?.[1] ?? xml
     const icms = tagIn(tb, 'vICMS'), pis = tagIn(tb, 'vPIS'), cofins = tagIn(tb, 'vCOFINS'), ipi = tagIn(tb, 'vIPI')
-    const difal = tagIn(tb, 'vICMSUFDest') + tagIn(tb, 'vICMSUFRemet')
+    const difal = tagIn(tb, 'vICMSUFDest') + tagIn(tb, 'vICMSUFRemet') + tagIn(tb, 'vFCPUFDest')
 
     const { data: rows } = await db.from('sales')
       .select('id, gross_price, nfe_saida_key')

@@ -201,7 +201,7 @@ export async function syncNFeSaida(startDate: string, endDate: string, maxItems 
             freteTot: extractTag(xml, 'vFrete'),
             pis: extractTag(xml, 'vPIS'), cofins: extractTag(xml, 'vCOFINS'),
             icms: extractTag(xml, 'vICMS'),
-            difal: extractTag(xml, 'vICMSUFDest') + extractTag(xml, 'vICMSUFRemet'),
+            difal: extractTag(xml, 'vICMSUFDest') + extractTag(xml, 'vICMSUFRemet') + extractTag(xml, 'vFCPUFDest'),
             ipi: extractTag(xml, 'vIPI'),
             totalNfeValue: extractTag(xml, 'vNF'),
           })
@@ -214,7 +214,7 @@ export async function syncNFeSaida(startDate: string, endDate: string, maxItems 
         const pis    = extractTag(xml, 'vPIS')
         const cofins = extractTag(xml, 'vCOFINS')
         const icms   = extractTag(xml, 'vICMS')
-        const difal  = extractTag(xml, 'vICMSUFDest') + extractTag(xml, 'vICMSUFRemet')
+        const difal  = extractTag(xml, 'vICMSUFDest') + extractTag(xml, 'vICMSUFRemet') + extractTag(xml, 'vFCPUFDest')
         const ipi    = extractTag(xml, 'vIPI')
         const frete  = extractTag(xml, 'vFrete')
 

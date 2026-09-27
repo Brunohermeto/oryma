@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
       jaTinha++; continue
     }
     const pis = num(xml, 'vPIS'), cofins = num(xml, 'vCOFINS'), icms = num(xml, 'vICMS')
-    const difal = num(xml, 'vICMSUFDest') + num(xml, 'vICMSUFRemet'), ipi = num(xml, 'vIPI')
+    const difal = num(xml, 'vICMSUFDest') + num(xml, 'vICMSUFRemet') + num(xml, 'vFCPUFDest'), ipi = num(xml, 'vIPI')
     const total = group.reduce((a, s) => a + Number(s.gross_price), 0)
     for (const s of group) {
       const share = total > 0 ? Number(s.gross_price) / total : 1 / group.length

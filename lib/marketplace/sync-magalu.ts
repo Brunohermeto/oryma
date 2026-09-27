@@ -123,7 +123,7 @@ export async function syncMagalu(startDate: string, endDate: string): Promise<nu
       if (xml && /venda/i.test(natOp)) {
         taxes = {
           pis: xmlTag(xml, 'vPIS'), cofins: xmlTag(xml, 'vCOFINS'), icms: xmlTag(xml, 'vICMS'),
-          difal: xmlTag(xml, 'vICMSUFDest') + xmlTag(xml, 'vICMSUFRemet'), ipi: xmlTag(xml, 'vIPI'),
+          difal: xmlTag(xml, 'vICMSUFDest') + xmlTag(xml, 'vICMSUFRemet') + xmlTag(xml, 'vFCPUFDest'), ipi: xmlTag(xml, 'vIPI'),
         }
       }
     } catch { /* NF ainda não disponível — fica para o próximo ciclo */ }

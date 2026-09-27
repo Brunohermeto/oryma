@@ -18,7 +18,7 @@ export function extractSaleTaxes(xmlContent: string): SaleTaxBreakdown {
     return parseFloat(m?.[1] ?? '0') || 0
   }
 
-  const icmsDifal = extractTag('vICMSUFDest') + extractTag('vICMSUFRemet')
+  const icmsDifal = extractTag('vICMSUFDest') + extractTag('vICMSUFRemet') + extractTag('vFCPUFDest')
   const ufMatch = xmlContent.match(/<dest>[\s\S]*?<UF>([^<]+)<\/UF>/)
 
   return {

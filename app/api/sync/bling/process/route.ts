@@ -48,7 +48,7 @@ interface BlingNFeCompleta {
     vNF?: number | null; vProd?: number | null
     vICMS?: number | null; vPIS?: number | null; vCOFINS?: number | null
     vIPI?: number | null; vFrete?: number | null
-    vICMSUFDest?: number | null; vICMSUFRemet?: number | null
+    vICMSUFDest?: number | null; vICMSUFRemet?: number | null; vFCPUFDest?: number | null
   } | null
   intermediador?: { cnpj?: string; nomeUsuario?: string } | null
   contato?: { nome?: string | null; cpfCnpj?: string | null } | null
@@ -252,6 +252,7 @@ export async function POST(request: NextRequest) {
     const ipiDirect    = Number(nfeData.totais?.vIPI    ?? 0)
     const difalDirect  = Number(nfeData.totais?.vICMSUFDest  ?? 0)
                        + Number(nfeData.totais?.vICMSUFRemet ?? 0)
+                       + Number(nfeData.totais?.vFCPUFDest   ?? 0)  // FCP entra no DIFAL (regra 23/07)
     // ICMS: totais ou soma de itens.impostos.icms.valor (disponível sem XML)
     const icmsDirect   = Number(nfeData.totais?.vICMS ?? 0) ||
       (nfeData.itens ?? []).reduce((s, i) => s + Number((i as any).impostos?.icms?.valor ?? 0), 0)
@@ -281,7 +282,7 @@ export async function POST(request: NextRequest) {
     const pis    = (xmlFull ? extractTag(xmlFull, 'vPIS')    : 0) || pisDirect
     const cofins = (xmlFull ? extractTag(xmlFull, 'vCOFINS') : 0) || cofinsDirect
     const icms   = icmsDirect  || (xmlFull ? extractTag(xmlFull, 'vICMS')        : 0)
-    const difal  = difalDirect || (xmlFull ? extractTag(xmlFull, 'vICMSUFDest') + extractTag(xmlFull, 'vICMSUFRemet') : 0)
+    const difal  = difalDirect || (xmlFull ? extractTag(xmlFull, 'vICMSUFDest') + extractTag(xmlFull, 'vICMSUFRemet') + extractTag(xmlFull, 'vFCPUFDest') : 0)
     const ipi    = ipiDirect   || (xmlFull ? extractTag(xmlFull, 'vIPI')         : 0)
     const frete  = freteDirect || (xmlFull ? extractTag(xmlFull, 'vFrete')       : 0)
 
@@ -299,10 +300,10 @@ export async function POST(request: NextRequest) {
       return {
         id,
         nfe_saida_key: chave,
-        // vFrete da NF é o frete cobrado do COMPRADOR, não o custo do vendedor
-        // (regra 2 do AGENTS.md: fonte oficial é /shipments/costs). Entra SÓ
-        // como reserva quando a venda ainda está com frete zero.
-        ...(frete > 0 && !(freteAtual[id] > 0) ? { marketplace_shipping_fee: frete * share } : {}),
+        // vFrete da NF é o frete cobrado do COMPRADOR — NUNCA custo do vendedor
+        // (regras 2 e G4: frete do vendedor = /shipments/costs no ML; na Shopee o
+        // frete é neutro = 0, regra de 26/08). Antes virava custo em toda venda
+        // Shopee de galpão (frete sempre 0) e derrubava a margem.
       }
     })
 

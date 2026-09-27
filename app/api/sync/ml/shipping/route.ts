@@ -79,15 +79,16 @@ export async function POST(request: NextRequest) {
 
       if (!sampleFees && detail.fee_details?.length) sampleFees = detail.fee_details
 
-      let shipping = 0
-      let rebate   = 0
+      // Frete do vendedor: fee_details só como RESERVA — a fonte oficial é
+      // /shipments/{id}/costs (senders[].cost), buscada abaixo (regra 2, 28/07).
+      // Estorno NÃO é gravado aqui: o dono único é /api/sync/ml/tariffs (regra 1).
+      let freteReserva = 0
       for (const fee of detail.fee_details ?? []) {
         const amount = Number(fee.amount ?? fee.fee_amount ?? 0)
         const type   = (fee.type ?? '').toLowerCase()
-        if (amount > 0 && isShippingFee(type)) shipping += amount
-        // coupon_ml = cupom bancado pelo ML: não é estorno do vendedor (regra 3)
-        else if (amount < 0 && !type.includes('coupon')) rebate += Math.abs(amount)
+        if (amount > 0 && isShippingFee(type)) freteReserva += amount
       }
+      let shipping = 0
 
       // logistic_type só existe no shipment (não vem em /orders) — é a única
       // forma confiável de saber se a venda é Full (NF-e emitida pelo ML)
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
         const stId = typeof st === 'object' ? st?.id : undefined
         if (stId && /^BR-[A-Z]{2}$/.test(stId)) ufEntrega = stId.slice(3)
 
-        if (shipping === 0) {
+        {  // fonte oficial, sempre (antes só quando fee_details não trazia frete)
           await sleep(150)
           // Formato real do ML Brasil: custo do vendedor fica em senders[].cost
           const costs = await mlGet<{ senders?: Array<{ cost?: number }> }>(
@@ -115,6 +116,7 @@ export async function POST(request: NextRequest) {
           shipping = (costs?.senders ?? []).reduce((s, x) => s + Number(x.cost ?? 0), 0)
         }
       }
+      if (!(shipping > 0)) shipping = freteReserva
 
       const total = order.prices.reduce((s, p) => s + p, 0)
       const n     = order.saleIds.length
@@ -122,7 +124,6 @@ export async function POST(request: NextRequest) {
         const share  = total > 0 ? order.prices[i] / total : 1 / n
         const fields: Record<string, number | string> = {}
         if (shipping > 0) fields.marketplace_shipping_fee = shipping * share
-        if (rebate   > 0) fields.rebate = rebate * share
         if (fulfillment)  fields.fulfillment_type = fulfillment
         if (ufEntrega)    (fields as Record<string, unknown>).uf_destino = ufEntrega
         if (!Object.keys(fields).length) continue

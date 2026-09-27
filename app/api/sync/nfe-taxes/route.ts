@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     if (!/venda/i.test(natOp)) continue
 
     const pis = tag(xml, 'vPIS'), cofins = tag(xml, 'vCOFINS'), icms = tag(xml, 'vICMS')
-    const difal = tag(xml, 'vICMSUFDest') + tag(xml, 'vICMSUFRemet'), ipi = tag(xml, 'vIPI')
+    const difal = tag(xml, 'vICMSUFDest') + tag(xml, 'vICMSUFRemet') + tag(xml, 'vFCPUFDest'), ipi = tag(xml, 'vIPI')
     const uf = xml.match(/<dest>[\s\S]*?<UF>([A-Z]{2})<\/UF>/)?.[1] ?? null
     const total = group.reduce((a, s) => a + s.gross_price, 0)
     for (const s of group) {
