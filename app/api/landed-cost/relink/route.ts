@@ -113,6 +113,24 @@ export async function POST(request: NextRequest) {
     salesLinked++
   }
 
+  // 5b. Os apelidos PREVALECEM mesmo em venda já vinculada. A rota de notas do ML
+  //     liga pela EAN do 1º item da NF — num kit (MOVE TRIO = carrinho + bebê
+  //     conforto + adaptador) esse é o carrinho, e o custo virava só o do
+  //     carrinho (fev/2026 com 42% de margem). Auditoria 27/09/2026: 417 vendas
+  //     MOVETRIO no "Carrinho Move", 138 do 0209 no "Apolo" simples.
+  const ALIASES: Record<string, string> = {
+    'MOVETRIO': '7908488106449', '0209': '7908488108085', '020984': '7908488108221',
+    '0109P': '7908488100980', '010984P': '7908488108290',
+    '0210MG': '7908488108351', '021084MG': '7908488108313',
+  }
+  for (const [skuVenda, skuProduto] of Object.entries(ALIASES)) {
+    const alvo = productMap[skuProduto]
+    if (!alvo) continue
+    const { data: fix } = await db.from('sales').update({ product_id: alvo })
+      .eq('sku', skuVenda).neq('product_id', alvo).select('id')
+    salesLinked += fix?.length ?? 0
+  }
+
   // 6. Aplica CMP histórico a TODAS as vendas
   //    Para cada venda usa o CMP com effective_date <= sale_date (CMP vigente na época)
   //    Bulk: carrega todos os CMPs ordenados por data e todas as vendas de uma vez
