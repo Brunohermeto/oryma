@@ -103,7 +103,8 @@ export async function POST(request: NextRequest) {
       '0109P': '7908488100980', '010984P': '7908488108290',
       '0210MG': '7908488108351', '021084MG': '7908488108313',
     }
-    const skuUp = sale.sku?.toUpperCase()
+    // SKU do marketplace pode vir com espaço invisível (NBSP) — ex.: " RAGA001-B"
+    const skuUp = sale.sku?.replace(/[ \s]+/g, '').toUpperCase()
     // SKU da Amazon vem com sufixo -FBA/_FBA (ex: RAGA003-BG-FBA) — casa pelo base
     const skuBase = skuUp?.replace(/[-_]FBA$/i, '')
     const productId = productMap[skuUp] ?? productMap[skuBase] ?? productMap[SKU_ALIASES[skuUp] ?? '']

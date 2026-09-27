@@ -18,6 +18,8 @@ const vazio = (v: unknown) => v === null || v === undefined || v === 0 || v === 
 
 /** Insere a venda; se já existe, atualiza só os campos-base e preenche lacunas. */
 export async function upsertSale(db: Db, row: Record<string, unknown>): Promise<{ id: string | null; error: { message: string } | null }> {
+  // SKU com espaço invisível (NBSP) vindo do anúncio não casava com o produto
+  if (typeof row.sku === 'string') row = { ...row, sku: row.sku.replace(/[ \s]+/g, '') }
   const eid = String(row.external_order_id)
   const { data: cur } = await db.from('sales').select(['id', ...FILL_ONLY].join(', '))
     .eq('external_order_id', eid).maybeSingle()
