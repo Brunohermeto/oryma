@@ -187,7 +187,7 @@ if "bling" in STEPS:
 sub = lambda k: "ml" in STEPS or k in STEPS
 if sub("ml_invoices"): loop_rota("ml invoices", "/api/sync/ml/invoices", {"days": N, "limit": 20})
 if sub("ml_shipping"): loop_rota("ml shipping", "/api/sync/ml/shipping", {"days": N, "limit": 12}, pausa=1)
-if sub("ml_tariffs"):  loop_rota("ml tariffs", "/api/sync/ml/tariffs", {"days": N, "limit": 30}, pausa=14)
+if sub("ml_tariffs"):  loop_rota("ml tariffs", "/api/sync/ml/tariffs", {"days": N, "limit": 30, "force": True}, pausa=14)  # force: regrava comissao BRUTA + estorno + tarifa fixa (regra de 28/07) mesmo onde o sync gravou a liquida
 if sub("ml_billing"):
     mes = INI.replace(day=1)
     while mes <= FIM:
