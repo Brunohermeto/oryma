@@ -51,6 +51,15 @@ Qualquer código novo que grave ou leia valores de venda DEVE segui-las.
   digitados; a transferência é importada só como registro. Custo SEMPRE líquido
   dos impostos recuperáveis (ICMS/PIS/COFINS fora; II/IPI dentro).
 
+## 4b. Vínculo venda → produto SÓ PELO SKU (regra do Bruno, 2026-09-27)
+- SKU exato → SKU sem sufixo -FBA → apelido (SKU_ALIASES no relink). NUNCA pela
+  EAN da nota: num kit (MOVE TRIO) a EAN do 1º item é a do carrinho e a venda
+  ficava com o custo só dele. O relink reaplica o vínculo por SKU em TODAS as
+  vendas da janela (corrige vínculo antigo errado, não só venda sem produto).
+- Item de NF de ENTRADA → produto continua pelo resolvedor oficial
+  (lib/nfe/import-processor: SKU_MAP, famílias por código/cor, catálogo), pois
+  a nota do fornecedor não traz o nosso SKU.
+
 ## 5. Margem = todos os custos, sobre o faturamento LÍQUIDO
 - margem R$ = bruto − cancelamento − cupom-vendedor − comissão − tarifa fixa −
   frete − ads − impostos da NF − CMV + estorno.

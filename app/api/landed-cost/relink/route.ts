@@ -11,6 +11,7 @@
  *   4. Para cada venda, aplica o CMP vigente NA DATA DA VENDA
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { fetchAll as fetchAllRows } from '@/lib/supabase/fetch-all'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { recalculateLandedCost } from '@/lib/landed-cost/calculator'
 import { isReturned } from '@/lib/sales/returned'
@@ -88,47 +89,32 @@ export async function POST(request: NextRequest) {
     try { await recalculateLandedCost(orderId); recalculated++ } catch { continue }
   }
 
-  // 5. Vincula sales sem product_id por SKU
-  const { data: unlinkedSales } = await db
-    .from('sales').select('id, sku')
-    .is('product_id', null).not('sku', 'is', null)
-
-  let salesLinked = 0
-  for (const sale of unlinkedSales ?? []) {
-    // SKUs dos anúncios ≠ SKU do cadastro (EAN) — apelidos conhecidos,
-    // confirmados pelo EAN das NF-e (venda galpão não passa pelo casamento por EAN)
-    const SKU_ALIASES: Record<string, string> = {
-      'MOVETRIO': '7908488106449', 'MOVEDUO': '7908488105732',
-      '0209': '7908488108085', '020984': '7908488108221',
-      '0109P': '7908488100980', '010984P': '7908488108290',
-      '0210MG': '7908488108351', '021084MG': '7908488108313',
-    }
-    // SKU do marketplace pode vir com espaço invisível (NBSP) — ex.: " RAGA001-B"
-    const skuUp = sale.sku?.replace(/[ \s]+/g, '').toUpperCase()
-    // SKU da Amazon vem com sufixo -FBA/_FBA (ex: RAGA003-BG-FBA) — casa pelo base
-    const skuBase = skuUp?.replace(/[-_]FBA$/i, '')
-    const productId = productMap[skuUp] ?? productMap[skuBase] ?? productMap[SKU_ALIASES[skuUp] ?? '']
-    if (!productId) continue
-    await db.from('sales').update({ product_id: productId }).eq('id', sale.id)
-    salesLinked++
-  }
-
-  // 5b. Os apelidos PREVALECEM mesmo em venda já vinculada. A rota de notas do ML
-  //     liga pela EAN do 1º item da NF — num kit (MOVE TRIO = carrinho + bebê
-  //     conforto + adaptador) esse é o carrinho, e o custo virava só o do
-  //     carrinho (fev/2026 com 42% de margem). Auditoria 27/09/2026: 417 vendas
-  //     MOVETRIO no "Carrinho Move", 138 do 0209 no "Apolo" simples.
-  const ALIASES: Record<string, string> = {
-    'MOVETRIO': '7908488106449', '0209': '7908488108085', '020984': '7908488108221',
+  // 5. Vínculo venda → produto SÓ PELO SKU (regra do Bruno, 27/09/2026) —
+  //    para TODAS as vendas da janela, não só as sem produto: a rota de notas do
+  //    ML ligava pela EAN do 1º item da NF e, num kit (MOVE TRIO = carrinho +
+  //    bebê conforto + adaptador), a venda ficava com o custo só do carrinho.
+  //    Resolução: SKU exato → SKU sem sufixo -FBA (Amazon) → apelido conhecido.
+  const SKU_ALIASES: Record<string, string> = {
+    'MOVETRIO': '7908488106449', 'MOVEDUO': '7908488105732',
+    '0209': '7908488108085', '020984': '7908488108221',
     '0109P': '7908488100980', '010984P': '7908488108290',
     '0210MG': '7908488108351', '021084MG': '7908488108313',
   }
-  for (const [skuVenda, skuProduto] of Object.entries(ALIASES)) {
-    const alvo = productMap[skuProduto]
-    if (!alvo) continue
-    const { data: fix } = await db.from('sales').update({ product_id: alvo })
-      .eq('sku', skuVenda).neq('product_id', alvo).select('id')
-    salesLinked += fix?.length ?? 0
+  const candidatas = await fetchAllRows<{ id: string; sku: string; product_id: string | null }>(() => {
+    let q = db.from('sales').select('id, sku, product_id').not('sku', 'is', null)
+    if (desde) q = q.gte('sale_date', desde)
+    if (until) q = q.lte('sale_date', until)
+    return q.order('id', { ascending: true })
+  })
+  let salesLinked = 0
+  for (const sale of candidatas) {
+    // SKU do marketplace pode vir com espaço invisível (NBSP) — ex.: " RAGA001-B"
+    const skuUp = sale.sku.replace(/[ \s]+/g, '').toUpperCase()
+    const skuBase = skuUp.replace(/[-_]FBA$/i, '')
+    const productId = productMap[skuUp] ?? productMap[skuBase] ?? productMap[SKU_ALIASES[skuUp] ?? '']
+    if (!productId || productId === sale.product_id) continue
+    await db.from('sales').update({ product_id: productId }).eq('id', sale.id)
+    salesLinked++
   }
 
   // 6. Aplica CMP histórico a TODAS as vendas

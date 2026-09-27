@@ -27,9 +27,12 @@ def post(path, body=None, timeout=170):
             time.sleep(10)
 
 # 1. chaves de NF da Shopee (em lotes; offset avanca so pelos pedidos sem chave)
-off, gravadas = 0, 0
+off, gravadas, lote = 0, 0, 100
 while True:
-    r = post(f"/api/sync/shopee/invoices?days={N}&limit=300&offset={off}")
+    try:
+        r = post(f"/api/sync/shopee/invoices?days={N}&limit={lote}&offset={off}")
+    except urllib.error.HTTPError as e:
+        lote = max(20, lote // 2); log(f"1. shopee chaves: HTTP {e.code} no offset {off} -> lote {lote}"); time.sleep(10); continue
     gravadas += r.get("chaves_gravadas", 0)
     log(f"1. shopee chaves: offset {off} processados {r.get('processados')} gravadas {r.get('chaves_gravadas')} (total {gravadas}) pendentes {r.get('pedidos_sem_nf')}")
     if not r.get("processados"): break

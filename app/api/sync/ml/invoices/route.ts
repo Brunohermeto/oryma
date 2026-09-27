@@ -115,9 +115,10 @@ export async function POST(request: NextRequest) {
         const rules   = invItem?.fiscal_data?.rules ?? []
         const t       = taxesFromRules(rules)
 
-        // Auto-vínculo venda→produto pelo EAN fiscal da nota
-        const ean = String((invItem as any)?.attributes?.ean ?? (invItem as any)?.attributes?.sku ?? '')
-        const eanProductId = !sale.hasProduct ? productByEan.get(ean) : undefined
+        // SEM vínculo venda→produto pelo EAN da nota (regra do Bruno 27/09/2026:
+        // vínculo SÓ pelo SKU). Num kit (MOVE TRIO) a EAN do 1º item é a do
+        // carrinho e a venda ficava com o custo só do carrinho.
+        const eanProductId: string | undefined = undefined
 
         // UF de destino: o estado do destinatário da NF-e é a verdade fiscal
         // (o state_name do extrato é o estado de cobrança — já nos enganou)
