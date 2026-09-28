@@ -38,7 +38,10 @@ export async function POST(request: NextRequest) {
   // da Vercel (504). Sem days = recálculo COMPLETO (rodar manual quando o CMP muda).
   const body = await request.json().catch(() => ({}))
   const days = Number(body?.days ?? 0)
-  const desde = days > 0 ? brazilDaysAgo(days) : null
+  // from (YYYY-MM-DD): início explícito — ex.: vigência de um custo manual; as
+  // vendas ANTES dela não são tocadas (Bruno, 28/09)
+  const from = typeof body?.from === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.from) ? body.from : null
+  const desde = from ?? (days > 0 ? brazilDaysAgo(days) : null)
   // until (YYYY-MM-DD) fecha a janela: [desde, until]. Usado pelo backfill
   // (scripts/backfill.py) para recalcular o histórico em fatias de 30 dias —
   // o recálculo completo de ~10 mil vendas estoura os 60s da Vercel.

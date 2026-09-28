@@ -44,6 +44,11 @@ Qualquer código novo que grave ou leia valores de venda DEVE segui-las.
 - CFOP 3xxx = importado: custo = FOB + II + IPI. Nacional: preço + IPI − créditos
   de ICMS/PIS/COFINS.
 - `products.cost_locked = true` (kits): NF NÃO altera o custo; só manual vale.
+- **Custo manual SEMPRE com data de vigência, e a correção vale SÓ a partir dela**
+  (Bruno, 2026-09-28). Salvar custo manual/extra de importação ou o botão ↻ da
+  tela Custos por SKU chama o relink com `{productIds, from: vigência}` — só as
+  vendas daquele produto desde a vigência são recalculadas. Nunca disparar o
+  relink COMPLETO a partir da tela (passa dos 60s e falha calado).
 - **Transferência matriz→filial (CFOP 5151/5152/6151/6152) NÃO define custo**
   (decisão do Bruno, 2026-09-26). O valor dela embute impostos e margem interna
   (RAGA004-P: lote de importação R$ 437 × transferência R$ 692) e derrubava as

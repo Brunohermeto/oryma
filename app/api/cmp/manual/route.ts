@@ -96,7 +96,8 @@ export async function POST(request: NextRequest) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Cookie: `mi_auth=${process.env.APP_PASSWORD}` },
         // só as vendas dos produtos alterados — o relink completo passa dos 60s
-        body: JSON.stringify({ productIds }),
+        // e só a partir da vigência informada: vendas anteriores não são tocadas
+        body: JSON.stringify({ productIds, from: valid.map(e => e.effective_date).sort()[0] }),
       }
     )
     relinkResult = await res.json()

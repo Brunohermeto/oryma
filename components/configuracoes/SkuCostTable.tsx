@@ -7,7 +7,7 @@
  */
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, Pencil, Lock, LockOpen, Check, X } from 'lucide-react'
+import { Search, Pencil, Lock, LockOpen, Check, X, RefreshCw } from 'lucide-react'
 
 export interface SkuCostRow {
   productId: string
@@ -49,6 +49,7 @@ export function SkuCostTable({ rows }: { rows: SkuCostRow[] }) {
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
   const [lockBusy, setLockBusy] = useState<string | null>(null)
+  const [recalcBusy, setRecalcBusy] = useState<string | null>(null)
 
   const q = search.trim().toLowerCase()
   const filtered = rows.filter(r => {
@@ -90,6 +91,28 @@ export function SkuCostTable({ rows }: { rows: SkuCostRow[] }) {
       setMsg(`Erro: ${String(e).replace('Error: ', '')}`)
     }
     setSaving(false)
+  }
+
+  // Recalcula só as vendas deste SKU a partir da vigência do custo atual —
+  // vendas anteriores continuam com o custo que valia na época
+  async function recalc(r: SkuCostRow) {
+    if (!r.effectiveDate) return
+    setRecalcBusy(r.productId)
+    setMsg(`Recalculando ${r.sku} desde ${fmtDate(r.effectiveDate)}…`)
+    try {
+      const res = await fetch('/api/landed-cost/relink', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productIds: [r.productId], from: r.effectiveDate }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(d.error ?? `HTTP ${res.status}`)
+      setMsg(`✓ ${r.sku}: ${d.sales_updated ?? 0} venda(s) recalculada(s) desde ${fmtDate(r.effectiveDate)}`)
+      router.refresh()
+    } catch (e) {
+      setMsg(`Erro: ${String(e).replace('Error: ', '')}`)
+    }
+    setRecalcBusy(null)
   }
 
   async function toggleLock(r: SkuCostRow) {
@@ -256,6 +279,17 @@ export function SkuCostTable({ rows }: { rows: SkuCostRow[] }) {
                           style={{ background: 'white', color: '#d97706', border: '1px dashed #d97706' }}
                         >
                           voltar à NF
+                        </button>
+                      )}
+                      {r.effectiveDate && (
+                        <button
+                          onClick={() => recalc(r)}
+                          disabled={recalcBusy === r.productId}
+                          className="p-1.5 rounded-lg cursor-pointer"
+                          title={`Recalcular as margens das vendas de ${r.sku} a partir de ${fmtDate(r.effectiveDate)} (vigência do custo atual)`}
+                          style={{ background: B.bgSubtle, border: 'none' }}
+                        >
+                          <RefreshCw size={13} className={recalcBusy === r.productId ? 'animate-spin' : ''} style={{ color: B.brand }} />
                         </button>
                       )}
                       <button onClick={() => startEdit(r)} className="p-1.5 rounded-lg cursor-pointer" title="Editar custo manualmente" style={{ background: B.bgSubtle, border: 'none' }}>
