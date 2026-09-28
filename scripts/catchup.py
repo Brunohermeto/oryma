@@ -265,7 +265,7 @@ except Exception as e:
 
 # ── 8f. UF de destino da Amazon (getOrderAddress, lote) ──
 try:
-    r = post("/api/sync/amazon/uf?limit=60", timeout=170)
+    r = post("/api/sync/amazon/uf?limit=25", timeout=170)  # 60 × (0,7s + API + gravação) passava de 60s
     print(f"8f. amazon UF: {json.dumps(r, ensure_ascii=False)[:100]}", flush=True)
 except Exception as e:
     print(f"8f. amazon UF: ERRO {str(e)[:70]}", flush=True)
@@ -294,11 +294,16 @@ except Exception as e:
 # ── 10. CMP + margens (INCREMENTAL: só vendas recentes — o relink completo de
 #        ~9600 vendas estourava os 60s da Vercel (504) e deixava as margens sem
 #        recalcular. days=45 cobre o que muda; recálculo completo roda manual. ──
-try:
-    r = post("/api/landed-cost/relink", {"days": 90})  # = janela das taxas Amazon (8b)
-    print(f"10. relink (90d): {json.dumps(r, ensure_ascii=False)[:120]}", flush=True)
-except Exception as e:
-    print(f"10. relink: ERRO {str(e)[:70]}", flush=True)
+#        90 dias numa chamada só dava 504 com o banco novo (~200 ms por consulta):
+#        fatia em janelas de 15 dias (mesmo padrão do backfill).
+_hoje = datetime.date.today()
+for _ini in range(89, -1, -15):
+    _de, _ate = _hoje - datetime.timedelta(days=_ini), min(_hoje - datetime.timedelta(days=_ini - 14), _hoje)
+    try:
+        r = post("/api/landed-cost/relink", {"days": _ini + 1, "until": _ate.isoformat(), "skipOrders": True}, timeout=170)
+        print(f"10. relink {_de}..{_ate}: {json.dumps(r, ensure_ascii=False)[:100]}", flush=True)
+    except Exception as e:
+        print(f"10. relink {_de}..{_ate}: ERRO {str(e)[:70]}", flush=True)
 
 # ── 11. vistoria de taxas (comissao/fixa vs tabela oficial + frete vs padrao) ──
 skip = 0

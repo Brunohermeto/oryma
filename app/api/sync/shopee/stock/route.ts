@@ -48,17 +48,22 @@ export async function POST(request: NextRequest) {
     const base = await shopeeGet<{ response?: { item_list: Array<{ item_id: number; item_sku?: string; has_model?: boolean; stock_info_v2?: ModelInfo['stock_info_v2'] }> } }>(
       '/product/get_item_base_info', { item_id_list: itemIds.slice(i, i + 50).join(',') }
     )
-    for (const it of base.response?.item_list ?? []) {
-      if (it.has_model) {
-        const models = await shopeeGet<{ response?: { model: ModelInfo[] } }>(
-          '/product/get_model_list', { item_id: String(it.item_id) }
-        )
+    const list = base.response?.item_list ?? []
+    // modelos em paralelo (lotes de 8): um a um passava dos 60s da Vercel
+    const comModelo = list.filter(it => it.has_model)
+    for (let j = 0; j < comModelo.length; j += 8) {
+      const lote = await Promise.all(comModelo.slice(j, j + 8).map(it =>
+        shopeeGet<{ response?: { model: ModelInfo[] } }>('/product/get_model_list', { item_id: String(it.item_id) })))
+      for (const models of lote) {
         for (const m of models.response?.model ?? []) {
           const sku = (m.model_sku ?? '').trim()
           const qty = somaShopee(m)
           if (sku && qty > 0) bySku.set(sku, (bySku.get(sku) ?? 0) + qty)
         }
-      } else {
+      }
+    }
+    for (const it of list) {
+      if (!it.has_model) {
         const sku = (it.item_sku ?? '').trim()
         const qty = somaShopee(it as ModelInfo)
         if (sku && qty > 0) bySku.set(sku, (bySku.get(sku) ?? 0) + qty)

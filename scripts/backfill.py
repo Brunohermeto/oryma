@@ -208,7 +208,7 @@ if "amazon" in STEPS:
         if off >= pend: break
         time.sleep(2)
     safe("amazon service-fees", lambda: post(f"/api/sync/amazon/service-fees?days={N}"))
-    ate_convergir("amazon uf", "/api/sync/amazon/uf?limit=60")
+    ate_convergir("amazon uf", "/api/sync/amazon/uf?limit=25")
 
 # ── Shopee ───────────────────────────────────────────────────────────────────
 if "shopee" in STEPS:
