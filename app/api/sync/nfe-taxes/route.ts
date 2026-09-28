@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { blingGetDocumentoXml } from '@/lib/integrations/bling'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { fetchAll } from '@/lib/supabase/fetch-all'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -31,12 +32,14 @@ export async function POST(request: NextRequest) {
   const db = createSupabaseServiceClient()
   const since = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10)
 
-  // vendas com chave, do Bling (não-Amazon), no período
-  const { data: sales } = await db.from('sales')
+  // vendas com chave, do Bling (não-Amazon), no período — paginado (sem isso o
+  // PostgREST cortava em 1000 e as vendas mais antigas nunca eram vistas)
+  const sales = await fetchAll<{ id: string; nfe_saida_key: string; gross_price: number; marketplace: string; fulfillment_type: string | null; uf_destino: string | null }>(() => db.from('sales')
     .select('id, nfe_saida_key, gross_price, marketplace, fulfillment_type, uf_destino')
     .not('nfe_saida_key', 'is', null)
     .neq('marketplace', 'amazon')
     .gte('sale_date', since)
+    .order('id'))
 
   // pula quem já tem impostos
   const ids = (sales ?? []).map(s => s.id)

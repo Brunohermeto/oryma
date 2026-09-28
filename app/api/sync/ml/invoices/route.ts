@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { mlGet, getMercadoLivreSellerId } from '@/lib/integrations/mercado-livre'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { brazilDaysAgo } from '@/lib/utils/brazil-time'
+import { fetchAll } from '@/lib/supabase/fetch-all'
 
 export const dynamic         = 'force-dynamic'
 export const maxDuration     = 60
@@ -69,13 +70,14 @@ export async function POST(request: NextRequest) {
   if (!uid) return NextResponse.json({ error: 'Seller ID ML não encontrado' }, { status: 500 })
 
   // Vendas ML sem NF-e vinculada, agrupadas por pedido
-  const { data: rows } = await db.from('sales')
-    .select('id, external_order_id, product_id')
+  // Paginado: com .limit(500) os pedidos sem NF no ML (skip) tampavam a janela
+  const rows = (await fetchAll<{ id: string; external_order_id: string; product_id: string | null; sale_date: string }>(() => db.from('sales')
+    .select('id, external_order_id, product_id, sale_date')
     .eq('marketplace', 'mercado_livre')
     .is('nfe_saida_key', null)
     .gte('sale_date', brazilDaysAgo(days))
-    .order('sale_date', { ascending: false })
-    .limit(500)
+    .order('id')))
+    .sort((a, b) => b.sale_date.localeCompare(a.sale_date))
 
   // Cadastro por SKU (que nos produtos vindos do Bling é o EAN) — permite
   // vincular venda→produto pelo EAN do item da NF-e quando o SKU do anúncio difere

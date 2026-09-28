@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { mlGet } from '@/lib/integrations/mercado-livre'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { brazilDaysAgo } from '@/lib/utils/brazil-time'
+import { fetchAll } from '@/lib/supabase/fetch-all'
 
 export const dynamic         = 'force-dynamic'
 export const maxDuration     = 60
@@ -47,13 +48,15 @@ export async function POST(request: NextRequest) {
   const db = createSupabaseServiceClient()
 
   // Vendas ML sem frete, agrupadas por pedido
-  const { data: rows } = await db.from('sales')
-    .select('id, external_order_id, gross_price')
+  // Paginado: com .limit(500) os pedidos sem frete irrecuperável (skip) tampavam
+  // a janela e os mais antigos nunca eram vistos
+  const rows = (await fetchAll<{ id: string; external_order_id: string; gross_price: number; sale_date: string }>(() => db.from('sales')
+    .select('id, external_order_id, gross_price, sale_date')
     .eq('marketplace', 'mercado_livre')
     .eq('marketplace_shipping_fee', 0)
     .gte('sale_date', brazilDaysAgo(days))
-    .order('sale_date', { ascending: false })
-    .limit(500)
+    .order('id')))
+    .sort((a, b) => b.sale_date.localeCompare(a.sale_date))
 
   const orders = new Map<string, { saleIds: string[]; prices: number[] }>()
   for (const r of rows ?? []) {

@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { mlGet } from '@/lib/integrations/mercado-livre'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { brazilDaysAgo } from '@/lib/utils/brazil-time'
+import { fetchAll } from '@/lib/supabase/fetch-all'
 
 export const dynamic         = 'force-dynamic'
 export const maxDuration     = 60
@@ -62,12 +63,14 @@ export async function POST(request: NextRequest) {
   const db = createSupabaseServiceClient()
 
   // Vendas na janela — pedidos sem comissão OU sem tarifa são os alvos
-  const { data: rows } = await db.from('sales')
+  // Paginado: com .limit(1000) a janela nunca passava das 1000 mais recentes e o
+  // `skip` do backfill esgotava a fila sem chegar nos meses antigos
+  const rows = (await fetchAll<{ id: string; external_order_id: string; gross_price: number; sale_date: string; marketplace_commission: number | null; marketplace_shipping_fee: number | null; rebate: number | null }>(() => db.from('sales')
     .select('id, external_order_id, gross_price, sale_date, marketplace_commission, marketplace_shipping_fee, rebate')
     .eq('marketplace', 'mercado_livre')
     .gte('sale_date', brazilDaysAgo(days))
-    .order('sale_date', { ascending: false })
-    .limit(1000)
+    .order('id')))
+    .sort((a, b) => b.sale_date.localeCompare(a.sale_date))
 
   // Venda recente SEMPRE volta à fila por 10 dias: o extrato lança tarifas,
   // estornos e ajustes de promoção em ondas (valores provisórios viram finais),
