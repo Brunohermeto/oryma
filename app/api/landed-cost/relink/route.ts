@@ -43,6 +43,10 @@ export async function POST(request: NextRequest) {
   // (scripts/backfill.py) para recalcular o histórico em fatias de 30 dias —
   // o recálculo completo de ~10 mil vendas estoura os 60s da Vercel.
   const until = typeof body?.until === 'string' && desde ? body.until : null
+  // productIds: recalcula SÓ as vendas desses produtos (o ano inteiro) — usado
+  // quando o Bruno salva custo manual/extras de importação. O relink completo de
+  // todas as vendas passa dos 60s e a margem não atualizava.
+  const productIds: string[] | null = Array.isArray(body?.productIds) && body.productIds.length ? body.productIds : null
 
   // 1. Busca todos os import_items sem product_id mas com sku
   const { data: unlinked } = await db
@@ -72,7 +76,7 @@ export async function POST(request: NextRequest) {
   // body.skipOrders: só recalcula MARGENS (o custo dos lotes já foi gerado na
   // importação da NF). Usado pelo backfill — refazer ~19 lotes de janeiro por
   // quinzena estourava os 60s (504) mesmo em janelas de 15 dias.
-  if (body?.skipOrders === true) {
+  if (body?.skipOrders === true || productIds) {
     ordersToRecalc.clear()
   } else if (!desde) {
     const { data: allOrders } = await db.from('import_orders').select('id')
@@ -95,7 +99,7 @@ export async function POST(request: NextRequest) {
   //    ML ligava pela EAN do 1º item da NF e, num kit (MOVE TRIO = carrinho +
   //    bebê conforto + adaptador), a venda ficava com o custo só do carrinho.
   //    Resolução: SKU exato → SKU sem sufixo -FBA (Amazon) → apelido conhecido.
-  const candidatas = await fetchAllRows<{ id: string; sku: string; product_id: string | null }>(() => {
+  const candidatas = productIds ? [] : await fetchAllRows<{ id: string; sku: string; product_id: string | null }>(() => {
     let q = db.from('sales').select('id, sku, product_id').not('sku', 'is', null)
     if (desde) q = q.gte('sale_date', desde)
     if (until) q = q.lte('sale_date', until)
@@ -146,11 +150,13 @@ export async function POST(request: NextRequest) {
         .not('product_id', 'is', null)
       if (desde) q = q.gte('sale_date', desde)  // incremental: só vendas recentes
       if (until) q = q.lte('sale_date', until)  // backfill: janela fechada
-      return q
+      if (productIds) q = q.in('product_id', productIds)
+      return q.order('id')  // paginação sem ordem fixa pula/duplica linhas
     }),
     fetchAll<any>(() =>
       db.from('sale_taxes')
         .select('sale_id, pis, cofins, icms, icms_difal, ipi')
+        .order('sale_id')
     ),
   ])
 

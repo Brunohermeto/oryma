@@ -3,6 +3,7 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { recalculateLandedCost } from '@/lib/landed-cost/calculator'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 export async function POST(request: NextRequest) {
   const authCookie = request.cookies.get('mi_auth')?.value
@@ -32,6 +33,18 @@ export async function POST(request: NextRequest) {
   } catch (calcErr) {
     // Non-fatal: cost was saved, recalculation failed
     return NextResponse.json({ ok: true, warning: `Cost saved but recalculation failed: ${calcErr}` })
+  }
+
+  // Custo do lote mudou → recalcula a margem das vendas desses produtos (antes
+  // não recalculava: o extra entrava no lote mas a margem só mudava no próximo relink)
+  const { data: itens } = await db.from('import_items').select('product_id').eq('import_order_id', import_order_id)
+  const productIds = [...new Set((itens ?? []).map(i => i.product_id).filter(Boolean))]
+  if (productIds.length) {
+    await fetch(`${request.nextUrl.origin}/api/landed-cost/relink`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: `mi_auth=${process.env.APP_PASSWORD}` },
+      body: JSON.stringify({ productIds }),
+    }).catch(() => null)
   }
 
   return NextResponse.json({ ok: true })

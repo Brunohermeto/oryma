@@ -38,9 +38,10 @@ export async function POST(request: NextRequest) {
     }
     await db.from('products').update({ cost_locked: false }).eq('id', pid)
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/api/landed-cost/relink`, {
+      await fetch(`${request.nextUrl.origin}/api/landed-cost/relink`, {
         method: 'POST',
-        headers: { Cookie: `mi_auth=${process.env.APP_PASSWORD}` },
+        headers: { 'Content-Type': 'application/json', Cookie: `mi_auth=${process.env.APP_PASSWORD}` },
+        body: JSON.stringify({ productIds: [pid] }),  // só as vendas dele (completo passa de 60s)
       })
     } catch { /* não bloqueia */ }
     return NextResponse.json({ ok: true, removidos: (manuais ?? []).length, message: 'Custo manual removido — o custo da NF reassumiu e as margens foram recalculadas.' })
@@ -94,6 +95,8 @@ export async function POST(request: NextRequest) {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Cookie: `mi_auth=${process.env.APP_PASSWORD}` },
+        // só as vendas dos produtos alterados — o relink completo passa dos 60s
+        body: JSON.stringify({ productIds }),
       }
     )
     relinkResult = await res.json()
