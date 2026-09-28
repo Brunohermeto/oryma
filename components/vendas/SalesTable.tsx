@@ -101,10 +101,10 @@ function SaleDetailPanel({ sale }: { sale: SaleRow }) {
 
   const fixedFee = Number((sale as any).marketplace_fixed_fee ?? 0)
 
-  // Lucro só com dados completos: sem NF-e (impostos) ou sem custo = "em cálculo",
-  // nunca um número inflado
-  const lucro = cost && taxes
-    ? faturamento - fretePago - impostoLiquido - commission - fixedFee - adsC + rebate - cmv
+  // Lucro = margin_value GRAVADO pelo relink (dono único do cálculo, regra 5) —
+  // a tela não recalcula. NULL = em cálculo. As linhas acima só detalham a conta.
+  const lucro = cost?.margin_value !== null && cost?.margin_value !== undefined
+    ? Number(cost.margin_value)
     : null
 
   // ── Avaliação de completude dos dados ───────────────────────────────────────
@@ -367,7 +367,7 @@ function SaleDetailPanel({ sale }: { sale: SaleRow }) {
               </div>
               <div className="space-y-1.5">
                 {[
-                  { label: 'Faturamento bruto',          value: faturamento,   sign: 1 },
+                  { label: 'Faturamento líquido',        value: faturamento,   sign: 1 },
                   { label: '(-) Frete do vendedor',       value: -fretePago,    sign: -1 },
                   ...(rebate > 0 ? [{ label: '(+) Estorno / rebate', value: rebate, sign: 1 }] : []),
                   { label: totalCreditos > 0 ? '(-) Impostos líquidos s/ venda' : '(-) Impostos s/ vendas', value: -impostoLiquido, sign: -1 },
@@ -394,7 +394,7 @@ function SaleDetailPanel({ sale }: { sale: SaleRow }) {
                     color: lucro === null ? B.muted : lucro >= 0 ? '#16a34a' : '#dc2626',
                     fontFamily: 'var(--font-geist-mono)',
                   }}>
-                    {lucro !== null ? fmtR(lucro) : cost ? 'Em cálculo (aguarda NF-e)' : 'Sem custo'}
+                    {lucro !== null ? fmtR(lucro) : cost ? 'Em cálculo' : 'Sem custo'}
                   </span>
                 </div>
                 {cost?.margin_pct !== null && cost?.margin_pct !== undefined && (

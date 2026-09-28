@@ -11,6 +11,7 @@ const B = {
 }
 
 import { MP_INFO } from '@/components/marketplaces'
+import { liq } from '@/lib/sales/metrics'
 
 const CHANNELS: Record<string, { label: string; color: string; bg: string }> = Object.fromEntries(
   Object.entries(MP_INFO).map(([mp, i]) => [mp, { label: i.label, color: i.color, bg: 'oklch(0.96 0.010 258)' }])
@@ -31,12 +32,19 @@ interface Sale {
   shipping_received: number
   marketplace_commission: number
   marketplace_shipping_fee: number
+  marketplace_fixed_fee: number | null
+  rebate: number | null
   ads_cost: number
   cancellation: number
   discounts: number
+  returned: boolean
+  sale_taxes: { total_taxes: number } | null
   products: { name: string; sku: string } | null
   sale_costs: { unit_cost_applied: number; total_cost: number; margin_pct: number | null; margin_value: number | null } | null
 }
+
+// Totais do período INTEIRO (paginado no servidor, sem devolvidas; lucro = só apuradas)
+interface ChannelTotal { faturamento: number; lucro: number; count: number }
 
 function fmtR(v: number) {
   return `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -86,18 +94,8 @@ function Row({ label, value, color, indent = false, bold = false, separator = fa
 
 // Card simplificado para o dashboard
 function SaleCard({ sale }: { sale: Sale }) {
-  const grossPrice      = Number(sale.gross_price)
-  const shippingRec     = Number(sale.shipping_received ?? 0)
-  const cancellation    = Number(sale.cancellation)
-  const discounts       = Number(sale.discounts ?? 0)
-  const commission      = Number(sale.marketplace_commission)
-  const shippingFee     = Number(sale.marketplace_shipping_fee)  // custo frete ao vendedor
-  const ads             = Number(sale.ads_cost)
-  const cmv             = Number(sale.sale_costs?.total_cost ?? 0)
-
-  // shippingRec (frete do comprador) não é receita — fica com o ML
-  const faturamento     = grossPrice - cancellation - discounts
-  const totalFees       = commission + shippingFee + ads
+  // shipping_received (frete do comprador) não é receita — fica com o ML
+  const faturamento     = liq(sale)
   // Lucro/margem = os GRAVADOS pelo relink (dono único do cálculo, regra 5):
   // a conta própria daqui ignorava impostos, tarifa fixa e estorno e mostrava
   // margem muito acima da real, na mesma tela da Margem Real. NULL = em cálculo.
@@ -106,7 +104,14 @@ function SaleCard({ sale }: { sale: Sale }) {
   const mp              = sale.sale_costs?.margin_pct
   const marginPct       = mp === null || mp === undefined ? null : Number(mp) * 100
 
-  const totalCosts = totalFees + cmv
+  // Total custos coerente com o lucro: preço − lucro gravado. Em cálculo, soma o
+  // que já chegou (tarifas + tarifa fixa + frete + ads + impostos + CMV − estorno).
+  const totalCosts = lucro !== null
+    ? faturamento - lucro
+    : Number(sale.marketplace_commission ?? 0) + Number(sale.marketplace_fixed_fee ?? 0)
+      + Number(sale.marketplace_shipping_fee ?? 0) + Number(sale.ads_cost ?? 0)
+      + Number(sale.sale_taxes?.total_taxes ?? 0) + Number(sale.sale_costs?.total_cost ?? 0)
+      - Number(sale.rebate ?? 0)
 
   return (
     <a
@@ -120,7 +125,7 @@ function SaleCard({ sale }: { sale: Sale }) {
             {sale.products?.name ?? sale.sku ?? '—'}
           </div>
           <div className="text-[10px] mt-0.5" style={{ color: B.muted }}>
-            {FULFILLMENT[sale.fulfillment_type]} · {Number(sale.quantity).toFixed(0)} un.
+            {FULFILLMENT[sale.fulfillment_type]} · {Number(sale.quantity).toFixed(0)} un.{sale.returned ? ' · devolvida (fora dos totais)' : ''}
           </div>
         </div>
         <MarginBadge pct={marginPct !== null ? marginPct / 100 : null} />
@@ -156,7 +161,7 @@ function SaleCard({ sale }: { sale: Sale }) {
 function ChannelColumn({ channel, sales, total }: {
   channel: string
   sales: Sale[]
-  total: { faturamento: number; lucro: number; count: number }
+  total: ChannelTotal
 }) {
   const ch = CHANNELS[channel]
   return (
@@ -204,6 +209,7 @@ function ChannelColumn({ channel, sales, total }: {
 
 export function LiveSalesFeed() {
   const [sales, setSales] = useState<Sale[]>([])
+  const [totals, setTotals] = useState<Record<string, ChannelTotal>>({})
   const [loading, setLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [days, setDays] = useState(1)
@@ -214,6 +220,7 @@ export function LiveSalesFeed() {
       if (!res.ok) return
       const data = await res.json()
       setSales(data.sales ?? [])
+      setTotals(data.totals ?? {})
       setLastUpdated(new Date())
     } catch {}
     setLoading(false)
@@ -229,18 +236,6 @@ export function LiveSalesFeed() {
   const byChannel: Record<string, Sale[]> = { mercado_livre: [], magalu: [], amazon: [], shopee: [] }
   for (const s of sales) {
     if (byChannel[s.marketplace]) byChannel[s.marketplace].push(s)
-  }
-
-  // Totais por canal
-  function channelTotals(channelSales: Sale[]) {
-    return channelSales.reduce((acc, s) => {
-      const fat = Number(s.gross_price) - Number(s.cancellation) - Number(s.discounts ?? 0)
-      const mv  = s.sale_costs?.margin_value
-      acc.faturamento += fat
-      acc.lucro += mv === null || mv === undefined ? 0 : Number(mv)  // só apuradas
-      acc.count++
-      return acc
-    }, { faturamento: 0, lucro: 0, count: 0 })
   }
 
   const PERIOD_OPTIONS = [
@@ -301,7 +296,7 @@ export function LiveSalesFeed() {
             key={channel}
             channel={channel}
             sales={channelSales}
-            total={channelTotals(channelSales)}
+            total={totals[channel] ?? { faturamento: 0, lucro: 0, count: 0 }}
           />
         ))}
       </div>

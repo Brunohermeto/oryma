@@ -3,7 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 
 interface DataPoint {
   marketplace: string
-  margem: number
+  margem: number | null   // null = sem base apurada (sem barra, nunca 0%)
   receita: number
 }
 
@@ -40,10 +40,11 @@ export function MarketplaceBarChart({ data }: { data: DataPoint[] }) {
           tick={{ fontSize: 11, fill: 'oklch(0.60 0.015 285)' }}
           tickLine={false}
           axisLine={false}
-          domain={[0, 60]}
+          // margem negativa aparece (eixo não trava em 0)
+          domain={[(min: number) => Math.min(0, Math.floor(min)), (max: number) => Math.max(60, Math.ceil(max))]}
         />
         <Tooltip
-          formatter={(value) => [`${Number(value).toFixed(1)}%`, 'Margem Bruta']}
+          formatter={(value) => [value === null || value === undefined ? '—' : `${Number(value).toFixed(1)}%`, 'Margem Real']}
           contentStyle={{
             borderRadius: '10px',
             border: '1px solid oklch(0.89 0.012 285)',

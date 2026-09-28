@@ -1,13 +1,14 @@
 import { TopBar } from '@/components/layout/TopBar'
-import { fetchAll } from '@/lib/supabase/fetch-all'
+import { fetchAllParallel } from '@/lib/supabase/fetch-all'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { isReturned } from '@/lib/sales/returned'
-import { format, startOfMonth, endOfMonth, subMonths, subDays, eachDayOfInterval } from 'date-fns'
-import { brazilToday } from '@/lib/utils/brazil-time'
-import { RevenueLineChart } from '@/components/charts/RevenueLineChart'
+import { liq, newAgg, addSale, aggBy, pctOf, type Agg } from '@/lib/sales/metrics'
+import { format, endOfMonth, subMonths, eachDayOfInterval } from 'date-fns'
+import { brazilToday, brazilDaysAgo } from '@/lib/utils/brazil-time'
+import { RevenueLineChart, type RevenuePoint } from '@/components/charts/RevenueLineChart'
 import { MarginDailyChart, type MarginDailyPoint } from '@/components/charts/MarginDailyChart'
 import { MarketplaceBarChart } from '@/components/charts/MarketplaceBarChart'
-import { TrendingUp, TrendingDown, ShoppingCart, Percent, DollarSign, ExternalLink } from 'lucide-react'
+import { TrendingUp, TrendingDown, ExternalLink } from 'lucide-react'
 import { InsightsPanel } from '@/components/dashboard/InsightsPanel'
 import { AuditAlertsPanel } from '@/components/dashboard/AuditAlertsPanel'
 import { FeeAuditPanel } from '@/components/dashboard/FeeAuditPanel'
@@ -20,9 +21,26 @@ export const dynamic = 'force-dynamic'
 export const preferredRegion = 'gru1'
 
 function fmtR(v: number) { return `R$ ${Math.round(v).toLocaleString('pt-BR')}` }
-function fmtPct(v: number) { return `${v.toFixed(1)}%` }
+function fmtPct(v: number | null) { return v === null ? '—' : `${v.toFixed(1)}%` }
 
 import { MP_INFO, MP_ORDER, mpLabel } from '@/components/marketplaces'
+
+type Num = number | string | null
+interface SaleFlat {
+  id: string; product_id: string | null; marketplace: string; sale_date: string
+  quantity: Num; uf_destino: string | null
+  gross_price: Num; cancellation: Num; discounts: Num
+  marketplace_commission: Num; marketplace_shipping_fee: Num; marketplace_fixed_fee: Num
+  rebate: Num; ads_cost: Num
+}
+interface CostFlat { sale_id: string; total_cost: Num; margin_value: Num; margin_pct: Num }
+interface TaxFlat { sale_id: string; icms: Num; icms_difal: Num; pis: Num; cofins: Num }
+interface ProductFlat {
+  id: string; name: string; sku: string
+  stock_quantity: Num; stock_full: Num; stock_fba: Num; stock_shopee: Num; archived: boolean | null
+}
+
+const SALE_COLS = 'id, product_id, marketplace, sale_date, quantity, uf_destino, gross_price, cancellation, discounts, marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, rebate, ads_cost'
 
 export default async function DashboardPage(
   { searchParams }: { searchParams: Promise<{ days?: string; mes?: string }> }
@@ -31,7 +49,8 @@ export default async function DashboardPage(
   const db = createSupabaseServiceClient()
   // "hoje" ancorado no fuso do Brasil (a Vercel roda em UTC; às 21h+ BRT o
   // new Date() puro já virou o dia/mês seguinte e o dashboard pulava de mês cedo).
-  const now = new Date(`${brazilToday()}T12:00:00`)
+  const today = brazilToday()
+  const now = new Date(`${today}T12:00:00`)
 
   // ── Período = MÊS (vigente por padrão, ou ?mes=YYYY-MM) ──
   const mesAtual = format(now, 'yyyy-MM')
@@ -51,213 +70,155 @@ export default async function DashboardPage(
   const prevEnd = format(prevEndTarget < prevEndCap ? prevEndTarget : prevEndCap, 'yyyy-MM-dd')
   const mesLabel = monthDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).replace(' de ', '/')
   const mesCurto = monthDate.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')
+  const ano = mes.slice(0, 4)  // comparativo do ano = ano do mês EXIBIDO
   // seletor: últimos 6 meses
   const mesesOpcoes = Array.from({ length: 6 }, (_, i) => {
     const d = subMonths(now, i)
     return { key: format(d, 'yyyy-MM'), label: d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace('. de ', '/').replace('.', '') }
   })
 
-  // Faturamento LÍQUIDO = bruto − devolução − cupom do vendedor (regra 5 do
-  // AGENTS.md) — mesma base da tabela de vendas, pra os cards baterem com ela
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const liq = (x: any) => Number(x.gross_price) - Number(x.cancellation ?? 0) - Number(x.discounts ?? 0)
-
-  // Paginação: o PostgREST devolve no máx. 1000 linhas por query. Meses com mais
-  // de 1000 vendas (a partir de ago/2026, com a Shopee) truncavam o faturamento.
-  const salesRaw: any[] = []
-  for (let pg = 0; pg < 30; pg++) {
-    const { data, error } = await db
-      .from('sales')
-      .select('marketplace, gross_price, marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, rebate, ads_cost, cancellation, discounts, sale_date, sale_costs(total_cost, margin_value)')
-      .gte('sale_date', start).lte('sale_date', end)
-      .order('id', { ascending: true })
-      .range(pg * 1000, pg * 1000 + 999)
-    // Banco fora do ar NÃO pode virar R$ 0 na tela: em 22/09/2026 o projeto do
-    // Supabase foi excluído e a Visão Geral mostrou o mês inteiro zerado (em vez
-    // de dizer que estava sem banco). Consulta que falha tem que aparecer.
-    if (error) throw new Error(`Falha ao consultar o banco: ${error.message}`)
-    if (!data?.length) break
-    salesRaw.push(...data)
-    if (data.length < 1000) break
+  // ── UMA carga de dados, tudo em paralelo ──
+  // Antes: ~8 consultas grandes paginadas EM SÉRIE, várias com joins aninhados
+  // (inclusive o ano inteiro) → ~62s, acima do limite de 60s da Vercel. Agora:
+  // vendas FLAT do intervalo que cobre ano do mês exibido + mês anterior + 30
+  // dias do estoque, até hoje; custos/impostos/produtos flat; junção em memória.
+  const d30 = brazilDaysAgo(29)
+  const rangeStart = [`${ano}-01-01`, prevStart, d30].sort()[0]
+  const rangeEnd = today
+  const [salesRaw, costsRaw, taxesRaw, productsRaw, alertsRes, pendingRes, lastSyncRes] = await Promise.all([
+    fetchAllParallel<SaleFlat>(() => db.from('sales')
+      .select(SALE_COLS, { count: 'exact' })
+      .gte('sale_date', rangeStart).lte('sale_date', rangeEnd)
+      .order('id', { ascending: true })),
+    // !inner só para FILTRAR pelo intervalo (sem ele viriam os custos de toda a história)
+    fetchAllParallel<CostFlat>(() => db.from('sale_costs')
+      .select('sale_id, total_cost, margin_value, margin_pct, sales!inner(sale_date)', { count: 'exact' })
+      .gte('sales.sale_date', rangeStart).lte('sales.sale_date', rangeEnd)
+      .order('id', { ascending: true })),
+    fetchAllParallel<TaxFlat>(() => db.from('sale_taxes')
+      .select('sale_id, icms, icms_difal, pis, cofins, sales!inner(sale_date)', { count: 'exact' })
+      .gte('sales.sale_date', rangeStart).lte('sales.sale_date', rangeEnd)
+      .order('id', { ascending: true })),
+    fetchAllParallel<ProductFlat>(() => db.from('products')
+      .select('id, name, sku, stock_quantity, stock_full, stock_fba, stock_shopee, archived', { count: 'exact' })
+      .order('id', { ascending: true })),
+    // Alertas abertos (auditoria + vistoria, sem os dispensados) — semáforo de saúde
+    db.from('audit_findings').select('id', { count: 'exact', head: true }).is('dismissed_at', null),
+    db.from('import_orders').select('id', { count: 'exact', head: true }).eq('costs_complete', false),
+    db.from('sync_logs').select('started_at, source').eq('status', 'success')
+      .order('started_at', { ascending: false }).limit(1).maybeSingle(),
+  ])
+  // Banco fora do ar NÃO pode virar zero na tela (incidente 22/09/2026)
+  for (const r of [alertsRes, pendingRes, lastSyncRes]) {
+    if (r.error) throw new Error(`Falha ao consultar o banco: ${r.error.message}`)
   }
+  const openAlerts = alertsRes.count ?? 0
+  const pendingNFe = pendingRes.count ?? 0
+  const lastSync = lastSyncRes.data as { started_at: string; source: string } | null
+
+  // ── Junção em memória ──
+  const costBySale = new Map<string, CostFlat>()
+  for (const c of costsRaw) if (!costBySale.has(c.sale_id)) costBySale.set(c.sale_id, c)
+  const taxBySale = new Map<string, TaxFlat>()
+  for (const t of taxesRaw) if (!taxBySale.has(t.sale_id)) taxBySale.set(t.sale_id, t)
+  const productById = new Map(productsRaw.map(p => [p.id, p]))
+  const all = salesRaw.map(s => {
+    const cost = costBySale.get(s.id) ?? null
+    return {
+      ...s,
+      cost,
+      margin_value: cost?.margin_value ?? null,
+      tax: taxBySale.get(s.id) ?? null,
+      product: s.product_id ? productById.get(s.product_id) ?? null : null,
+    }
+  })
+  type Sale = typeof all[number]
+  const between = (a: string, b: string) => all.filter(s => s.sale_date >= a && s.sale_date <= b)
 
   // Devolvidas ficam FORA de todo indicador (faturamento, margem, pedidos,
   // tarifas): o valor foi estornado ao comprador e a mercadoria voltou ao estoque.
-  const devolvidas = (salesRaw ?? []).filter(isReturned)
-  const sales      = (salesRaw ?? []).filter(s => !isReturned(s))
+  const monthAll   = between(start, end)
+  const devolvidas = monthAll.filter(isReturned)
+  const sales      = monthAll.filter(s => !isReturned(s))
+  const prevSales  = between(prevStart, prevEnd).filter(s => !isReturned(s))
 
-  const prevSalesRaw: any[] = []
-  for (let pg = 0; pg < 30; pg++) {
-    const { data } = await db.from('sales')
-      .select('gross_price, cancellation, discounts, marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, rebate, ads_cost, sale_costs(margin_value)')
-      .gte('sale_date', prevStart).lte('sale_date', prevEnd)
-      .order('id', { ascending: true }).range(pg * 1000, pg * 1000 + 999)
-    if (!data?.length) break
-    prevSalesRaw.push(...data)
-    if (data.length < 1000) break
-  }
-
-  const prevSales = (prevSalesRaw ?? []).filter(s => !isReturned(s))
-
-  // Alertas abertos (auditoria + vistoria, sem os dispensados) — semáforo de saúde
-  const { count: openAlerts } = await db
-    .from('audit_findings')
-    .select('id', { count: 'exact', head: true })
-    .is('dismissed_at', null)
-
-  const trendSalesRaw: any[] = []
-  for (let pg = 0; pg < 30; pg++) {
-    const { data } = await db.from('sales')
-      .select('marketplace, gross_price, cancellation, discounts, sale_date')
-      .gte('sale_date', start).lte('sale_date', format(now, 'yyyy-MM-dd'))
-      .order('id', { ascending: true }).range(pg * 1000, pg * 1000 + 999)
-    if (!data?.length) break
-    trendSalesRaw.push(...data)
-    if (data.length < 1000) break
-  }
-
-  const trendSales = (trendSalesRaw ?? []).filter(s => !isReturned(s))
-
-  const { count: pendingNFe } = await db
-    .from('import_orders')
-    .select('id', { count: 'exact', head: true })
-    .eq('costs_complete', false)
-
-  const { data: lastSync } = await db
-    .from('sync_logs')
-    .select('started_at, source')
-    .eq('status', 'success')
-    .order('started_at', { ascending: false })
-    .limit(1)
-    .single()
-
-  const topProductSalesRaw: any[] = []
-  for (let pg = 0; pg < 30; pg++) {
-    const { data } = await db.from('sales')
-      .select('product_id, gross_price, cancellation, discounts, marketplace_commission, sale_costs(total_cost, margin_pct), products(name, sku)')
-      .gte('sale_date', start).lte('sale_date', end)
-      .not('sale_costs', 'is', null)
-      .order('id', { ascending: true }).range(pg * 1000, pg * 1000 + 999)
-    if (!data?.length) break
-    topProductSalesRaw.push(...data)
-    if (data.length < 1000) break
-  }
-
-  const topProductSales = (topProductSalesRaw ?? []).filter(s => !isReturned(s))
-
-  // Supabase retorna relações como objeto único OU array — trata ambos
-  const uw = (v: unknown) => !v ? null : Array.isArray(v) ? (v as any[])[0] ?? null : v
-
-  // ── Comparativo do ANO corrente (paginado — PostgREST máx. 1000/página) ──
-  const yearStart = format(now, 'yyyy-01-01')
-  const yearSales: Array<{ marketplace: string; gross_price: number; cancellation: number; sale_date: string; sale_costs: unknown }> = []
-  for (let page = 0; page < 20; page++) {
-    const { data: chunk } = await db.from('sales')
-      .select('marketplace, gross_price, cancellation, discounts, sale_date, sale_costs(margin_value)')
-      .gte('sale_date', yearStart)
-      .order('id', { ascending: true })
-      .range(page * 1000, page * 1000 + 999)
-    if (!chunk?.length) break
-    yearSales.push(...(chunk as any[]).filter(s => !isReturned(s)))
-    if (chunk.length < 1000) break
-  }
+  // ── Comparativo do ANO do mês exibido ──
   const MESES_PT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
-  const yearAgg = new Map<number, { byMp: Record<string, number>; total: number; mv: number; mb: number; pedidos: number }>()
-  for (const s of yearSales) {
-    const m = Number(s.sale_date.slice(5, 7)) - 1
-    if (!yearAgg.has(m)) yearAgg.set(m, { byMp: {}, total: 0, mv: 0, mb: 0, pedidos: 0 })
-    const a = yearAgg.get(m)!
-    const g = liq(s)
-    a.byMp[s.marketplace] = (a.byMp[s.marketplace] ?? 0) + g
-    a.total += g
-    a.pedidos++
-    const mvv = (uw(s.sale_costs) as any)?.margin_value
-    if (mvv !== null && mvv !== undefined) { a.mv += Number(mvv); a.mb += g }
-  }
-  const yearData: YearMonthPoint[] = [...yearAgg.keys()].sort((a, b) => a - b).map(m => {
-    const a = yearAgg.get(m)!
+  const yearSales = all.filter(s => s.sale_date.startsWith(ano) && !isReturned(s))
+  const yearAgg = aggBy(yearSales, s => s.sale_date.slice(5, 7))
+  const yearByMp = aggBy(yearSales, s => `${s.sale_date.slice(5, 7)}|${s.marketplace}`)
+  const yearData: YearMonthPoint[] = [...yearAgg.keys()].sort().map(mm => {
+    const a = yearAgg.get(mm)!
+    const mpRev = (mp: string) => yearByMp.get(`${mm}|${mp}`)?.revenue ?? 0
+    const pct = pctOf(a)
     return {
-      mes: MESES_PT[m], total: a.total, pedidos: a.pedidos,
-      margem: a.mb > 0 ? Math.round((a.mv / a.mb) * 1000) / 10 : null,
-      mercado_livre: a.byMp.mercado_livre ?? 0, magalu: a.byMp.magalu ?? 0,
-      amazon: a.byMp.amazon ?? 0, shopee: a.byMp.shopee ?? 0,
+      mes: MESES_PT[Number(mm) - 1], total: a.revenue, pedidos: a.orders,
+      margem: pct === null ? null : Math.round(pct * 10) / 10,
+      mercado_livre: mpRev('mercado_livre'), magalu: mpRev('magalu'),
+      amazon: mpRev('amazon'), shopee: mpRev('shopee'),
     }
   })
   // acumulado do ano por canal (até o momento)
   const yearTotalByMp: Record<string, number> = {}
-  let yearTotal = 0
-  for (const a of yearAgg.values()) {
-    yearTotal += a.total
-    for (const [mp, v] of Object.entries(a.byMp)) yearTotalByMp[mp] = (yearTotalByMp[mp] ?? 0) + v
-  }
-
-  // ── Margem média do mês por marketplace (só vendas com cálculo completo) ──
-  const margemMesByMp: Record<string, { mv: number; mg: number }> = {}
-  for (const s of sales ?? []) {
-    const mvv = (uw((s as any).sale_costs) as any)?.margin_value
-    if (mvv === null || mvv === undefined) continue
-    const mp = (s as any).marketplace as string
-    if (!margemMesByMp[mp]) margemMesByMp[mp] = { mv: 0, mg: 0 }
-    margemMesByMp[mp].mv += Number(mvv)
-    margemMesByMp[mp].mg += Number(s.gross_price) - Number((s as any).cancellation ?? 0)
-  }
+  for (const [mp, a] of aggBy(yearSales, s => s.marketplace)) yearTotalByMp[mp] = a.revenue
+  const yearTotal = Object.values(yearTotalByMp).reduce((x, y) => x + y, 0)
 
   // ── Taxas pagas no período — por marketplace + total ──
   type FeeAgg = { comissao: number; frete: number; fixa: number; ads: number; estorno: number; revenue: number }
   const newFeeAgg = (): FeeAgg => ({ comissao: 0, frete: 0, fixa: 0, ads: 0, estorno: 0, revenue: 0 })
   const feesByMp: Record<string, FeeAgg> = {}
   const fees = newFeeAgg()
-  for (const r of sales ?? []) {
-    const mp = (r as any).marketplace as string
-    if (!feesByMp[mp]) feesByMp[mp] = newFeeAgg()
-    for (const agg of [fees, feesByMp[mp]]) {
-      agg.comissao += Number(r.marketplace_commission ?? 0)
-      agg.frete    += Number(r.marketplace_shipping_fee ?? 0)
-      agg.fixa     += Number((r as any).marketplace_fixed_fee ?? 0)
-      agg.ads      += Number(r.ads_cost ?? 0)
-      agg.estorno  += Number((r as any).rebate ?? 0)
-      agg.revenue  += liq(r)
-    }
+  const prevFeesAgg = newFeeAgg()
+  const addFees = (agg: FeeAgg, r: Sale) => {
+    agg.comissao += Number(r.marketplace_commission ?? 0)
+    agg.frete    += Number(r.marketplace_shipping_fee ?? 0)
+    agg.fixa     += Number(r.marketplace_fixed_fee ?? 0)
+    agg.ads      += Number(r.ads_cost ?? 0)
+    agg.estorno  += Number(r.rebate ?? 0)
+    agg.revenue  += liq(r)
   }
+  for (const r of sales) {
+    feesByMp[r.marketplace] ??= newFeeAgg()
+    addFees(fees, r)
+    addFees(feesByMp[r.marketplace], r)
+  }
+  for (const r of prevSales) addFees(prevFeesAgg, r)
   const feeSum = (a: FeeAgg) => a.comissao + a.frete + a.fixa + a.ads - a.estorno
   const feesTotal = feeSum(fees)
+  const prevFees = feeSum(prevFeesAgg)
 
-  // ── Margem por produto (período próprio via ?days=) ──
-  // paginado: .limit(5000) cortava em 1000 (limite do PostgREST) sem aviso;
-  // devolvidas ficam fora, como em todos os outros indicadores
-  const marginSales = (await fetchAll<any>(() => db.from('sales')
-    .select(`product_id, marketplace, gross_price, cancellation, discounts, quantity, uf_destino, ads_cost,
-      marketplace_commission, marketplace_shipping_fee, marketplace_fixed_fee, rebate,
-      sale_taxes(icms, icms_difal, pis, cofins), sale_costs(total_cost, margin_value),
-      products(id, name, sku)`)
-    .gte('sale_date', start)
-    .lte('sale_date', end)
-    .not('product_id', 'is', null)
-    .order('id', { ascending: true }))).filter(x => !isReturned(x))
-
-  const byProduct = new Map<string, any>()
-  for (const s of marginSales ?? []) {
-    const p = uw(s.products) as any
-    if (!p) continue
-    const c = uw(s.sale_costs) as any
-    const t = uw(s.sale_taxes) as any
-    const g = liq(s)
-    let row = byProduct.get(p.id)
+  // ── Margem por produto (+ linha "Sem produto vinculado") ──
+  // margem = só margin_value gravado (não exige sale_taxes); impostos em R$/% só
+  // das vendas com NF lançada (taxedRevenue).
+  const NO_PRODUCT = '__sem_produto__'
+  type ProdAcc = {
+    productId: string; name: string; sku: string; units: number; revenue: number
+    icms: number; difal: number; piscofins: number; taxedRevenue: number; inCalc: number
+    freteSum: number; freteCount: number; estornoSum: number; estornoCount: number
+    commission: number; ads: number; cost: number; m: Agg
+    ufs: Map<string, { units: number; m: Agg }>
+  }
+  const byProduct = new Map<string, ProdAcc>()
+  for (const s of sales) {
+    const p = s.product
+    const pid = p?.id ?? NO_PRODUCT
+    let row = byProduct.get(pid)
     if (!row) {
-      row = { productId: p.id, name: p.name, sku: p.sku, units: 0, revenue: 0,
+      row = { productId: pid, name: p?.name ?? 'Sem produto vinculado', sku: p?.sku ?? '—', units: 0, revenue: 0,
               icms: 0, difal: 0, piscofins: 0, taxedRevenue: 0, inCalc: 0,
               freteSum: 0, freteCount: 0, estornoSum: 0, estornoCount: 0,
-              commission: 0, ads: 0, cost: 0, marginValue: 0, marginRevenue: 0,
-              ufs: new Map<string, { units: number; mv: number; mg: number }>() }
-      byProduct.set(p.id, row)
+              commission: 0, ads: 0, cost: 0, m: newAgg(), ufs: new Map() }
+      byProduct.set(pid, row)
     }
+    const g = liq(s)
+    const t = s.tax
     row.units      += Number(s.quantity)
     row.revenue    += g
-    row.cost       += Number(c?.total_cost ?? 0)
-    row.commission += Number(s.marketplace_commission ?? 0) + Number((s as any).marketplace_fixed_fee ?? 0)
+    row.cost       += Number(s.cost?.total_cost ?? 0)
+    row.commission += Number(s.marketplace_commission ?? 0) + Number(s.marketplace_fixed_fee ?? 0)
     row.ads        += Number(s.ads_cost ?? 0)
     const frete   = Number(s.marketplace_shipping_fee ?? 0)
-    const estorno = Number((s as any).rebate ?? 0)
+    const estorno = Number(s.rebate ?? 0)
     if (frete   > 0) { row.freteSum   += frete;   row.freteCount++ }
     if (estorno > 0) { row.estornoSum += estorno; row.estornoCount++ }
     if (t) {
@@ -266,42 +227,13 @@ export default async function DashboardPage(
       row.piscofins    += Number(t.pis ?? 0) + Number(t.cofins ?? 0)
       row.taxedRevenue += g
     } else row.inCalc++
+    addSale(row.m, s)
     const uf = s.uf_destino || 'não informado'
-    if (!row.ufs.has(uf)) row.ufs.set(uf, { units: 0, mv: 0, mg: 0 })
-    const u = row.ufs.get(uf)
+    let u = row.ufs.get(uf)
+    if (!u) row.ufs.set(uf, (u = { units: 0, m: newAgg() }))
     u.units += Number(s.quantity)
-    if (t && c?.margin_value !== null && c?.margin_value !== undefined) {
-      row.marginValue   += Number(c.margin_value)
-      row.marginRevenue += g
-      u.mv += Number(c.margin_value); u.mg += g
-    }
+    addSale(u.m, s)
   }
-  // ── Vendas por ESTADO (mesmo período do filtro ?days=) ──
-  const ufGlobal = new Map<string, { units: number; revenue: number; mv: number; mg: number; byMp: Record<string, number> }>()
-  for (const s of marginSales ?? []) {
-    const uf = s.uf_destino || '??'
-    if (!ufGlobal.has(uf)) ufGlobal.set(uf, { units: 0, revenue: 0, mv: 0, mg: 0, byMp: {} })
-    const u = ufGlobal.get(uf)!
-    const g = liq(s)
-    u.units   += Number(s.quantity)
-    u.revenue += g
-    const smp = (s as any).marketplace as string
-    u.byMp[smp] = (u.byMp[smp] ?? 0) + g
-    const mvv = (uw(s.sale_costs) as any)?.margin_value
-    if (mvv !== null && mvv !== undefined) { u.mv += Number(mvv); u.mg += g }
-  }
-  const ufTotalRevenue = [...ufGlobal.values()].reduce((s, u) => s + u.revenue, 0) || 1
-  const ufTotalUnits   = [...ufGlobal.values()].reduce((s, u) => s + u.units, 0) || 1
-  const ufRows = [...ufGlobal.entries()]
-    .map(([uf, u]) => ({
-      uf, units: u.units, revenue: u.revenue,
-      pctRevenue: (u.revenue / ufTotalRevenue) * 100,
-      pctUnits: (u.units / ufTotalUnits) * 100,
-      marginPct: u.mg > 0 ? (u.mv / u.mg) * 100 : null,
-      byMp: u.byMp,
-    }))
-    .sort((a, b) => b.revenue - a.revenue)
-
   const marginRows: ProductMarginRow[] = [...byProduct.values()].map(r => ({
     productId: r.productId, name: r.name, sku: r.sku, units: r.units,
     revenue: r.revenue,
@@ -311,136 +243,117 @@ export default async function DashboardPage(
     estornoMedio: r.estornoCount > 0 ? r.estornoSum / r.estornoCount : null,
     commission: r.commission, ads: r.ads,
     cmvMedio: r.cost > 0 && r.units > 0 ? r.cost / r.units : null,
-    marginPct: r.marginRevenue > 0 ? (r.marginValue / r.marginRevenue) * 100 : null,
+    marginPct: pctOf(r.m),
+    marginValue: r.m.mv, marginRevenue: r.m.base,
     velocityDay: r.units / marginDays,
     byUf: [...r.ufs.entries()]
-      .map(([uf, u]: [string, any]) => ({
-        uf, units: u.units, marginPct: u.mg > 0 ? (u.mv / u.mg) * 100 : null }))
-      .sort((a: any, b: any) => b.units - a.units),
+      .map(([uf, u]) => ({ uf, units: u.units, marginPct: pctOf(u.m) }))
+      .sort((a, b) => b.units - a.units),
   })).sort((a, b) => b.revenue - a.revenue)
 
-  // ── KPIs ──
-  const totalRevenue = (sales ?? []).reduce((s, r) => s + liq(r), 0)
-  const prevRevenue = (prevSales ?? []).reduce((s, r) => s + liq(r), 0)
-  const revenueChange = prevRevenue > 0 ? ((totalRevenue - prevRevenue) / prevRevenue) * 100 : 0
-
-  // ── Período anterior (comparação em tudo) ──
-  let prevProfit = 0, prevMarginBase = 0
-  for (const r of prevSales ?? []) {
-    const mv = (uw(r.sale_costs) as any)?.margin_value
-    if (mv === null || mv === undefined) continue
-    prevProfit     += Number(mv)
-    prevMarginBase += liq(r)
+  // ── Vendas por ESTADO — TODAS as vendas do mês (inclusive sem produto) ──
+  const ufGlobal = new Map<string, { units: number; m: Agg; byMp: Record<string, number> }>()
+  for (const s of sales) {
+    const uf = s.uf_destino || '??'
+    let u = ufGlobal.get(uf)
+    if (!u) ufGlobal.set(uf, (u = { units: 0, m: newAgg(), byMp: {} }))
+    u.units += Number(s.quantity)
+    addSale(u.m, s)
+    u.byMp[s.marketplace] = (u.byMp[s.marketplace] ?? 0) + liq(s)
   }
-  const prevMargin = prevMarginBase > 0 ? (prevProfit / prevMarginBase) * 100 : null
-  const prevOrders = (prevSales ?? []).length
-  const prevFees   = (prevSales ?? []).reduce((s, r) =>
-    s + Number(r.marketplace_commission ?? 0) + Number(r.marketplace_shipping_fee ?? 0)
-      + Number((r as any).marketplace_fixed_fee ?? 0) + Number(r.ads_cost ?? 0) - Number((r as any).rebate ?? 0), 0)
+  const ufTotalRevenue = [...ufGlobal.values()].reduce((s, u) => s + u.m.revenue, 0) || 1
+  const ufTotalUnits   = [...ufGlobal.values()].reduce((s, u) => s + u.units, 0) || 1
+  const ufRows = [...ufGlobal.entries()]
+    .map(([uf, u]) => ({
+      uf, units: u.units, revenue: u.m.revenue,
+      pctRevenue: (u.m.revenue / ufTotalRevenue) * 100,
+      pctUnits: (u.units / ufTotalUnits) * 100,
+      marginPct: pctOf(u.m),
+      byMp: u.byMp,
+    }))
+    .sort((a, b) => b.revenue - a.revenue)
+
+  // ── KPIs (mês e mês anterior com o mesmo nº de dias) ──
+  const tot = aggBy(sales, () => 'all').get('all') ?? newAgg()
+  const prevTot = aggBy(prevSales, () => 'all').get('all') ?? newAgg()
+  const totalRevenue = tot.revenue
+  const prevRevenue = prevTot.revenue
+  const revenueChange = prevRevenue > 0 ? ((totalRevenue - prevRevenue) / prevRevenue) * 100 : 0
+  const grossProfit = tot.mv
+  const marginBase = tot.base
+  const grossMargin = pctOf(tot)
+  const prevProfit = prevTot.mv
+  const prevMargin = pctOf(prevTot)
+  const totalOrders = tot.orders
+  const prevOrders = prevTot.orders
 
   // ── Saúde dos dados (semáforo) ──
-  const completeSales = (sales ?? []).filter(r => {
-    const mv = (uw(r.sale_costs) as any)?.margin_value
-    return mv !== null && mv !== undefined
-  }).length
-  const emCalculo = (sales ?? []).length - completeSales
-  const totalFees = (sales ?? []).reduce((s, r) => s + Number(r.marketplace_commission) + Number(r.marketplace_shipping_fee) + Number(r.ads_cost), 0)
-  const totalCMV = (sales ?? []).reduce((s, r) => s + Number((uw(r.sale_costs) as any)?.total_cost ?? 0), 0)
-  // Margem REAL = mesma conta da margem por venda (todos os custos + impostos,
-  // estorno somado, sobre o faturamento BRUTO), só das vendas já completas —
-  // NÃO a fórmula antiga receita líquida − CMV, que ignorava impostos/tarifa fixa.
-  let grossProfit = 0, marginBase = 0
-  for (const r of sales ?? []) {
-    const mv = (uw(r.sale_costs) as any)?.margin_value
-    if (mv === null || mv === undefined) continue
-    grossProfit += Number(mv)
-    marginBase  += liq(r)
-  }
-  const grossMargin = marginBase > 0 ? (grossProfit / marginBase) * 100 : 0
-  const totalOrders = (sales ?? []).length
+  const completeSales = sales.filter(r => r.margin_value !== null).length
+  const emCalculo = sales.length - completeSales
 
-  // ── Por marketplace (margem real por venda: margin_value / bruto das completas) ──
-  const byMP: Record<string, { revenue: number; marginValue: number; marginBase: number; orders: number }> = {}
-  for (const s of sales ?? []) {
-    const mp = s.marketplace
-    if (!byMP[mp]) byMP[mp] = { revenue: 0, marginValue: 0, marginBase: 0, orders: 0 }
-    const g = liq(s)
-    byMP[mp].revenue += g
-    const mv = (uw(s.sale_costs) as any)?.margin_value
-    if (mv !== null && mv !== undefined) {
-      byMP[mp].marginValue += Number(mv)
-      byMP[mp].marginBase  += g
-    }
-    byMP[mp].orders++
-  }
+  // ── Por marketplace (margem = Σ margin_value / Σ liq das apuradas) ──
+  const byMP: Record<string, Agg> = Object.fromEntries(aggBy(sales, s => s.marketplace))
 
-  // ── Trend (30 dias) — todas as séries + totalizadora ──
+  // ── Receita por dia (liq, todos os canais + total) ──
   const days = eachDayOfInterval({ start: monthDate, end: monthEndDate })
+  const dayMp = aggBy(sales, s => `${s.sale_date}|${s.marketplace}`)
   const trendData = days.map(day => {
-    const dateStr = format(day, 'dd/MM')
     const dayStr = format(day, 'yyyy-MM-dd')
-    const row: any = { date: dateStr, total: 0 }
+    const row: RevenuePoint = { date: format(day, 'dd/MM'), total: 0 }
     for (const mp of MP_ORDER) {
-      row[mp] = (trendSales ?? [])
-        .filter(s => s.sale_date === dayStr && s.marketplace === mp)
-        .reduce((s, r) => s + Number(r.gross_price), 0)
-      row.total += row[mp]
+      const v = dayMp.get(`${dayStr}|${mp}`)?.revenue ?? 0
+      row[mp] = v
+      row.total += v
     }
     return row
   })
 
-  // ── Margem/lucro por dia (30d, vendas completas) ──
-  const dayAgg = new Map<string, { mv: number; base: number }>()
-  for (const s of sales ?? []) {
-    const mv = (uw(s.sale_costs) as any)?.margin_value
-    if (mv === null || mv === undefined) continue
-    const d = s.sale_date as string
-    if (!dayAgg.has(d)) dayAgg.set(d, { mv: 0, base: 0 })
-    const a = dayAgg.get(d)!
-    a.mv   += Number(mv)
-    a.base += liq(s)
-  }
+  // ── Margem/lucro por dia (vendas apuradas) ──
+  const dayAgg = aggBy(sales, s => s.sale_date)
   const marginTrend: MarginDailyPoint[] = days.map(day => {
-    const key = format(day, 'yyyy-MM-dd')
-    const a = dayAgg.get(key)
+    const a = dayAgg.get(format(day, 'yyyy-MM-dd'))
+    const pct = a ? pctOf(a) : null
     return {
       date: format(day, 'dd/MM'),
-      lucro: a ? Math.round(a.mv * 100) / 100 : null,
-      margem: a && a.base > 0 ? Math.round((a.mv / a.base) * 1000) / 10 : null,
+      lucro: a && a.base > 0 ? Math.round(a.mv * 100) / 100 : null,
+      margem: pct === null ? null : Math.round(pct * 10) / 10,
     }
   })
 
   // ── Bar chart — todos os canais presentes nas vendas ──
-  const barData = Object.entries(byMP).map(([mp, d]) => {
-    const margin = d.marginBase > 0 ? (d.marginValue / d.marginBase) * 100 : 0
-    return { marketplace: mpLabel(mp), margem: margin, receita: d.revenue }
-  })
+  const barData = Object.entries(byMP).map(([mp, d]) => ({ marketplace: mpLabel(mp), margem: pctOf(d), receita: d.revenue }))
 
-  // ── Top produtos ──
-  const productMap: Record<string, { id: string; name: string; sku: string; revenue: number; marginPcts: number[] }> = {}
-  for (const s of topProductSales ?? []) {
-    const p = s.products as any
-    if (!p) continue
-    const id = s.product_id as string
-    if (!productMap[id]) productMap[id] = { id, name: p.name, sku: p.sku, revenue: 0, marginPcts: [] }
-    productMap[id].revenue += Number(s.gross_price)
-    const mp = (uw(s.sale_costs) as any)?.margin_pct
-    if (mp !== null && mp !== undefined) productMap[id].marginPcts.push(Number(mp))
-  }
-  const topProducts = Object.values(productMap)
-    .map(p => ({ ...p, avgMargin: p.marginPcts.length ? p.marginPcts.reduce((a, b) => a + b, 0) / p.marginPcts.length * 100 : 0 }))
-    .sort((a, b) => b.revenue - a.revenue)
+  // ── Top produtos (liq, margem ponderada, sem exigir custo) ──
+  const topProducts = marginRows
+    .filter(r => r.productId !== NO_PRODUCT)
     .slice(0, 5)
+    .map(r => ({ id: r.productId, name: r.name, sku: r.sku, revenue: r.revenue, margin: r.marginPct }))
 
-  
+  // ── Insights: estoque (30 dias até hoje), venda sem custo, margem/receita/canal ──
+  const qty30: Record<string, number> = {}
+  for (const s of between(d30, today)) {
+    if (s.product_id) qty30[s.product_id] = (qty30[s.product_id] ?? 0) + Number(s.quantity)
+  }
+  const noCost = sales.find(s => !s.cost)
+  const insightsData = {
+    products: productsRaw, qty30,
+    noCostProductName: noCost ? (noCost.product?.name ?? 'Produto') : null,
+    pendingNFe,
+    margin: { cur: grossMargin, prev: prevMargin },
+    revenue: { cur: totalRevenue, prev: prevRevenue },
+    channels: Object.entries(byMP).map(([mp, d]) => ({ mp, pct: pctOf(d) })),
+    start, end,
+  }
 
   // Margin color helper
-  function marginColor(m: number) {
+  function marginColor(m: number | null) {
+    if (m === null) return 'oklch(0.60 0.02 258)'
     if (m >= 35) return 'oklch(0.50 0.19 145)'   // emerald
     if (m >= 20) return 'oklch(0.62 0.16 70)'    // amber
     return 'oklch(0.52 0.20 25)'                  // red
   }
-  function marginBg(m: number) {
+  function marginBg(m: number | null) {
+    if (m === null) return 'oklch(0.96 0.010 258)'
     if (m >= 35) return 'oklch(0.94 0.06 145)'
     if (m >= 20) return 'oklch(0.96 0.06 70)'
     return 'oklch(0.96 0.04 25)'
@@ -502,20 +415,20 @@ export default async function DashboardPage(
               note: undefined as string | undefined,
             },
             {
-              label: `Lucro Real (${mesCurto})`, href: '/dashboard/dre',
+              label: `Lucro Real (${mesCurto})`, href: `/dashboard/dre?month=${mes}`,
               value: fmtR(grossProfit), color: grossProfit >= 0 ? '#16a34a' : '#dc2626',
               delta: prevProfit !== 0 ? ((grossProfit - prevProfit) / Math.abs(prevProfit)) * 100 : null,
               deltaFmt: (d: number) => `${d > 0 ? '+' : ''}${d.toFixed(0)}%`,
-              perMp: (mp: string) => fmtR(byMP[mp].marginValue),
+              perMp: (mp: string) => fmtR(byMP[mp].mv),
               // por que lucro ≠ faturamento×margem: só conta as vendas já apuradas
               note: emCalculo > 0 ? `apurado sobre ${fmtR(marginBase)} (${marginBase > 0 ? Math.round(marginBase / totalRevenue * 100) : 0}% do faturamento) · ${emCalculo} vendas em cálculo` : undefined,
             },
             {
-              label: 'Margem Real', href: '/dashboard/dre',
+              label: 'Margem Real', href: `/dashboard/dre?month=${mes}`,
               value: fmtPct(grossMargin), color: marginColor(grossMargin),
-              delta: prevMargin !== null ? grossMargin - prevMargin : null,
+              delta: grossMargin !== null && prevMargin !== null ? grossMargin - prevMargin : null,
               deltaFmt: (d: number) => `${d > 0 ? '+' : ''}${d.toFixed(1)}pp`,
-              perMp: (mp: string) => byMP[mp].marginBase > 0 ? fmtPct((byMP[mp].marginValue / byMP[mp].marginBase) * 100) : '—',
+              perMp: (mp: string) => fmtPct(pctOf(byMP[mp])),
               note: emCalculo > 0 ? 'calculada só sobre as vendas já apuradas' : undefined,
             },
             {
@@ -576,7 +489,7 @@ export default async function DashboardPage(
         <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid rgba(15,23,42,0.07)', boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}>
           <div className="mb-2">
             <div className="text-sm font-semibold" style={{ color: 'oklch(0.12 0.04 258)', fontFamily: 'var(--font-sora)' }}>
-              Comparativo do Ano — {now.getFullYear()}
+              Comparativo do Ano — {ano}
             </div>
             <div className="text-[12px] mt-0.5" style={{ color: 'oklch(0.50 0.025 258)' }}>
               Faturamento mensal empilhado por marketplace · linha roxa = margem real % · nº de pedidos sob cada mês
@@ -610,9 +523,9 @@ export default async function DashboardPage(
           </div>
           {/* Margem média do mês por canal */}
           <div className="flex items-center gap-2 flex-wrap mb-3">
-            {MP_ORDER.filter(mp => (margemMesByMp[mp]?.mg ?? 0) > 0).map(mp => {
-              const a = margemMesByMp[mp]
-              const pct = (a.mv / a.mg) * 100
+            {MP_ORDER.filter(mp => (byMP[mp]?.base ?? 0) > 0).map(mp => {
+              const a = byMP[mp]
+              const pct = pctOf(a)!
               return (
                 <span key={mp} className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg"
                       style={{ background: 'oklch(0.97 0.008 258)', color: '#0B1023' }}>
@@ -623,7 +536,7 @@ export default async function DashboardPage(
               )
             })}
           </div>
-          <MarginDailyChart data={marginTrend} avgMargin={grossMargin} />
+          <MarginDailyChart data={marginTrend} avgMargin={grossMargin ?? undefined} />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div
@@ -795,7 +708,7 @@ export default async function DashboardPage(
         </div>
 
         {/* ── Oryma Insights ── */}
-        <InsightsPanel />
+        <InsightsPanel data={insightsData} />
 
         {/* ── Resultado por marketplace + Top produtos — recolhível ── */}
         <details open>
@@ -817,7 +730,7 @@ export default async function DashboardPage(
                 <p className="text-sm" style={{ color: 'oklch(0.70 0.012 258)' }}>Conecte seus marketplaces para ver o resultado real por canal.</p>
               )}
               {Object.entries(byMP).sort((a, b) => b[1].revenue - a[1].revenue).map(([mp, d]) => {
-                const margin = d.marginBase > 0 ? (d.marginValue / d.marginBase) * 100 : 0
+                const margin = pctOf(d)
                 const pct = totalRevenue > 0 ? (d.revenue / totalRevenue) * 100 : 0
                 return (
                   <a
@@ -910,9 +823,9 @@ export default async function DashboardPage(
                     <div className="text-[13px] font-semibold num" style={{ color: 'oklch(0.12 0.04 258)', fontFamily: 'var(--font-geist-mono)' }}>
                       {fmtR(p.revenue)}
                     </div>
-                    {p.avgMargin > 0 && (
-                      <div className="text-[11px] font-medium" style={{ color: marginColor(p.avgMargin) }}>
-                        {fmtPct(p.avgMargin)} mg.
+                    {p.margin !== null && (
+                      <div className="text-[11px] font-medium" style={{ color: marginColor(p.margin) }}>
+                        {fmtPct(p.margin)} mg.
                       </div>
                     )}
                   </div>

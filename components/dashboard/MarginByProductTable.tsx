@@ -27,7 +27,9 @@ export interface ProductMarginRow {
   commission: number       // comissão + tarifa fixa (bruta)
   ads: number
   cmvMedio: number | null  // custo total / unidades
-  marginPct: number | null // margem média % (vendas com impostos calculados)
+  marginPct: number | null // margem % = marginValue / marginRevenue (null = sem base)
+  marginValue: number      // Σ margin_value das vendas apuradas
+  marginRevenue: number    // Σ faturamento líquido dessas MESMAS vendas
   velocityDay: number      // unidades / dias do período filtrado
   byUf: Array<{ uf: string; units: number; marginPct: number | null }>
 }
@@ -274,7 +276,8 @@ export function MarginByProductTable({ rows, days, periodLabel }: { rows: Produc
                 a.taxedRevenue += r.taxedRevenue
                 a.commission += r.commission; a.ads += r.ads
                 a.cost += (r.cmvMedio ?? 0) * r.units
-                if (r.marginPct !== null) { a.mv += (r.marginPct / 100) * r.revenue; a.mb += r.revenue }
+                // ponderada pela base apurada (bate com o card Margem Real)
+                a.mv += r.marginValue; a.mb += r.marginRevenue
                 a.vel += r.velocityDay
                 return a
               }, { units: 0, revenue: 0, icms: 0, difal: 0, piscofins: 0, taxedRevenue: 0, commission: 0, ads: 0, cost: 0, mv: 0, mb: 0, vel: 0 })

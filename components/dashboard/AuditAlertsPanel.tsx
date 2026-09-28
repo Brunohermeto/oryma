@@ -23,16 +23,19 @@ const RULE_LABELS: Record<string, string> = {
 
 export async function AuditAlertsPanel() {
   const db = createSupabaseServiceClient()
-  const { data: findings } = await db
+  // count exato: a lista traz no máx. 500, mas o total informado é o real
+  const { data: findings, count, error } = await db
     .from('audit_findings')
-    .select('id, rule, severity, message')
+    .select('id, rule, severity, message', { count: 'exact' })
     // Regras da vistoria de taxas têm painel próprio (FeeAuditPanel)
     .not('rule', 'in', '("comissao_acima_tabela","comissao_abaixo_tabela","tarifa_fixa_divergente","frete_fora_padrao")')
     .is('dismissed_at', null)
     .order('detected_at', { ascending: false })
     .limit(500)
 
+  if (error) throw new Error(`Falha ao consultar o banco: ${error.message}`)
   if (!findings?.length) return null
+  const total = count ?? findings.length
 
   // Agrupa por regra, ordena por severidade
   const groups = new Map<string, { severity: string; msgs: string[]; ids: string[] }>()
@@ -49,8 +52,11 @@ export async function AuditAlertsPanel() {
       <div className="flex items-center gap-2 mb-3">
         <ShieldAlert size={15} style={{ color: '#dc2626' }} />
         <span className="font-semibold text-sm" style={{ color: B.text, fontFamily: 'var(--font-sora)' }}>
-          Auditoria automática — {findings.length} apontamento{findings.length > 1 ? 's' : ''}
+          Auditoria automática — {total} apontamento{total > 1 ? 's' : ''}
         </span>
+        {total > findings.length && (
+          <span className="text-[11px]" style={{ color: B.muted }}>(mostrando os {findings.length} mais recentes de {total})</span>
+        )}
       </div>
       <div className="space-y-2">
         {sorted.map(([rule, g]) => {

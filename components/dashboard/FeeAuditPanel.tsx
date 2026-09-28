@@ -18,14 +18,18 @@ const FEE_RULE_LABELS: Record<string, string> = {
 
 export async function FeeAuditPanel() {
   const db = createSupabaseServiceClient()
-  const { data: findings } = await db
+  // count exato: a lista traz no máx. 500, mas o total informado é o real
+  const { data: findings, count, error } = await db
     .from('audit_findings')
-    .select('id, rule, severity, message, details')
+    .select('id, rule, severity, message, details', { count: 'exact' })
     .in('rule', Object.keys(FEE_RULE_LABELS))
     .is('dismissed_at', null)
     .order('detected_at', { ascending: false })
     .limit(500)
 
+  if (error) throw new Error(`Falha ao consultar o banco: ${error.message}`)
+  const shown = findings?.length ?? 0
+  const totalCount = count ?? shown
   const total = (findings ?? []).reduce((s, f) => s + Number((f.details as any)?.diff ?? 0), 0)
 
   const groups = new Map<string, { severity: string; msgs: string[]; diff: number; ids: string[] }>()
@@ -49,8 +53,11 @@ export async function FeeAuditPanel() {
         {total > 0.5 && (
           <span className="text-[12px] font-bold px-2 py-0.5 rounded-full"
                 style={{ color: '#dc2626', background: 'oklch(0.95 0.03 25)' }}>
-            ~R$ {total.toFixed(2)} cobrados a mais
+            ~R$ {total.toFixed(2)} cobrados a mais{totalCount > shown ? ` (nos ${shown} mais recentes)` : ''}
           </span>
+        )}
+        {totalCount > shown && (
+          <span className="text-[11px]" style={{ color: B.muted }}>mostrando {shown} de {totalCount} divergências</span>
         )}
       </div>
       {!findings?.length ? (
