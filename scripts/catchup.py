@@ -257,11 +257,15 @@ except Exception as e:
     print(f"8e. shopee returns: ERRO {str(e)[:70]}", flush=True)
 
 # ── 8g. cancelamentos ML + Magalu → cancellation (Shopee=8e, Amazon=8b) ──
-try:
-    r = post("/api/sync/cancellations?days=30", timeout=170)
-    print(f"8g. cancelamentos ML/Magalu: {json.dumps(r, ensure_ascii=False)[:120]}", flush=True)
-except Exception as e:
-    print(f"8g. cancelamentos: ERRO {str(e)[:70]}", flush=True)
+# devolução pós-entrega do ML vira pedido "cancelled" semanas depois da compra:
+# 90 dias, em 2 janelas (uma só passaria dos 60s)
+_h = datetime.date.today()
+for _de, _ate in ((_h - datetime.timedelta(days=45), _h), (_h - datetime.timedelta(days=90), _h - datetime.timedelta(days=46))):
+    try:
+        r = post(f"/api/sync/cancellations?from={_de}&to={_ate}", timeout=170)
+        print(f"8g. cancelamentos {_de}..{_ate}: {json.dumps(r, ensure_ascii=False)[:120]}", flush=True)
+    except Exception as e:
+        print(f"8g. cancelamentos: ERRO {str(e)[:70]}", flush=True)
 
 # ── 8f. UF de destino da Amazon (getOrderAddress, lote) ──
 # lotes de 25 (60 × (0,7s + API + gravação) passava de 60s); até 6 lotes/dia

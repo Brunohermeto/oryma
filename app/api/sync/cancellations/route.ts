@@ -6,7 +6,9 @@
  * uma venda ML/Magalu paga e depois cancelada ficava com o bruto cheio no
  * faturamento e na margem. Cancelamento INTEGRAL: cancellation = gross_price
  * (isReturned → sai de faturamento/margem; relink deixa a margem NULL).
- * Não cobre devolução pós-entrega do ML (claims) — fica para uma etapa futura.
+ * Devolução pós-entrega do ML (claim "returns" concluída) também cai aqui: o ML
+ * muda o pedido para status "cancelled" e estorna o pagamento (verificado 28/09).
+ * Como isso acontece semanas depois da compra, o ciclo diário olha 90 dias.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { mlGet, getMercadoLivreSellerId } from '@/lib/integrations/mercado-livre'
