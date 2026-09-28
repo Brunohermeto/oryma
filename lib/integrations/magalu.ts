@@ -21,13 +21,15 @@ const SCOPES = [
 ].join(' ')
 
 /** URL para o seller autorizar o app (tela de consentimento do ID Magalu). */
-export function magaluAuthUrl(redirectUrl: string): string {
+export function magaluAuthUrl(redirectUrl: string, chooseTenants = true): string {
   const url = new URL(AUTH_URL)
   url.searchParams.set('client_id', process.env.MAGALU_CLIENT_ID!)
   url.searchParams.set('redirect_uri', redirectUrl)
   url.searchParams.set('scope', SCOPES)
   url.searchParams.set('response_type', 'code')
-  url.searchParams.set('choose_tenants', 'true')
+  // tela de escolha de loja do ID Magalu às vezes fica carregando sem fim
+  // depois do código de confirmação (28/09) — ?simples=1 pula e usa a loja padrão
+  if (chooseTenants) url.searchParams.set('choose_tenants', 'true')
   return url.toString()
 }
 
