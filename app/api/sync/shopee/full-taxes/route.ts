@@ -58,15 +58,17 @@ export async function POST(request: NextRequest) {
   //    dentro do maxDuration=60. Se ainda assim não sair, o catchup repete a
   //    etapa (rota idempotente) numa nova invocação de 60s.
   let link: string | null = null
+  let lastDl: unknown = null
   for (let i = 0; i < 13; i++) {
     await sleep(3000)
     const dl = await shopeePost<{ response?: Array<{ file_link?: string }> }>(
       '/order/download_fbs_invoices', { request_id_list: { request_id: [reqId] } }
     )
+    lastDl = dl
     link = dl.response?.[0]?.file_link ?? null
     if (link) break
   }
-  if (!link) return NextResponse.json({ ok: false, step: 'download', request_id: reqId }, { status: 504 })
+  if (!link) return NextResponse.json({ ok: false, step: 'download', request_id: reqId, shopee: lastDl }, { status: 504 })
 
   // 3. baixa o ZIP e descompacta
   const zipBuf = new Uint8Array(await (await fetch(link)).arrayBuffer())
