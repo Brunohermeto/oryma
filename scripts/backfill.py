@@ -191,7 +191,7 @@ if sub("ml_tariffs"):  loop_rota("ml tariffs", "/api/sync/ml/tariffs", {"days": 
 if sub("ml_billing"):
     mes = INI.replace(day=1)
     while mes <= FIM:
-        safe(f"ml billing {mes:%Y-%m}", lambda: post(f"/api/sync/ml/billing?period={mes.isoformat()}"))
+        safe(f"ml billing {mes:%Y-%m}", lambda: post(f"/api/sync/ml/billing?period={mes.isoformat()}&days={N}"))
         mes = (mes + datetime.timedelta(days=32)).replace(day=1)
         time.sleep(3)
 

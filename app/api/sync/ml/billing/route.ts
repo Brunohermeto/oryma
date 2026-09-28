@@ -106,7 +106,9 @@ export async function POST(request: NextRequest) {
   const rebateByOrder = new Map<string, never>()
 
   // 4. Ads: custo do dia rateado entre as vendas ML do dia
-  let adsSales = 0
+  // Gravação em paralelo (lotes de 20): um mês inteiro são ~1000 vendas e, uma
+  // a uma a ~200 ms, o backfill por período estourava os 60 s
+  const updates: Array<{ id: string; ads_cost: number }> = []
   for (const [day, total] of padsByDay) {
     const { data: rows } = await db.from('sales')
       .select('id, gross_price').eq('marketplace', 'mercado_livre').eq('sale_date', day)
@@ -114,10 +116,14 @@ export async function POST(request: NextRequest) {
     const sum = rows.reduce((s, x) => s + Number(x.gross_price ?? 0), 0)
     for (const x of rows) {
       const share = sum > 0 ? Number(x.gross_price ?? 0) / sum : 1 / rows.length
-      await db.from('sales').update({ ads_cost: Math.round(total * share * 100) / 100 }).eq('id', x.id)
-      adsSales++
+      updates.push({ id: x.id, ads_cost: Math.round(total * share * 100) / 100 })
     }
   }
+  for (let i = 0; i < updates.length; i += 20) {
+    await Promise.all(updates.slice(i, i + 20).map(u =>
+      db.from('sales').update({ ads_cost: u.ads_cost }).eq('id', u.id)))
+  }
+  const adsSales = updates.length
 
   return NextResponse.json({
     ok: true, period: keys.join(','),
