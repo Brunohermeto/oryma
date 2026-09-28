@@ -63,6 +63,9 @@ Qualquer código novo que grave ou leia valores de venda DEVE segui-las.
 ## 5. Margem = todos os custos, sobre o faturamento LÍQUIDO
 - margem R$ = bruto − cancelamento − cupom-vendedor − comissão − tarifa fixa −
   frete − ads − impostos da NF − CMV + estorno.
+- **Faturamento em TODAS as telas (cards, gráficos, DRE) = valor da NF = bruto −
+  devolução − cupom** — confirmado pelo Bruno em 2026-09-27 ("deixar como está").
+  Fórmula única em `lib/sales/metrics.ts`; nenhuma tela usa outra.
 - margem % = margem R$ / faturamento LÍQUIDO (bruto − devolução − cupom) —
   mesma base do card da venda, pra lucro/faturamento/% baterem na tela.
 - **NUNCA somar crédito-importação à margem** (regra 2026-09-15, corrige a
