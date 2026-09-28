@@ -2,7 +2,7 @@ import { TopBar } from '@/components/layout/TopBar'
 import { fetchAllParallel } from '@/lib/supabase/fetch-all'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { isReturned } from '@/lib/sales/returned'
-import { liq, newAgg, addSale, aggBy, pctOf, marginAgg, type Agg } from '@/lib/sales/metrics'
+import { liq, newAgg, addSale, aggBy, pctOf, type Agg } from '@/lib/sales/metrics'
 import { format, endOfMonth, subMonths, eachDayOfInterval } from 'date-fns'
 import { brazilToday, brazilDaysAgo } from '@/lib/utils/brazil-time'
 import { RevenueLineChart, type RevenuePoint } from '@/components/charts/RevenueLineChart'
@@ -162,8 +162,6 @@ export default async function DashboardPage(
   const yearTotalByMp: Record<string, number> = {}
   for (const [mp, a] of aggBy(yearSales, s => s.marketplace)) yearTotalByMp[mp] = a.revenue
   const yearTotal = Object.values(yearTotalByMp).reduce((x, y) => x + y, 0)
-  // margem ACUMULADA do ano (os cards de cima são do mês selecionado)
-  const yearMargin = pctOf(marginAgg(yearSales))
 
   // ── Taxas pagas no período — por marketplace + total ──
   type FeeAgg = { comissao: number; frete: number; fixa: number; ads: number; estorno: number; revenue: number }
@@ -500,7 +498,7 @@ export default async function DashboardPage(
           {/* Acumulado do ano até o momento, por canal */}
           <div className="flex items-center gap-2 flex-wrap mb-3">
             <span className="text-[12px] font-bold px-3 py-1.5 rounded-lg" style={{ background: '#0B1023', color: 'white', fontFamily: 'var(--font-geist-mono)' }}>
-              Ano: {fmtR(yearTotal)}{yearMargin !== null && <> · margem {yearMargin.toFixed(1)}%</>}
+              Ano: {fmtR(yearTotal)}
             </span>
             {MP_ORDER.filter(mp => (yearTotalByMp[mp] ?? 0) > 0).map(mp => (
               <span key={mp} className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg"
