@@ -11,6 +11,20 @@ export const dynamic     = 'force-dynamic'
 export const maxDuration = 60
 export const preferredRegion = 'gru1'
 
+// Apaga lançamentos MANUAIS (total_stock_qty = 1) do produto naquela vigência.
+// As vendas já recalculadas apontam para o registro (sale_costs.cmp_cost_id):
+// sem soltar esse vínculo antes, o delete falhava calado e o valor duplicava.
+async function apagarManuais(db: ReturnType<typeof createSupabaseServiceClient>, productIds: string[], data: string) {
+  const { data: rows } = await db.from('cmp_costs').select('id')
+    .in('product_id', productIds).eq('effective_date', data).eq('total_stock_qty', 1)
+  const ids = (rows ?? []).map(r => r.id)
+  if (!ids.length) return 0
+  await db.from('sale_costs').update({ cmp_cost_id: null }).in('cmp_cost_id', ids)
+  const { error } = await db.from('cmp_costs').delete().in('id', ids)
+  if (error) throw new Error(error.message)
+  return ids.length
+}
+
 interface CmpEntry {
   product_id: string
   cmp_value: number
@@ -47,6 +61,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, removidos: (manuais ?? []).length, message: 'Custo manual removido — o custo da NF reassumiu e as margens foram recalculadas.' })
   }
 
+  // Apaga UMA vigência manual (ex.: valor lançado com a data errada) e recalcula
+  // as vendas do produto só a partir daquela data
+  if (body.remove_entry?.product_id && body.remove_entry?.effective_date) {
+    const pid = String(body.remove_entry.product_id)
+    const data = String(body.remove_entry.effective_date)
+    const n = await apagarManuais(db, [pid], data)
+    await fetch(`${request.nextUrl.origin}/api/landed-cost/relink`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: `mi_auth=${process.env.APP_PASSWORD}` },
+      body: JSON.stringify({ productIds: [pid], from: data }),
+    }).catch(() => null)
+    return NextResponse.json({ ok: true, removidos: n })
+  }
+
   const { entries } = body as { entries: CmpEntry[] }
 
   if (!entries?.length) {
@@ -61,13 +89,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Nenhum valor válido (CMV deve ser > 0)' }, { status: 400 })
   }
 
-  // Remove entradas existentes para os mesmos produtos na mesma data, depois insere
+  // Substitui (não duplica) o valor manual do mesmo produto na mesma data
   const productIds = valid.map(e => e.product_id)
-  await db
-    .from('cmp_costs')
-    .delete()
-    .in('product_id', productIds)
-    .eq('effective_date', valid[0].effective_date)
+  for (const e of valid) await apagarManuais(db, [e.product_id], e.effective_date)
 
   const { error: insertErr } = await db
     .from('cmp_costs')

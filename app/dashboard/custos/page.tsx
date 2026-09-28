@@ -3,30 +3,44 @@ export const preferredRegion = 'gru1'
 
 import { TopBar } from '@/components/layout/TopBar'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { fetchAll } from '@/lib/supabase/fetch-all'
+import { brazilToday } from '@/lib/utils/brazil-time'
 import { SkuCostTable, type SkuCostRow } from '@/components/configuracoes/SkuCostTable'
+
+type Cmp = { product_id: string; cmp_value: number; effective_date: string; calculated_at: string; total_stock_qty: number }
 
 export default async function CustosPorSkuPage() {
   const db = createSupabaseServiceClient()
+  const hoje = brazilToday()
 
-  const [{ data: products }, { data: cmps }, { data: salesRaw }] = await Promise.all([
+  // paginado: com .limit/sem range o PostgREST cortava em 1000 linhas
+  const [{ data: products }, cmps, salesRaw] = await Promise.all([
     db.from('products').select('id, sku, name, cost_locked, archived').order('sku'),
-    db.from('cmp_costs')
-      .select('product_id, cmp_value, effective_date, calculated_at, total_stock_qty')
-      .order('effective_date', { ascending: false })
-      .order('calculated_at', { ascending: false }),
-    db.from('sales').select('product_id').not('product_id', 'is', null).limit(10000),
+    fetchAll<Cmp & { id: string }>(() => db.from('cmp_costs')
+      .select('id, product_id, cmp_value, effective_date, calculated_at, total_stock_qty').order('id')),
+    fetchAll<{ id: string; product_id: string }>(() => db.from('sales')
+      .select('id, product_id').not('product_id', 'is', null).order('id')),
   ])
 
-  // Custo VIGENTE = primeiro registro por produto (já ordenado por vigência+recálculo)
-  const current = new Map<string, { cmp_value: number; effective_date: string; total_stock_qty: number }>()
-  for (const c of (cmps ?? []) as any[]) {
-    if (!current.has(c.product_id)) current.set(c.product_id, c)
+  // mais nova vigência primeiro; empate → recálculo mais recente
+  cmps.sort((a, b) => b.effective_date.localeCompare(a.effective_date) || b.calculated_at.localeCompare(a.calculated_at))
+
+  // Custo VIGENTE = a vigência mais recente que já começou (<= hoje)
+  const current = new Map<string, Cmp>()
+  const history = new Map<string, SkuCostRow['history']>()
+  for (const c of cmps) {
+    if (!current.has(c.product_id) && c.effective_date <= hoje) current.set(c.product_id, c)
+    const h = history.get(c.product_id) ?? []
+    const manual = Number(c.total_stock_qty) === 1
+    // uma linha por vigência+origem (recálculos repetidos do mesmo lote não poluem)
+    if (!h.some(x => x.date === c.effective_date && x.manual === manual)) {
+      h.push({ date: c.effective_date, value: Number(c.cmp_value), manual })
+    }
+    history.set(c.product_id, h)
   }
 
   const salesCount: Record<string, number> = {}
-  for (const s of (salesRaw ?? []) as { product_id: string }[]) {
-    salesCount[s.product_id] = (salesCount[s.product_id] ?? 0) + 1
-  }
+  for (const s of salesRaw) salesCount[s.product_id] = (salesCount[s.product_id] ?? 0) + 1
 
   const rows: SkuCostRow[] = ((products ?? []) as any[]).map(p => {
     const c = current.get(p.id)
@@ -41,6 +55,7 @@ export default async function CustosPorSkuPage() {
       locked: !!p.cost_locked,
       archived: !!p.archived,
       salesCount: salesCount[p.id] ?? 0,
+      history: history.get(p.id) ?? [],
     }
   }).sort((a, b) => b.salesCount - a.salesCount)
 

@@ -19,6 +19,8 @@ export interface SkuCostRow {
   locked: boolean
   archived: boolean
   salesCount: number
+  /** todas as vigências (mais nova primeiro) — manual pode ser apagada */
+  history: Array<{ date: string; value: number; manual: boolean }>
 }
 
 const B = {
@@ -66,7 +68,9 @@ export function SkuCostTable({ rows }: { rows: SkuCostRow[] }) {
   function startEdit(r: SkuCostRow) {
     setEditing(r.productId)
     setEditValue(r.cost !== null ? String(r.cost.toFixed(2)).replace('.', ',') : '')
-    setEditDate(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date()))
+    // vazio de propósito: a vigência tem que ser informada (o padrão "hoje" criava
+    // lançamentos sem querer, que passavam a valer por cima do valor desejado)
+    setEditDate('')
     setMsg('')
   }
 
@@ -113,6 +117,25 @@ export function SkuCostTable({ rows }: { rows: SkuCostRow[] }) {
       setMsg(`Erro: ${String(e).replace('Error: ', '')}`)
     }
     setRecalcBusy(null)
+  }
+
+  async function removeEntry(r: SkuCostRow, date: string) {
+    if (!window.confirm(`Apagar o custo manual de ${r.sku} vigente desde ${fmtDate(date)}?\nAs vendas desde essa data serão recalculadas com o custo anterior.`)) return
+    setSaving(true)
+    setMsg(`Apagando vigência de ${fmtDate(date)} e recalculando…`)
+    try {
+      const res = await fetch('/api/cmp/manual', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ remove_entry: { product_id: r.productId, effective_date: date } }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(d.error ?? `HTTP ${res.status}`)
+      setMsg(`✓ Vigência de ${fmtDate(date)} apagada em ${r.sku}; vendas recalculadas desde essa data.`)
+      router.refresh()
+    } catch (e) {
+      setMsg(`Erro: ${String(e).replace('Error: ', '')}`)
+    }
+    setSaving(false)
   }
 
   async function toggleLock(r: SkuCostRow) {
@@ -223,6 +246,25 @@ export function SkuCostTable({ rows }: { rows: SkuCostRow[] }) {
                         <X size={13} style={{ color: B.muted }} />
                       </button>
                     </div>
+                    {r.history.length > 0 && (
+                      <div className="mt-2 text-[11px] text-left inline-block" style={{ color: B.muted }}>
+                        <div className="font-semibold uppercase tracking-wide mb-1">Vigências</div>
+                        {r.history.map(h => (
+                          <div key={h.date + h.manual} className="flex items-center gap-2 py-0.5">
+                            <span style={{ fontFamily: 'var(--font-geist-mono)', color: B.text }}>{fmtDate(h.date)}</span>
+                            <span style={{ fontFamily: 'var(--font-geist-mono)', color: B.text }}>{fmtR(h.value)}</span>
+                            <span>{h.manual ? 'manual' : 'NF'}</span>
+                            {h.date === r.effectiveDate && <span style={{ color: '#16a34a' }}>● vigente</span>}
+                            {h.manual && (
+                              <button onClick={() => removeEntry(r, h.date)} disabled={saving} title="Apagar esta vigência manual"
+                                      className="px-1 rounded cursor-pointer" style={{ background: 'none', border: 'none', color: '#dc2626' }}>
+                                apagar
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </td>
                 ) : (
                   <>
