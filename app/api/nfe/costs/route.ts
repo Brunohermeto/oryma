@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { recalculateLandedCost } from '@/lib/landed-cost/calculator'
+import { callRelink } from '@/lib/landed-cost/call-relink'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -40,11 +41,7 @@ export async function POST(request: NextRequest) {
   const { data: itens } = await db.from('import_items').select('product_id').eq('import_order_id', import_order_id)
   const productIds = [...new Set((itens ?? []).map(i => i.product_id).filter(Boolean))]
   if (productIds.length) {
-    await fetch(`${request.nextUrl.origin}/api/landed-cost/relink`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Cookie: `mi_auth=${process.env.APP_PASSWORD}` },
-      body: JSON.stringify({ productIds }),
-    }).catch(() => null)
+    await callRelink({ productIds }).catch(() => null)
   }
 
   return NextResponse.json({ ok: true })

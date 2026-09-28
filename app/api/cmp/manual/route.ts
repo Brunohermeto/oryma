@@ -6,6 +6,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { callRelink } from '@/lib/landed-cost/call-relink'
 
 export const dynamic     = 'force-dynamic'
 export const maxDuration = 60
@@ -51,13 +52,7 @@ export async function POST(request: NextRequest) {
       await db.from('cmp_costs').delete().eq('id', m.id)
     }
     await db.from('products').update({ cost_locked: false }).eq('id', pid)
-    try {
-      await fetch(`${request.nextUrl.origin}/api/landed-cost/relink`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Cookie: `mi_auth=${process.env.APP_PASSWORD}` },
-        body: JSON.stringify({ productIds: [pid] }),  // só as vendas dele (completo passa de 60s)
-      })
-    } catch { /* não bloqueia */ }
+    await callRelink({ productIds: [pid] }).catch(() => null)  // só as vendas dele (completo passa de 60s)
     return NextResponse.json({ ok: true, removidos: (manuais ?? []).length, message: 'Custo manual removido — o custo da NF reassumiu e as margens foram recalculadas.' })
   }
 
@@ -67,11 +62,7 @@ export async function POST(request: NextRequest) {
     const pid = String(body.remove_entry.product_id)
     const data = String(body.remove_entry.effective_date)
     const n = await apagarManuais(db, [pid], data)
-    await fetch(`${request.nextUrl.origin}/api/landed-cost/relink`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Cookie: `mi_auth=${process.env.APP_PASSWORD}` },
-      body: JSON.stringify({ productIds: [pid], from: data }),
-    }).catch(() => null)
+    await callRelink({ productIds: [pid], from: data }).catch(() => null)
     return NextResponse.json({ ok: true, removidos: n })
   }
 
@@ -110,22 +101,9 @@ export async function POST(request: NextRequest) {
   }
 
   // Dispara relink para atualizar as margens
-  let relinkResult = null
-  try {
-    const res = await fetch(
-      // URL da própria requisição (na Vercel a NEXT_PUBLIC_APP_URL pode apontar p/
-      // localhost e a chamada interna falharia em silêncio, sem recalcular margem)
-      `${request.nextUrl.origin}/api/landed-cost/relink`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Cookie: `mi_auth=${process.env.APP_PASSWORD}` },
-        // só as vendas dos produtos alterados — o relink completo passa dos 60s
-        // e só a partir da vigência informada: vendas anteriores não são tocadas
-        body: JSON.stringify({ productIds, from: valid.map(e => e.effective_date).sort()[0] }),
-      }
-    )
-    relinkResult = await res.json()
-  } catch { /* não bloqueia */ }
+  // só as vendas dos produtos alterados (o completo passa dos 60s) e só a partir
+  // da vigência informada: vendas anteriores não são tocadas
+  const relinkResult = await callRelink({ productIds, from: valid.map(e => e.effective_date).sort()[0] }).catch(() => null)
 
   return NextResponse.json({
     ok: true,
