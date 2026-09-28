@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
   const db = createSupabaseServiceClient()
   // ?from=YYYY-MM-DD&to=YYYY-MM-DD: janela explícita (a Shopee recusa o lote
   // de XML com período longo — 270 dias dava 500; o backfill pede mês a mês)
+  const force = request.nextUrl.searchParams.get('force') === '1'
   const qFrom = request.nextUrl.searchParams.get('from')
   const qTo   = request.nextUrl.searchParams.get('to')
   const now = qTo ? new Date(`${qTo}T12:00:00`) : new Date()
@@ -107,7 +108,8 @@ export async function POST(request: NextRequest) {
     // UF do destinatário (pega carona no mesmo XML) — sempre completa, mesmo se o
     // imposto já existir (venda com imposto mas sem estado ficava órfã pra sempre)
     const uf = xml.match(/<dest>[\s\S]*?<UF>([A-Z]{2})<\/UF>/)?.[1] ?? null
-    if (group.every(s => one(s.sale_taxes))) {
+    // ?force=1 reaplica mesmo quem já tem imposto (correção do bug do 1º item, 28/09)
+    if (!force && group.every(s => one(s.sale_taxes))) {
       if (uf) for (const s of group) await db.from('sales').update({ uf_destino: uf }).eq('id', s.id)
       jaTinha++; continue
     }

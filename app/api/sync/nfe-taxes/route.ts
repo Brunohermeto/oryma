@@ -30,6 +30,11 @@ export async function POST(request: NextRequest) {
 
   const days  = Number(request.nextUrl.searchParams.get('days') ?? 7)
   const limit = Number(request.nextUrl.searchParams.get('limit') ?? 20)
+  // ?force=1&offset=N[&serie=002]: reextrai quem JÁ tem imposto (correção em
+  // massa), andando pela fila por offset — ex.: após o bug do 1º item (28/09)
+  const force  = request.nextUrl.searchParams.get('force') === '1'
+  const offset = Number(request.nextUrl.searchParams.get('offset') ?? 0)
+  const serie  = request.nextUrl.searchParams.get('serie')
   const db = createSupabaseServiceClient()
   const since = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10)
 
@@ -53,7 +58,8 @@ export async function POST(request: NextRequest) {
   for (const s of sales ?? []) {
     // pula só quem já tem imposto E já tem UF — a venda com imposto mas sem UF
     // (extração de UF falhou numa rodada antiga) precisa reentrar pra pegar o UF
-    if (taxed.has(s.id) && s.uf_destino) continue
+    if (!force && taxed.has(s.id) && s.uf_destino) continue
+    if (serie && s.nfe_saida_key.slice(22, 25) !== serie) continue
     if (s.marketplace === 'magalu' && s.fulfillment_type === 'full_magalu') continue // NF série 6 não está no Bling
     // Shopee emite pela própria plataforma desde ~10/07 (série 005) — XML não está no Bling
     if (s.marketplace === 'shopee' && s.nfe_saida_key.slice(22, 25) === '005') continue
@@ -63,7 +69,7 @@ export async function POST(request: NextRequest) {
 
   let processed = 0
   let updated = 0
-  for (const [chave, group] of byChave) {
+  for (const [chave, group] of [...byChave].slice(offset)) {
     if (processed >= limit) break
     processed++
     await sleep(250)
@@ -90,5 +96,5 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, processed, updated, remaining: byChave.size - processed })
+  return NextResponse.json({ ok: true, processed, updated, remaining: Math.max(byChave.size - offset - processed, 0) })
 }
