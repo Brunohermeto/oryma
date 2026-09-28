@@ -1,6 +1,8 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import { RefreshCw, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronUp } from 'lucide-react'
+import { pctOf } from '@/lib/sales/metrics'
+import { isReturned } from '@/lib/sales/returned'
 
 const B = {
   border:   'oklch(0.88 0.016 258)',
@@ -229,19 +231,19 @@ function SaleRow({ sale }: { sale: Sale }) {
 // ─── Totalizadores ─────────────────────────────────────────────────────────
 
 function Totals({ sales }: { sales: Sale[] }) {
-  const totals = sales.reduce((acc, s) => {
+  // devolvidas fora de tudo; margem = Σ lucro ÷ Σ faturamento DAS MESMAS vendas
+  // apuradas (fórmula única, lib/sales/metrics) — antes dividia pelo total
+  const totals = sales.filter(s => !isReturned(s)).reduce((acc, s) => {
     const c = calcSale(s)
     acc.faturamento += c.faturamento
     acc.fees += c.totalFees
     acc.cmv += c.cmv
-    if (c.lucro !== null) { acc.lucro += c.lucro; acc.withCMV++ }
+    if (c.lucro !== null) { acc.lucro += c.lucro; acc.base += c.faturamento; acc.withCMV++ }
     acc.count++
     return acc
-  }, { faturamento: 0, fees: 0, cmv: 0, lucro: 0, withCMV: 0, count: 0 })
+  }, { faturamento: 0, fees: 0, cmv: 0, lucro: 0, base: 0, withCMV: 0, count: 0 })
 
-  // margem % sobre o faturamento líquido (regra 5), só das vendas apuradas
-  const margin = totals.withCMV > 0 && totals.faturamento > 0
-    ? (totals.lucro / totals.faturamento) * 100 : null
+  const margin = pctOf({ mv: totals.lucro, base: totals.base })
 
   const cards = [
     { label: 'Vendas',          value: totals.count,          fmt: (v: number) => `${v}`, color: B.brand },

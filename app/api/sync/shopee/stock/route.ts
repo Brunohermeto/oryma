@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { shopeeGet } from '@/lib/integrations/shopee'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { SKU_ALIASES } from '@/lib/sales/sku-aliases'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -77,6 +78,7 @@ export async function POST(request: NextRequest) {
   const resolve = (raw: string) => {
     const s = raw.toUpperCase()
     return pBySku.get(s) ?? pBySku.get(s.replace(/^V/, '')) ?? pBySku.get(s.replace(/V$/, ''))
+      ?? pBySku.get(SKU_ALIASES[s] ?? '')
   }
   let updated = 0
   const semProduto: string[] = []

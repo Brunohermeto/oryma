@@ -264,11 +264,14 @@ except Exception as e:
     print(f"8g. cancelamentos: ERRO {str(e)[:70]}", flush=True)
 
 # ── 8f. UF de destino da Amazon (getOrderAddress, lote) ──
-try:
-    r = post("/api/sync/amazon/uf?limit=25", timeout=170)  # 60 × (0,7s + API + gravação) passava de 60s
-    print(f"8f. amazon UF: {json.dumps(r, ensure_ascii=False)[:100]}", flush=True)
-except Exception as e:
-    print(f"8f. amazon UF: ERRO {str(e)[:70]}", flush=True)
+# lotes de 25 (60 × (0,7s + API + gravação) passava de 60s); até 6 lotes/dia
+for _i in range(6):
+    try:
+        r = post("/api/sync/amazon/uf?limit=25", timeout=170)
+        print(f"8f. amazon UF: {json.dumps(r, ensure_ascii=False)[:100]}", flush=True)
+        if not r.get("remaining") or not r.get("updated"): break
+    except Exception as e:
+        print(f"8f. amazon UF: ERRO {str(e)[:70]}", flush=True); break
 
 # ── 9. estoque Full ──
 try:

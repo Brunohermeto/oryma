@@ -15,6 +15,7 @@ import { fetchAll as fetchAllRows } from '@/lib/supabase/fetch-all'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { recalculateLandedCost } from '@/lib/landed-cost/calculator'
 import { isReturned } from '@/lib/sales/returned'
+import { SKU_ALIASES } from '@/lib/sales/sku-aliases'
 import { brazilDaysAgo } from '@/lib/utils/brazil-time'
 
 export const dynamic         = 'force-dynamic'
@@ -94,12 +95,6 @@ export async function POST(request: NextRequest) {
   //    ML ligava pela EAN do 1º item da NF e, num kit (MOVE TRIO = carrinho +
   //    bebê conforto + adaptador), a venda ficava com o custo só do carrinho.
   //    Resolução: SKU exato → SKU sem sufixo -FBA (Amazon) → apelido conhecido.
-  const SKU_ALIASES: Record<string, string> = {
-    'MOVETRIO': '7908488106449', 'MOVEDUO': '7908488105732',
-    '0209': '7908488108085', '020984': '7908488108221',
-    '0109P': '7908488100980', '010984P': '7908488108290',
-    '0210MG': '7908488108351', '021084MG': '7908488108313',
-  }
   const candidatas = await fetchAllRows<{ id: string; sku: string; product_id: string | null }>(() => {
     let q = db.from('sales').select('id, sku, product_id').not('sku', 'is', null)
     if (desde) q = q.gte('sale_date', desde)
