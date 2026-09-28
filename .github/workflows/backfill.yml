@@ -16,6 +16,10 @@ on:
         description: "Etapas (vendas,bling,ml,amazon,shopee,magalu,estoque,relink,audit)"
         default: "vendas,bling,ml,amazon,shopee,magalu,estoque,relink,audit"
         required: true
+      channels:
+        description: "Canais da etapa vendas (mercado_livre,shopee,amazon,magalu)"
+        default: "mercado_livre,shopee,amazon,magalu"
+        required: false
 
 jobs:
   backfill:
@@ -31,4 +35,5 @@ jobs:
           APP_PASSWORD: ${{ secrets.ORYMA_APP_PASSWORD }}
         run: |
           TO="${{ github.event.inputs.to }}"
-          python scripts/backfill.py --from "${{ github.event.inputs.from }}" ${TO:+--to "$TO"} --steps "${{ github.event.inputs.steps }}"
+          CH="${{ github.event.inputs.channels }}"
+          python scripts/backfill.py --from "${{ github.event.inputs.from }}" ${TO:+--to "$TO"} --steps "${{ github.event.inputs.steps }}" ${CH:+--channels "$CH"}
