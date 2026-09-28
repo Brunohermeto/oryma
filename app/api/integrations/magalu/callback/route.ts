@@ -8,7 +8,9 @@ export async function GET(request: NextRequest) {
   const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.oryma.com.br'
   const code = request.nextUrl.searchParams.get('code')
   if (!code) {
-    return NextResponse.redirect(`${base}/dashboard/configuracoes?magalu=erro_sem_code`)
+    // o ID Magalu devolve ?error=invalid_scope etc. — mostrar o motivo real
+    const err = request.nextUrl.searchParams.get('error') ?? 'sem_code'
+    return NextResponse.redirect(`${base}/dashboard/configuracoes?magalu=erro_${encodeURIComponent(err)}`)
   }
   try {
     await exchangeMagaluCode(code, `${base}/api/integrations/magalu/callback`)
