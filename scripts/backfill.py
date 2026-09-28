@@ -197,12 +197,16 @@ if sub("ml_billing"):
 
 # ── Amazon ───────────────────────────────────────────────────────────────────
 if "amazon" in STEPS:
-    ultimo = None
-    for i in range(40):
-        r = safe(f"amazon fees r{i}", lambda: post(f"/api/sync/amazon/fees?days={N}&limit=60"))
-        pend = r.get("pendentes_sem_comissao")
-        if not r or pend == ultimo: break
-        ultimo = pend; time.sleep(2)
+    # limit 60 estourava os 60s da Vercel; offset anda pela fila (pedidos sem
+    # evento financeiro ficavam sempre no topo e travavam o loop)
+    off = 0
+    for i in range(300):
+        r = safe(f"amazon fees r{i}", lambda: post(f"/api/sync/amazon/fees?days={N}&limit=20&offset={off}"))
+        if not r: break
+        pend = r.get("pendentes_sem_comissao") or 0
+        off += 20  # ponytail: quem é atualizado sai da fila e pode pular vizinhos; o ciclo diário repega
+        if off >= pend: break
+        time.sleep(2)
     safe("amazon service-fees", lambda: post(f"/api/sync/amazon/service-fees?days={N}"))
     ate_convergir("amazon uf", "/api/sync/amazon/uf?limit=60")
 

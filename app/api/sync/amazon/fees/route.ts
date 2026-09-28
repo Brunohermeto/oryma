@@ -52,6 +52,9 @@ export async function POST(request: NextRequest) {
 
   const days  = Number(request.nextUrl.searchParams.get('days') ?? 30)
   const limit = Number(request.nextUrl.searchParams.get('limit') ?? 15)
+  // ?offset=N: pula N pedidos da fila — sem isso, pedidos sem evento financeiro
+  // ficavam sempre no topo e o backfill nunca passava deles
+  const offset = Number(request.nextUrl.searchParams.get('offset') ?? 0)
   const db = createSupabaseServiceClient()
   const since = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10)
 
@@ -77,7 +80,7 @@ export async function POST(request: NextRequest) {
   // (mais provável de já ter eventos publicados — evita re-verificar sempre os mesmos)
   const queue = [...byOrder.entries()].sort((a, b) =>
     Number(b[1].some(r => !Number(r.marketplace_commission))) - Number(a[1].some(r => !Number(r.marketplace_commission))))
-  for (const [orderId, rows] of queue) {
+  for (const [orderId, rows] of queue.slice(offset)) {
     if (processed >= limit) break
     processed++
     await sleep(600) // Finances API: ~0.5 req/s
