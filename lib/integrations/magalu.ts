@@ -16,8 +16,10 @@ const SCOPES = [
   'open:order-financial-report-seller:read',
   'open:portfolio-skus-seller:read',
   'open:portfolio-prices-seller:read',
-  'open:logistic-inventory:read',            // estoque no CD do Magalu Full
-  'open:logistic-fiscal-documents-seller:read', // XML de nota do fulfillment (backup)
+  // 'open:logistic-inventory:read' e 'open:logistic-fiscal-documents-seller:read'
+  // (adicionados 20/08) NÃO estão aprovados no client do Magalu Devs: pedi-los
+  // faz o ID Magalu recusar TODO o login com invalid_scope (28/09). Só voltar
+  // depois de aprovar com `./idm client add-scope`.
 ].join(' ')
 
 /** URL para o seller autorizar o app (tela de consentimento do ID Magalu). */
