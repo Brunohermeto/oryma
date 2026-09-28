@@ -12,13 +12,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { blingGetDocumentoXml } from '@/lib/integrations/bling'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { fetchAll } from '@/lib/supabase/fetch-all'
+import { nfeTotal } from '@/lib/nfe/xml-total'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 export const preferredRegion = 'gru1'
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
-const tag = (xml: string, t: string) => parseFloat(xml.match(new RegExp(`<${t}>([^<]+)</${t}>`))?.[1] ?? '0')
+const tag = nfeTotal  // total da NF (ICMSTot) — o 1º match era o do 1º item
 
 export async function POST(request: NextRequest) {
   const authCookie = request.cookies.get('mi_auth')?.value

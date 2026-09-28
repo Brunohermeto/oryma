@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { blingGet, blingGetDocumentoXml } from '@/lib/integrations/bling'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { nfeTotal } from '@/lib/nfe/xml-total'
 
 export const dynamic         = 'force-dynamic'
 export const maxDuration     = 60
@@ -20,10 +21,8 @@ export const preferredRegion = 'gru1'
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
-function extractTag(xml: string, tag: string): number {
-  const m = xml.match(new RegExp(`<${tag}>([^<]+)<\\/${tag}>`))
-  return parseFloat(m?.[1] ?? '0')
-}
+// total da NF (ICMSTot) — o 1º match era o do 1º item
+const extractTag = nfeTotal
 
 function extractStr(xml: string, tag: string): string | null {
   const m = xml.match(new RegExp(`<${tag}>([^<]+)<\\/${tag}>`))

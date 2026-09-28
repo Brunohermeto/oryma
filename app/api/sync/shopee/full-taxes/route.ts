@@ -11,13 +11,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { unzipSync, strFromU8 } from 'fflate'
 import { shopeePost } from '@/lib/integrations/shopee'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { nfeTotal } from '@/lib/nfe/xml-total'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 export const preferredRegion = 'gru1'
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
-const num = (xml: string, t: string) => parseFloat(xml.match(new RegExp(`<${t}>([^<]+)</${t}>`))?.[1] ?? '0')
+const num = nfeTotal  // total da NF (ICMSTot) — o 1º match era o do 1º item
 const ymd = (d: Date) => Number(`${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`)
 
 export async function POST(request: NextRequest) {

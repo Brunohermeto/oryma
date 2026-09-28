@@ -1,4 +1,5 @@
 import { parseNFeXml } from './parser'
+import { nfeTotal } from './xml-total'
 
 export interface SaleTaxBreakdown {
   nfeKey: string
@@ -13,10 +14,8 @@ export interface SaleTaxBreakdown {
 export function extractSaleTaxes(xmlContent: string): SaleTaxBreakdown {
   const nfe = parseNFeXml(xmlContent)
 
-  function extractTag(tag: string): number {
-    const m = xmlContent.match(new RegExp(`<${tag}>([^<]+)<\\/${tag}>`))
-    return parseFloat(m?.[1] ?? '0') || 0
-  }
+  // total da NF (ICMSTot) — o 1º match era o do 1º item
+  const extractTag = (tag: string) => nfeTotal(xmlContent, tag)
 
   const icmsDifal = extractTag('vICMSUFDest') + extractTag('vICMSUFRemet') + extractTag('vFCPUFDest')
   const ufMatch = xmlContent.match(/<dest>[\s\S]*?<UF>([^<]+)<\/UF>/)

@@ -3,6 +3,7 @@ import { getCredential } from '@/lib/integrations/credentials'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { toBrazilDate } from '@/lib/utils/brazil-time'
 import { upsertSale } from './upsert-sale'
+import { nfeTotal } from '@/lib/nfe/xml-total'
 import { buildBlingProductIndex, resolveSkuFromBling, type BlingProductIndex } from '@/lib/bling/product-index'
 
 /**
@@ -109,8 +110,7 @@ export async function syncMagalu(startDate: string, endDate: string): Promise<nu
 
   // Impostos do fulfillment: a NF (série 6, emitida pela Magalu) vem com XML
   // completo em /seller/v1/deliveries/{id}/invoices — extrai uma vez por entrega
-  const xmlTag = (xml: string, tag: string) =>
-    parseFloat(xml.match(new RegExp(`<${tag}>([^<]+)</${tag}>`))?.[1] ?? '0')
+  const xmlTag = nfeTotal  // total da NF (ICMSTot) — o 1º match era o do 1º item
   const invoiceTaxCache = new Map<string, { pis: number; cofins: number; icms: number; difal: number; ipi: number } | null>()
   const getFullInvoiceTaxes = async (deliveryId: string, chave: string) => {
     if (invoiceTaxCache.has(chave)) return invoiceTaxCache.get(chave)
