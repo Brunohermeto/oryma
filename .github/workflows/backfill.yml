@@ -33,7 +33,12 @@ jobs:
       - name: Backfill
         env:
           APP_PASSWORD: ${{ secrets.ORYMA_APP_PASSWORD }}
+          # inputs via env (nunca interpolar ${{ }} direto no shell)
+          IN_FROM: ${{ github.event.inputs.from }}
+          IN_TO: ${{ github.event.inputs.to }}
+          IN_STEPS: ${{ github.event.inputs.steps }}
+          IN_CHANNELS: ${{ github.event.inputs.channels }}
         run: |
-          TO="${{ github.event.inputs.to }}"
-          CH="${{ github.event.inputs.channels }}"
-          python scripts/backfill.py --from "${{ github.event.inputs.from }}" ${TO:+--to "$TO"} --steps "${{ github.event.inputs.steps }}" ${CH:+--channels "$CH"}
+          for v in "$IN_FROM" "$IN_TO"; do [[ -z "$v" || "$v" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || { echo "data invalida: $v"; exit 1; }; done
+          for v in "$IN_STEPS" "$IN_CHANNELS"; do [[ -z "$v" || "$v" =~ ^[a-z_,]+$ ]] || { echo "lista invalida: $v"; exit 1; }; done
+          python scripts/backfill.py --from "$IN_FROM" ${IN_TO:+--to "$IN_TO"} --steps "$IN_STEPS" ${IN_CHANNELS:+--channels "$IN_CHANNELS"}
