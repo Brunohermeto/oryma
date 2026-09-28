@@ -5,7 +5,7 @@
  */
 export async function callRelink(body: { productIds?: string[]; from?: string }) {
   const host = process.env.VERCEL_PROJECT_PRODUCTION_URL
-  const base = host ? `https://${host}` : 'http://localhost:3000'
+  const base = host ? `https://${host}` : 'https://www.oryma.com.br'
   const res = await fetch(`${base}/api/landed-cost/relink`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-cron-secret': process.env.CRON_SECRET ?? 'internal' },
