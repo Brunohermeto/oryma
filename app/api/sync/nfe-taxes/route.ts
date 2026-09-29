@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
   const force  = request.nextUrl.searchParams.get('force') === '1'
   const offset = Number(request.nextUrl.searchParams.get('offset') ?? 0)
   const serie  = request.nextUrl.searchParams.get('serie')
+  const canal  = request.nextUrl.searchParams.get('marketplace')
   const db = createSupabaseServiceClient()
   const since = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10)
 
@@ -43,7 +44,6 @@ export async function POST(request: NextRequest) {
   const sales = await fetchAll<{ id: string; nfe_saida_key: string; gross_price: number; marketplace: string; fulfillment_type: string | null; uf_destino: string | null }>(() => db.from('sales')
     .select('id, nfe_saida_key, gross_price, marketplace, fulfillment_type, uf_destino')
     .not('nfe_saida_key', 'is', null)
-    .neq('marketplace', 'amazon')
     .gte('sale_date', since)
     .order('id'))
 
@@ -60,7 +60,13 @@ export async function POST(request: NextRequest) {
     // (extração de UF falhou numa rodada antiga) precisa reentrar pra pegar o UF
     if (!force && taxed.has(s.id) && s.uf_destino) continue
     if (serie && s.nfe_saida_key.slice(22, 25) !== serie) continue
+    if (canal && s.marketplace !== canal) continue
     if (s.marketplace === 'magalu' && s.fulfillment_type === 'full_magalu') continue // NF série 6 não está no Bling
+    // Amazon FBA = NF série 420 da Amazon (não está no Bling). Amazon galpão (série
+    // 002) está no Bling e PRECISA passar aqui: a UF fiscal vem do XML — antes
+    // ficava a UF do endereço de entrega (getOrderAddress) e o alerta de DIFAL
+    // "interno MG→MG" disparava em NF que era MG→MA (28/09)
+    if (s.marketplace === 'amazon' && s.nfe_saida_key.slice(22, 25) === '420') continue
     // Shopee emite pela própria plataforma desde ~10/07 (série 005) — XML não está no Bling
     if (s.marketplace === 'shopee' && s.nfe_saida_key.slice(22, 25) === '005') continue
     if (!byChave.has(s.nfe_saida_key)) byChave.set(s.nfe_saida_key, [])
