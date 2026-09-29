@@ -38,8 +38,14 @@ export async function POST(request: NextRequest) {
 
   const days = Number(request.nextUrl.searchParams.get('days') ?? '45')
   const db   = createSupabaseServiceClient()
-  const from = brazilDaysAgo(days)
+  // ?from=&to= (YYYY-MM-DD): janela fechada p/ reauditar o histórico mês a mês —
+  // o ano inteiro numa consulta com joins dava statement timeout (500)
+  const isDate = (s: string | null): s is string => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s)
+  const qFrom = request.nextUrl.searchParams.get('from')
+  const qTo = request.nextUrl.searchParams.get('to')
+  const from = isDate(qFrom) ? qFrom : brazilDaysAgo(days)
   const hoje = brazilToday()
+  const ate = isDate(qTo) ? qTo : hoje
   const d = (n: number) => brazilDaysAgo(n)
 
   const sales = await fetchAll<any>(() => db.from('sales')
@@ -49,6 +55,7 @@ export async function POST(request: NextRequest) {
       sale_taxes(icms, icms_difal, pis, cofins, total_taxes),
       sale_costs(total_cost, margin_pct)`)
     .gte('sale_date', from)
+    .lte('sale_date', ate)
     .order('id', { ascending: true }))  // paginado: .limit(2000) cortava em 1000
 
   const findings: Finding[] = []
