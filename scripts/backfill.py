@@ -204,7 +204,7 @@ if "amazon" in STEPS:
         r = safe(f"amazon fees r{i}", lambda: post(f"/api/sync/amazon/fees?days={N}&limit=20&offset={off}"))
         if not r: break
         pend = r.get("pendentes_sem_comissao") or 0
-        off += 20  # ponytail: quem é atualizado sai da fila e pode pular vizinhos; o ciclo diário repega
+        if not r.get("updated"): off += 20  # atualizados saem da fila; só avança em lote sem novidade
         if off >= pend: break
         time.sleep(2)
     safe("amazon service-fees", lambda: post(f"/api/sync/amazon/service-fees?days={N}"))

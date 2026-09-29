@@ -189,12 +189,14 @@ except Exception as e:
 # Lotes de 20 andando pela fila com offset (limit=60 numa chamada passava dos 60s
 # com qualquer lentidao da Amazon — 0,6s/pedido). Ate 12 lotes cobre ~240
 # pendentes. "pendentes_sem_comissao" e a metrica honesta.
+# Só avança o offset quando o lote não resolveu nada: quem ganha comissão sai da
+# fila de pendentes e os de trás sobem (avançar sempre pulava ~20 por lote).
 _off = 0
-for _i in range(12):
+for _i in range(20):
     try:
         r = post(f"/api/sync/amazon/fees?days=90&limit=20&offset={_off}", timeout=170)
         print(f"8b. amazon fees off{_off}: {json.dumps(r, ensure_ascii=False)[:110]}", flush=True)
-        _off += 20
+        if not r.get("updated"): _off += 20
         if _off >= (r.get("pendentes_sem_comissao") or 0): break
     except Exception as e:
         print(f"8b. amazon fees off{_off}: ERRO {str(e)[:70]}", flush=True)
