@@ -186,13 +186,19 @@ except Exception as e:
 # janela 90d (nao 30): ha pedidos que a Amazon so publica depois de 30 dias; com a
 # janela curta eles saiam da fila e ficavam sem comissao para sempre. A fila ja
 # prioriza os sem comissao, entao a janela maior nao deixa a rota mais lenta.
-# Uma chamada basta: a fila prioriza os sem comissao e limit=60 cobre o pendente
-# real (~40, o lag normal da Amazon). "pendentes_sem_comissao" e a metrica honesta.
-try:
-    r = post("/api/sync/amazon/fees?days=90&limit=60", timeout=170)
-    print(f"8b. amazon fees: {json.dumps(r, ensure_ascii=False)[:120]}", flush=True)
-except Exception as e:
-    print(f"8b. amazon fees: ERRO {str(e)[:70]}", flush=True)
+# Lotes de 20 andando pela fila com offset (limit=60 numa chamada passava dos 60s
+# com qualquer lentidao da Amazon — 0,6s/pedido). Ate 12 lotes cobre ~240
+# pendentes. "pendentes_sem_comissao" e a metrica honesta.
+_off = 0
+for _i in range(12):
+    try:
+        r = post(f"/api/sync/amazon/fees?days=90&limit=20&offset={_off}", timeout=170)
+        print(f"8b. amazon fees off{_off}: {json.dumps(r, ensure_ascii=False)[:110]}", flush=True)
+        _off += 20
+        if _off >= (r.get("pendentes_sem_comissao") or 0): break
+    except Exception as e:
+        print(f"8b. amazon fees off{_off}: ERRO {str(e)[:70]}", flush=True)
+        _off += 20
 
 # ── 8d-pre. taxas de servico Amazon (postagem MFN exata por venda + VIGIA armazenagem) ──
 try:
