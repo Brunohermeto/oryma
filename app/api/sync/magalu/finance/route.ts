@@ -39,8 +39,13 @@ export async function POST(request: NextRequest) {
 
   const days = Math.min(Number(request.nextUrl.searchParams.get('days') ?? 14), 15)
   const db = createSupabaseServiceClient()
-  const gte = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10)
-  const lte = new Date().toISOString().slice(0, 10)
+  // ?from=&to= (YYYY-MM-DD, até 15 dias — limite da API): backfill do histórico;
+  // sem eles, os últimos `days` dias (ciclo diário)
+  const qFrom = request.nextUrl.searchParams.get('from')
+  const qTo   = request.nextUrl.searchParams.get('to')
+  const isDate = (s: string | null): s is string => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s)
+  const gte = isDate(qFrom) ? qFrom : new Date(Date.now() - days * 864e5).toISOString().slice(0, 10)
+  const lte = isDate(qTo) ? qTo : new Date().toISOString().slice(0, 10)
 
   let updated = 0
   let orders = 0
