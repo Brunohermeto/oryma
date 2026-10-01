@@ -229,21 +229,36 @@ except Exception as e:
 #        A Shopee gera o lote de XMLs de forma assíncrona; em dias lentos passa
 #        dos ~39s que a rota espera e volta 504. Repete até 3x (rota idempotente,
 #        cada tentativa é uma invocação nova de 60s + pausa dá tempo de gerar).
-reqid = None
-for tent in range(4):
-    q = "/api/sync/shopee/full-taxes?days=20" + (f"&request_id={reqid}" if reqid else "")
-    try:
-        r = post(q, timeout=170)
-        print(f"8d3. shopee full taxes t{tent}: {json.dumps(r, ensure_ascii=False)[:120]}", flush=True)
-        if r.get("ok"): break
-    except urllib.error.HTTPError as e:
-        try: reqid = json.loads(e.read()).get("request_id") or reqid
-        except Exception: pass
-        print(f"8d3. shopee full taxes t{tent}: 504 (retoma req {reqid})", flush=True)
-    except Exception as e:
-        print(f"8d3. shopee full taxes t{tent}: ERRO {str(e)[:70]}", flush=True)
-    if tent < 3:
-        time.sleep(25)
+#        Janelas de até 5 dias que NUNCA cruzam a virada do mês: período que
+#        abrange 2 meses faz a Shopee "perder" o lote (ERR_DATA_NOT_FOUND para o
+#        request_id que ela acabou de criar — 30/07–08/08, 29/08–02/09, 27/09–01/10).
+#        Nesse erro gera lote NOVO; janela sem venda Full também dá esse erro (normal).
+_hoje = datetime.date.today()
+_dias = [_hoje - datetime.timedelta(days=i) for i in range(20)]
+_janelas = []
+for _d in _dias:
+    if _janelas and _janelas[-1][0].month == _d.month and len(_janelas[-1]) < 5:
+        _janelas[-1].append(_d)
+    else:
+        _janelas.append([_d])
+for _j in _janelas:
+    _ate, _de = _j[0], _j[-1]
+    reqid = None
+    for tent in range(3):
+        q = f"/api/sync/shopee/full-taxes?from={_de}&to={_ate}" + (f"&request_id={reqid}" if reqid else "")
+        try:
+            r = post(q, timeout=170)
+            print(f"8d3. shopee full taxes {_de}..{_ate} t{tent}: {json.dumps(r, ensure_ascii=False)[:110]}", flush=True)
+            if r.get("ok"): break
+        except urllib.error.HTTPError as e:
+            body = e.read().decode(errors="replace")
+            try: reqid = None if "ERR_DATA_NOT_FOUND" in body else (json.loads(body).get("request_id") or reqid)
+            except Exception: reqid = None
+            print(f"8d3. shopee full taxes {_de}..{_ate} t{tent}: {e.code} {'sem lote (janela vazia ou perdido)' if reqid is None else f'retoma req {reqid}'}", flush=True)
+        except Exception as e:
+            print(f"8d3. shopee full taxes {_de}..{_ate} t{tent}: ERRO {str(e)[:70]}", flush=True)
+        if tent < 2:
+            time.sleep(15)
 
 # ── 8d4. custos Shopee (comissão/serviço líquidos) — reprocessa 15d conforme a
 #        Shopee finaliza o financeiro (o sync só relê 2 dias) ──
