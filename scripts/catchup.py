@@ -184,12 +184,16 @@ loop_rota("6. shipping", "/api/sync/ml/shipping", {"days": 4, "limit": 12}, paus
 # ── 7. tarifas/estorno/UF por pedido (rate limit 5/min) ──
 loop_rota("7. tariffs", "/api/sync/ml/tariffs", {"days": 4, "limit": 30}, pausa=14)
 
-# ── 8. ads/rebates por periodo ──
+# ── 8. Mercado Ads por anúncio e por dia (API de publicidade) → rateio por venda
+#       do mesmo anúncio no dia (lib/marketing/allocate-ads). Relê 7 dias porque o
+#       ML consolida as métricas com atraso. Substitui o rateio pelo extrato (billing).
 try:
-    r = post("/api/sync/ml/billing?days=4")
-    print(f"8. billing: {json.dumps(r, ensure_ascii=False)[:130]}", flush=True)
+    _h = datetime.date.today()
+    for _ini, _fim in ((_h - datetime.timedelta(days=6), _h - datetime.timedelta(days=4)), (_h - datetime.timedelta(days=3), _h)):
+        r = post(f"/api/sync/ml/ads?from={_ini}&to={_fim}")
+        print(f"8. ml ads {_ini}..{_fim}: {json.dumps([(d['dia'], d['gasto']) for d in r.get('dias', [])], ensure_ascii=False)}", flush=True)
 except Exception as e:
-    print(f"8. billing: ERRO {str(e)[:70]}", flush=True)
+    print(f"8. ml ads: ERRO {str(e)[:70]}", flush=True)
 
 # ── 8b. taxas reais Amazon (Finances API; eventos atrasam dias — retenta ate sair) ──
 # janela 90d (nao 30): ha pedidos que a Amazon so publica depois de 30 dias; com a
