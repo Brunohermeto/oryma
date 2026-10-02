@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getValidMercadoLivreToken } from '@/lib/integrations/mercado-livre'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { gravaAdsDoDia } from '@/lib/marketing/allocate-ads'
+import { skusMlPorAnuncio } from '@/lib/marketing/ads-products'
 import { brazilDaysAgo, brazilToday } from '@/lib/utils/brazil-time'
 
 export const dynamic = 'force-dynamic'
@@ -48,17 +49,42 @@ export async function POST(request: NextRequest) {
   if (!adv) return NextResponse.json({ ok: false, error: 'conta sem anunciante Product Ads' }, { status: 400 })
 
   const db = createSupabaseServiceClient()
+  const skusPorMlb = await skusMlPorAnuncio(db)
+  // nomes das campanhas (só p/ exibir no painel; falha aqui não impede o resto)
+  const nomeCampanha = new Map<string, string>()
+  try {
+    for (let off = 0; off < 1000; off += 50) {
+      const c = await api(`/advertising/MLB/advertisers/${adv}/product_ads/campaigns/search?limit=50&offset=${off}`, '2')
+      for (const x of c.results ?? []) nomeCampanha.set(String(x.id), x.name)
+      if (off + 50 >= Number(c.paging?.total ?? 0)) break
+    }
+  } catch { /* segue sem nomes */ }
   const dias: Array<{ dia: string; gasto: number; anuncios: number; vendas: number; sem_venda: number }> = []
   for (let d = new Date(`${from}T12:00:00`); d <= new Date(`${to}T12:00:00`); d.setDate(d.getDate() + 1)) {
     const dia = d.toISOString().slice(0, 10)
     const custo = new Map<string, number>()
+    const linhas: Record<string, unknown>[] = []
     for (let off = 0; ; off += 50) {
-      const j = await api(`/advertising/MLB/advertisers/${adv}/product_ads/ads/search?limit=50&offset=${off}&date_from=${dia}&date_to=${dia}&metrics=cost`, '2')
+      const j = await api(`/advertising/MLB/advertisers/${adv}/product_ads/ads/search?limit=50&offset=${off}&date_from=${dia}&date_to=${dia}&metrics=cost,clicks,prints,units_quantity,total_amount`, '2')
       for (const a of j.results ?? []) {
-        const c = Number(a.metrics?.cost ?? 0)
+        const m = a.metrics ?? {}
+        const c = Number(m.cost ?? 0)
         if (c > 0) custo.set(a.item_id, (custo.get(a.item_id) ?? 0) + c)
+        // painel de Ads: guarda o dia (o ML apaga métricas com mais de 90 dias)
+        if (c > 0 || Number(m.clicks ?? 0) > 0) linhas.push({
+          marketplace: 'mercado_livre', date_from: dia, date_to: dia, source: 'api',
+          campaign_id: String(a.campaign_id ?? ''), campaign_name: nomeCampanha.get(String(a.campaign_id)) ?? null,
+          ad_ref: a.item_id, ad_title: a.title ?? null,
+          product_skus: skusPorMlb.get(a.item_id) ?? [],
+          impressions: Number(m.prints ?? 0), clicks: Number(m.clicks ?? 0), cost: c,
+          ad_sales: Number(m.total_amount ?? 0), ad_orders: Number(m.units_quantity ?? 0),
+        })
       }
       if (off + 50 >= Number(j.paging?.total ?? 0)) break
+    }
+    if (linhas.length) {
+      const { error } = await db.from('ads_metrics').upsert(linhas, { onConflict: 'marketplace,date_from,date_to,campaign_id,ad_ref' })
+      if (error) throw new Error(`ads_metrics: ${error.message}`)
     }
     // venda ML: external_order_id = ml_{pedido}_{MLB do anúncio}
     const r = await gravaAdsDoDia(db, 'mercado_livre', dia, custo, s => s.external_order_id.split('_')[2] ?? null)

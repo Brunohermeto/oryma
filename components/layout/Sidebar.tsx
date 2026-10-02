@@ -13,6 +13,7 @@ import {
   Ship,
   Tag,
   Wallet,
+  Megaphone,
   X,
 } from 'lucide-react'
 
@@ -39,6 +40,7 @@ const navGroups = [
       { href: '/dashboard/produtos', label: 'Produtos & Estoque', icon: Package },
       { href: '/dashboard/custos',   label: 'Custos por SKU',     icon: Tag },
       { href: '/dashboard/dre',      label: 'DRE & Despesas',     icon: BarChart3 },
+      { href: '/dashboard/ads',      label: 'Marketing & Ads',    icon: Megaphone },
       { href: '/dashboard/repasse',  label: 'Auditoria de Repasse', icon: Wallet },
     ],
   },
