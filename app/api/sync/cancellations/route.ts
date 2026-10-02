@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { mlGet, getMercadoLivreSellerId } from '@/lib/integrations/mercado-livre'
 import { magaluGet } from '@/lib/integrations/magalu'
+import { shopeeGet } from '@/lib/integrations/shopee'
 import { getCredential } from '@/lib/integrations/credentials'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { brazilToday, brazilDaysAgo, toBrazilDate } from '@/lib/utils/brazil-time'
@@ -98,6 +99,39 @@ export async function POST(request: NextRequest) {
     out.magalu_vendas_marcadas = marcados
   } catch (e) {
     out.magalu = `error: ${String(e).slice(0, 120)}`
+  }
+
+  // ── Shopee: CANCELLED (cancelado depois de pago) e TO_RETURN (devolução) ──
+  // Faltava (02/10/2026): o relatório da Shopee de set tinha 5 pedidos assim que
+  // seguiam contando como venda. A API aceita janelas de até 15 dias.
+  try {
+    const cred = await getCredential('shopee')
+    if (!cred?.access_token) throw new Error('Shopee não conectada')
+    let listados = 0, marcados = 0
+    const ts = (d: string, fimDia: boolean) => Math.floor(new Date(`${d}T${fimDia ? '23:59:59' : '00:00:00'}-03:00`).getTime() / 1000)
+    for (let ini = new Date(`${startDate}T12:00:00`); ini <= new Date(`${endDate}T12:00:00`); ini.setDate(ini.getDate() + 15)) {
+      const fimJ = new Date(Math.min(ini.getTime() + 14 * 864e5, new Date(`${endDate}T12:00:00`).getTime()))
+      let cursor = ''
+      for (let i = 0; i < 40; i++) {
+        const r = await shopeeGet<{ response?: { order_list?: Array<{ order_sn: string; order_status: string }>; more?: boolean; next_cursor?: string } }>(
+          '/order/get_order_list', {
+            time_range_field: 'create_time', time_from: String(ts(ini.toISOString().slice(0, 10), false)),
+            time_to: String(ts(fimJ.toISOString().slice(0, 10), true)), page_size: '50',
+            response_optional_fields: 'order_status', ...(cursor ? { cursor } : {}),
+          })
+        for (const o of r.response?.order_list ?? []) {
+          if (!['CANCELLED', 'TO_RETURN'].includes(o.order_status)) continue
+          listados++
+          marcados += await cancelar('shopee', o.order_sn)
+        }
+        if (!r.response?.more) break
+        cursor = r.response.next_cursor ?? ''
+      }
+    }
+    out.shopee_cancelados_listados = listados
+    out.shopee_vendas_marcadas = marcados
+  } catch (e) {
+    out.shopee = `error: ${String(e).slice(0, 120)}`
   }
 
   return NextResponse.json({ ok: true, from: startDate, to: endDate, ...out })
