@@ -1,0 +1,29 @@
+# Backup diário do banco FORA do Supabase (o projeto excluído em 22/09/2026 levou
+# junto os backups do próprio Supabase). Guarda 90 dias de cópias no GitHub.
+# Restaurar: Actions → este workflow → execução do dia → baixar "oryma-backup-…".
+name: Oryma — backup diario do banco
+
+on:
+  schedule:
+    - cron: '30 6 * * *'   # 06:30 UTC = 03:30 em Brasília
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Exportar tabelas
+        env:
+          APP_PASSWORD: ${{ secrets.ORYMA_APP_PASSWORD }}
+        run: python scripts/backup.py
+      - name: Guardar cópia (90 dias)
+        uses: actions/upload-artifact@v4
+        with:
+          name: oryma-backup-${{ github.run_id }}
+          path: backup/
+          retention-days: 90
