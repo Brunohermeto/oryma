@@ -298,10 +298,18 @@ except Exception as e:
 _h = datetime.date.today()
 for _de, _ate in ((_h - datetime.timedelta(days=45), _h), (_h - datetime.timedelta(days=90), _h - datetime.timedelta(days=46))):
     try:
-        r = post(f"/api/sync/cancellations?from={_de}&to={_ate}", timeout=170)
-        print(f"8g. cancelamentos {_de}..{_ate}: {json.dumps(r, ensure_ascii=False)[:120]}", flush=True)
+        r = post(f"/api/sync/cancellations?from={_de}&to={_ate}&canal=mercado_livre,magalu", timeout=170)
+        print(f"8g. cancelamentos ML/Magalu {_de}..{_ate}: {json.dumps(r, ensure_ascii=False)[:120]}", flush=True)
     except Exception as e:
         print(f"8g. cancelamentos: ERRO {str(e)[:70]}", flush=True)
+# Shopee (cancelado depois de pago / devolução) em janelas de 15 dias, 90 dias pra trás
+for _k in range(6):
+    _ate = _h - datetime.timedelta(days=15 * _k); _de = _ate - datetime.timedelta(days=14)
+    try:
+        r = post(f"/api/sync/cancellations?from={_de}&to={_ate}&canal=shopee", timeout=170)
+        print(f"8g. cancelamentos Shopee {_de}..{_ate}: marcadas {r.get('shopee_vendas_marcadas')}", flush=True)
+    except Exception as e:
+        print(f"8g. cancelamentos Shopee: ERRO {str(e)[:70]}", flush=True)
 
 # ── 8f. UF de destino da Amazon (getOrderAddress, lote) ──
 # lotes de 25 (60 × (0,7s + API + gravação) passava de 60s); até 6 lotes/dia

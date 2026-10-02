@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { mlGet, getMercadoLivreSellerId } from '@/lib/integrations/mercado-livre'
 import { magaluGet } from '@/lib/integrations/magalu'
 import { shopeeGet } from '@/lib/integrations/shopee'
+import { fetchAll } from '@/lib/supabase/fetch-all'
 import { getCredential } from '@/lib/integrations/credentials'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { brazilToday, brazilDaysAgo, toBrazilDate } from '@/lib/utils/brazil-time'
@@ -35,6 +36,8 @@ export async function POST(request: NextRequest) {
   const startDate = request.nextUrl.searchParams.get('from') ?? brazilDaysAgo(days)
   const endDate = request.nextUrl.searchParams.get('to') ?? brazilToday()
   const db = createSupabaseServiceClient()
+  // ?canal=shopee (ou lista): roda só esses canais — os 3 juntos num mês passam dos 60s
+  const canais = (request.nextUrl.searchParams.get('canal') ?? 'mercado_livre,magalu,shopee').split(',')
 
   // Marca todos os itens do pedido como cancelados (integral); idempotente
   const cancelar = async (prefixo: string, pedido: string) => {
@@ -53,7 +56,7 @@ export async function POST(request: NextRequest) {
   const out: Record<string, number | string> = {}
 
   // ── Mercado Livre: pedidos com status cancelled criados na janela ──
-  try {
+  if (canais.includes('mercado_livre')) try {
     const sellerId = await getMercadoLivreSellerId()
     if (!sellerId) throw new Error('sem seller_id')
     let listados = 0, marcados = 0
@@ -78,7 +81,7 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Magalu: lista do mais recente para trás até sair da janela ──
-  try {
+  if (canais.includes('magalu')) try {
     const cred = await getCredential('magalu')
     if (!cred?.access_token) throw new Error('Magalu não conectada')
     let listados = 0, marcados = 0
@@ -104,10 +107,18 @@ export async function POST(request: NextRequest) {
   // ── Shopee: CANCELLED (cancelado depois de pago) e TO_RETURN (devolução) ──
   // Faltava (02/10/2026): o relatório da Shopee de set tinha 5 pedidos assim que
   // seguiam contando como venda. A API aceita janelas de até 15 dias.
-  try {
+  if (canais.includes('shopee')) try {
     const cred = await getCredential('shopee')
     if (!cred?.access_token) throw new Error('Shopee não conectada')
     let listados = 0, marcados = 0
+    // vendas Shopee da janela carregadas UMA vez (consulta por pedido estourava 60s)
+    const margem = (d: string, n: number) => new Date(new Date(`${d}T12:00:00`).getTime() + n * 864e5).toISOString().slice(0, 10)
+    const vendas = await fetchAll<{ id: string; external_order_id: string; gross_price: number; cancellation: number | null }>(() =>
+      db.from('sales').select('id, external_order_id, gross_price, cancellation').eq('marketplace', 'shopee')
+        .gte('sale_date', margem(startDate, -2)).lte('sale_date', margem(endDate, 2)).order('id'))
+    const porPedido = new Map<string, typeof vendas>()
+    for (const v of vendas) { const sn = v.external_order_id.split('_')[1]; if (!porPedido.has(sn)) porPedido.set(sn, []); porPedido.get(sn)!.push(v) }
+    const pendentes: Array<{ id: string; gross: number }> = []
     const ts = (d: string, fimDia: boolean) => Math.floor(new Date(`${d}T${fimDia ? '23:59:59' : '00:00:00'}-03:00`).getTime() / 1000)
     for (let ini = new Date(`${startDate}T12:00:00`); ini <= new Date(`${endDate}T12:00:00`); ini.setDate(ini.getDate() + 15)) {
       const fimJ = new Date(Math.min(ini.getTime() + 14 * 864e5, new Date(`${endDate}T12:00:00`).getTime()))
@@ -122,11 +133,18 @@ export async function POST(request: NextRequest) {
         for (const o of r.response?.order_list ?? []) {
           if (!['CANCELLED', 'TO_RETURN'].includes(o.order_status)) continue
           listados++
-          marcados += await cancelar('shopee', o.order_sn)
+          for (const v of porPedido.get(o.order_sn) ?? []) {
+            const g = Number(v.gross_price)
+            if (g > 0 && Number(v.cancellation ?? 0) < g - 0.01) pendentes.push({ id: v.id, gross: g })
+          }
         }
         if (!r.response?.more) break
         cursor = r.response.next_cursor ?? ''
       }
+    }
+    for (let i = 0; i < pendentes.length; i += 20) {
+      const res = await Promise.all(pendentes.slice(i, i + 20).map(p => db.from('sales').update({ cancellation: p.gross }).eq('id', p.id)))
+      marcados += res.filter(r => !r.error).length
     }
     out.shopee_cancelados_listados = listados
     out.shopee_vendas_marcadas = marcados
