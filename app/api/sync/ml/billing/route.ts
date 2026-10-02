@@ -69,15 +69,21 @@ export async function POST(request: NextRequest) {
       // O billing do ML limita a 5 req/min — se uma página estourar o retry
       // (429/500), NÃO derruba a rota: para nesse período e segue com o que
       // já pegou (rota idempotente, roda 2x/dia e completa na próxima).
-      let body: { results?: BillingDetail[] }
-      try {
-        body = await mlGet<{ results?: BillingDetail[] }>(
-          `/billing/integration/periods/key/${key}/group/ML/details?document_type=BILL&limit=1000&sort_by=ID&order_by=DESC&offset=${offset}`
-        )
-      } catch (e) {
-        apiError = String(e).slice(0, 120)
-        break
+      // 429 (5 req/min): espera e tenta de novo antes de desistir — desistir na
+      // 1ª falha deixava dias de Ads sem gravar (set/2026: R$ 6,5k de R$ 14,7k)
+      let body: { results?: BillingDetail[] } | null = null
+      for (let t = 0; t < 3 && !body; t++) {
+        try {
+          body = await mlGet<{ results?: BillingDetail[] }>(
+            `/billing/integration/periods/key/${key}/group/ML/details?document_type=BILL&limit=1000&sort_by=ID&order_by=DESC&offset=${offset}`
+          )
+        } catch (e) {
+          apiError = String(e).slice(0, 120)
+          if (t < 2) await new Promise(r => setTimeout(r, 12000))
+        }
       }
+      if (!body) break
+      apiError = null
       const results = body.results ?? []
       if (!results.length) break
 
