@@ -7,6 +7,7 @@
  * excluído e os backups do próprio Supabase foram junto.
  * `credentials` (tokens OAuth) fica de fora: reconectar é possível; vazar não.
  */
+import { timingSafeEqual } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 
@@ -17,7 +18,12 @@ export const preferredRegion = 'gru1'
 const FORA = new Set(['credentials'])
 
 export async function GET(request: NextRequest) {
-  if (request.cookies.get('mi_auth')?.value !== process.env.APP_PASSWORD) {
+  // rota exporta o banco inteiro: fecha se a senha não estiver configurada e
+  // compara em tempo constante
+  const expected = process.env.APP_PASSWORD
+  const provided = request.cookies.get('mi_auth')?.value
+  if (!expected || !provided || provided.length !== expected.length
+      || !timingSafeEqual(Buffer.from(provided), Buffer.from(expected))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
