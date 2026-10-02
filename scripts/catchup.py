@@ -27,7 +27,16 @@
 #   9. Estoque Full ML
 #  10. Relink: CMP por vigencia de NF + margens
 #  11. Auditoria automatica (alertas na Visao Geral)
-import json, time, urllib.request, urllib.error, datetime, os
+import json, time, urllib.request, urllib.error, datetime, os, sys
+
+# Toda linha com "ERRO" é guardada: no fim o script sai com código 1 e o GitHub
+# marca a execução como FALHA e manda e-mail ao Bruno (sem e-mail = tudo ok).
+_ERROS = []
+_print = print
+def print(*a, **k):
+    s = " ".join(map(str, a))
+    if "ERRO" in s: _ERROS.append(s[:160])
+    _print(*a, **k)
 
 BASE = os.environ.get("ORYMA_BASE", "https://www.oryma.com.br")
 # Senha: variavel de ambiente (nuvem/GitHub Actions) tem prioridade; senao le o
@@ -365,3 +374,6 @@ except Exception as e:
     print(f"13. arquivo: ERRO {str(e)[:70]}", flush=True)
 
 print("CICLO DIARIO COMPLETO", flush=True)
+if _ERROS:
+    _print(f"\n{len(_ERROS)} etapa(s) com erro:", *_ERROS, sep="\n- ", flush=True)
+    sys.exit(1)
