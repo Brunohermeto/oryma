@@ -41,8 +41,10 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
   const fimDate = new Date(Number(mes.slice(0, 4)), Number(mes.slice(5, 7)), 0)
   const fim = `${mes}-${String(fimDate.getDate()).padStart(2, '0')}`
   const db = createSupabaseServiceClient()
+  // evolução mensal: o mês escolhido + os 5 anteriores
+  const evoIni = (() => { const d = new Date(Number(mes.slice(0, 4)), Number(mes.slice(5, 7)) - 6, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01` })()
 
-  const [rows, sales, { data: produtos }, { data: mapeados }] = await Promise.all([
+  const [rows, sales, { data: produtos }, { data: mapeados }, evoAds, evoVendas] = await Promise.all([
     fetchAll<Row>(() => {
       let q = db.from('ads_metrics').select('marketplace, campaign_id, campaign_name, ad_ref, ad_title, product_skus, impressions, clicks, cost, ad_sales, ad_orders, date_from, date_to')
         .gte('date_from', ini).lte('date_from', fim)
@@ -57,6 +59,16 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
     }),
     db.from('products').select('id, sku, name').eq('archived', false).order('sku').range(0, 4999),
     db.from('ads_campaign_products').select('marketplace, campaign_id'),
+    fetchAll<{ marketplace: string; date_from: string; cost: number; ad_sales: number }>(() => {
+      let q = db.from('ads_metrics').select('marketplace, date_from, cost, ad_sales').gte('date_from', evoIni).lte('date_from', fim)
+      if (canal) q = q.eq('marketplace', canal)
+      return q.order('id')
+    }),
+    fetchAll<{ marketplace: string; sale_date: string; gross_price: number; cancellation: number; discounts: number }>(() => {
+      let q = db.from('sales').select('marketplace, sale_date, gross_price, cancellation, discounts').gte('sale_date', evoIni).lte('sale_date', fim)
+      if (canal) q = q.eq('marketplace', canal)
+      return q.order('id')
+    }),
   ])
   const prodById = new Map((produtos ?? []).map(p => [p.id as string, p as { id: string; sku: string; name: string }]))
   const prodBySku = new Map((produtos ?? []).map(p => [p.sku as string, p as { id: string; sku: string; name: string }]))
@@ -112,6 +124,16 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
     p.cost += n(r.cost); pend.set(k, p)
   }
 
+  // evolução mensal (investimento, vendas via ads, faturamento → ROAS e TACOS)
+  const evo = new Map<string, { cost: number; adSales: number; receita: number }>()
+  const ev = (m: string) => { if (!evo.has(m)) evo.set(m, { cost: 0, adSales: 0, receita: 0 }); return evo.get(m)! }
+  for (const r of evoAds) { const a = ev(r.date_from.slice(0, 7)); a.cost += n(r.cost); a.adSales += n(r.ad_sales) }
+  for (const s of evoVendas) {
+    if (isReturned(s)) continue
+    ev(s.sale_date.slice(0, 7)).receita += n(s.gross_price) - n(s.cancellation) - n(s.discounts)
+  }
+  const evoMeses = [...evo.keys()].sort()
+
   const meses = Array.from({ length: 6 }, (_, i) => { const d = new Date(Number(hoje.slice(0, 4)), Number(hoje.slice(5, 7)) - 1 - i, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` })
   const link = (m: string, c: string | null) => `/dashboard/ads?mes=${m}${c ? `&canal=${c}` : ''}`
   const th = 'px-2 py-2 text-[11px] font-semibold uppercase tracking-wide text-right whitespace-nowrap'
@@ -132,6 +154,13 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
       <TopBar title="Marketing & Ads" subtitle="Investimento em anúncios por canal, campanha e produto — ML automático; Shopee e Amazon por upload quinzenal" />
       <div className="px-4 md:px-8 py-6 space-y-5">
         <div className="flex flex-wrap items-center gap-2">
+          {/* qualquer mês (sem JS: formulário GET nativo) */}
+          <form method="get" className="flex items-center gap-1.5">
+            <span className="text-[12px] font-semibold" style={{ color: B.muted }}>Mês</span>
+            <input type="month" name="mes" defaultValue={mes} max={hoje.slice(0, 7)} className="text-[12px] px-2 py-1 rounded-lg" style={{ border: `1px solid ${B.border}`, color: B.text }} />
+            {canal && <input type="hidden" name="canal" value={canal} />}
+            <button type="submit" className="text-[12px] px-2.5 py-1 rounded-lg cursor-pointer" style={{ background: '#125BFF', color: 'white', border: 'none' }}>Ver</button>
+          </form>
           {meses.map(m => <Link key={m} href={link(m, canal)} className="text-[12px] px-2.5 py-1 rounded-full" style={{ background: m === mes ? '#125BFF' : B.bg, color: m === mes ? 'white' : B.muted }}>{m.slice(5)}/{m.slice(2, 4)}</Link>)}
           <span className="mx-2" style={{ color: B.border }}>|</span>
           <Link href={link(mes, null)} className="text-[12px] px-2.5 py-1 rounded-full" style={{ background: !canal ? '#0B1023' : B.bg, color: !canal ? 'white' : B.muted }}>Todos</Link>
@@ -146,6 +175,22 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
           <Kpi t="TACOS" v={P(div(tot.cost, tot.receita) !== null ? div(tot.cost, tot.receita)! * 100 : null)} s="investimento ÷ faturamento total" />
           <Kpi t="CPC" v={tot.clicks ? `R$ ${(tot.cost / tot.clicks).toFixed(2)}` : '—'} s={`${tot.clicks.toLocaleString('pt-BR')} cliques`} />
           <Kpi t="CTR" v={P(div(tot.clicks, tot.imp) !== null ? div(tot.clicks, tot.imp)! * 100 : null)} s={`${Math.round(tot.imp).toLocaleString('pt-BR')} impressões`} />
+        </div>
+
+        <div className="bg-white rounded-2xl p-5 overflow-x-auto" style={{ border: `1px solid ${B.border}` }}>
+          <div className="text-sm font-semibold mb-1" style={{ color: B.text }}>Evolução mensal {canal ? `— ${MP[canal].label}` : ''}</div>
+          <div className="text-[12px] mb-3" style={{ color: B.muted }}>Últimos 6 meses até o mês escolhido. Shopee/Amazon só aparecem nos meses com relatório enviado.</div>
+          <table className="w-full"><thead><tr style={{ color: B.muted, borderBottom: `1px solid ${B.border}` }}>
+            <th className={`${th} text-left`}>Mês</th><th className={th}>Investimento</th><th className={th}>Vendas via ads</th><th className={th}>ROAS</th><th className={th}>Faturamento</th><th className={th}>TACOS</th>
+          </tr></thead><tbody>
+            {evoMeses.map(m => { const a = evo.get(m)!; return (
+              <tr key={m} style={{ borderBottom: `1px solid ${B.bg}`, background: m === mes ? B.bg : undefined }}>
+                <td className="px-2 py-2 text-[12px] font-medium" style={{ color: B.text }}><Link href={link(m, canal)}>{m.slice(5)}/{m.slice(0, 4)}</Link></td>
+                <td className={td} style={mono}>{R(a.cost)}</td><td className={td} style={mono}>{R(a.adSales)}</td>
+                <td className={td} style={mono}>{X(div(a.adSales, a.cost))}</td><td className={td} style={mono}>{R(a.receita)}</td>
+                <td className={td} style={mono}>{P(div(a.cost, a.receita) !== null ? div(a.cost, a.receita)! * 100 : null)}</td>
+              </tr>) })}
+          </tbody></table>
         </div>
 
         <div className="bg-white rounded-2xl p-5 overflow-x-auto" style={{ border: `1px solid ${B.border}` }}>
