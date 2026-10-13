@@ -19,7 +19,7 @@ async function testBling(): Promise<{ ok: boolean; error?: string; expires_at?: 
     if (!token) return { ok: false, error: 'Token nulo' }
     // Testa com uma chamada leve
     const res = await fetch('https://api.bling.com.br/Api/v3/situacoes/modulos', {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${token}`, 'enable-jwt': '1' },
     })
     const cred = await getCredential('bling')
     if (res.status === 401) return { ok: false, error: 'Token inválido — reconecte o Bling', expires_at: cred?.expires_at }
@@ -34,7 +34,7 @@ async function testML(): Promise<{ ok: boolean; error?: string; expires_at?: str
     const token = await getValidMercadoLivreToken()
     if (!token) return { ok: false, error: 'Token nulo' }
     const res = await fetch('https://api.mercadolibre.com/users/me', {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${token}`, 'enable-jwt': '1' },
     })
     const cred = await getCredential('mercado_livre')
     if (res.status === 401) return { ok: false, error: 'Token inválido — reconecte o ML', expires_at: cred?.expires_at }

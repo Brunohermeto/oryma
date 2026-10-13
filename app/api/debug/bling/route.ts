@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
       const timeout = setTimeout(() => controller.abort(), 8000)
       const res = await fetch(`https://api.bling.com.br/Api/v3${path}`, {
         signal: controller.signal,
-        headers: { Authorization: `Bearer ${cred!.access_token}` },
+        headers: { Authorization: `Bearer ${cred!.access_token}`, 'enable-jwt': '1' },
       })
       clearTimeout(timeout)
       let body = ''
@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
       const timeout = setTimeout(() => controller.abort(), 8000)
       const res = await fetch(
         `https://api.bling.com.br/Api/v3/nfe?pagina=1&limite=1&dataEmissaoInicio=${startDate}&dataEmissaoFim=${endDate}`,
-        { signal: controller.signal, headers: { Authorization: `Bearer ${cred.access_token}` } }
+        { signal: controller.signal, headers: { Authorization: `Bearer ${cred.access_token}`, 'enable-jwt': '1' } }
       )
       clearTimeout(timeout)
       const json = await res.json()
