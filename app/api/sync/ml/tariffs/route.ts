@@ -160,7 +160,9 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     ok: true,
     processed_orders: batch.length,
-    processed_ids: batch,
+    // lote com erro (429 etc.) NÃO volta como processado: o chamador repete em vez
+    // de pular — antes o rebate desses 30 pedidos ficava de fora (14/10/2026)
+    processed_ids: errors.length ? [] : batch,
     sales_updated: updated,
     remaining_orders: orders.size - batch.length,
     errors,
