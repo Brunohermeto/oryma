@@ -182,7 +182,10 @@ loop_rota("5. invoices", "/api/sync/ml/invoices", {"days": 4, "limit": 20})
 loop_rota("6. shipping", "/api/sync/ml/shipping", {"days": 4, "limit": 12}, pausa=1)
 
 # ── 7. tarifas/estorno/UF por pedido (rate limit 5/min) ──
-loop_rota("7. tariffs", "/api/sync/ml/tariffs", {"days": 4, "limit": 30}, pausa=14)
+# days=12: a rota reconfere toda venda dos últimos 10 dias (o ML lança estorno/
+# bônus de campanha em ondas). Com days=4 o rebate que chegava no 5º-10º dia
+# nunca entrava (14/10/2026)
+loop_rota("7. tariffs", "/api/sync/ml/tariffs", {"days": 12, "limit": 30}, max_rodadas=25, pausa=14)
 
 # ── 8. Mercado Ads por anúncio e por dia (API de publicidade) → rateio por venda
 #       do mesmo anúncio no dia (lib/marketing/allocate-ads). Relê 7 dias porque o
@@ -273,13 +276,15 @@ for _j in _janelas:
         if tent < 2:
             time.sleep(15)
 
-# ── 8d4. custos Shopee (comissão/serviço líquidos) — reprocessa 15d conforme a
-#        Shopee finaliza o financeiro (o sync só relê 2 dias) ──
+# ── 8d4. custos Shopee (comissão/serviço brutos + rebate) — reprocessa 20d conforme
+#        a Shopee finaliza o financeiro (o sync só relê 2 dias). Percorre a fila
+#        TODA por offset: parar no 1º "updated=0" deixava pedidos já com comissão
+#        sem o rebate, que só aparece quando a Shopee fecha o pedido (14/10/2026) ──
 try:
-    for i in range(6):
-        r = post("/api/sync/shopee/costs?days=15&limit=40", timeout=170)
-        print(f"8d4. shopee custos r{i}: {json.dumps(r, ensure_ascii=False)[:100]}", flush=True)
-        if r.get("updated", 0) == 0:
+    for off in range(0, 2000, 40):
+        r = post(f"/api/sync/shopee/costs?days=20&limit=40&offset={off}", timeout=170)
+        print(f"8d4. shopee custos off{off}: {json.dumps(r, ensure_ascii=False)[:100]}", flush=True)
+        if r.get("processed", 0) < 40:
             break
         time.sleep(2)
 except Exception as e:
