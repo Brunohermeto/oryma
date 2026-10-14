@@ -5,14 +5,14 @@
  * relê 2 dias, mas a Shopee finaliza comissão/serviço (e o ajuste de ação
  * comercial que vira a LÍQUIDA) alguns dias depois da venda. Este passo pega os
  * pedidos que ainda estão com custo provisório/zerado e atualiza:
- *   comissão e serviço BRUTOS · rebate (ajuste de ação comercial = bruta − líquida,
- *   o estorno da Shopee pra nós) · frete = 0 (neutro). Mesma regra do ML
- *   (14/10/2026): antes gravava a líquida e o rebate sumia dentro dela.
+ *   comissão e serviço BRUTOS · rebate (o que a Shopee nos devolve, ancorado no
+ *   repasse real — lib/marketplace/shopee-fees) · frete = 0 (neutro).
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchAll } from '@/lib/supabase/fetch-all'
 import { shopeeGet } from '@/lib/integrations/shopee'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { shopeeFees } from '@/lib/marketplace/shopee-fees'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -73,26 +73,17 @@ export async function POST(request: NextRequest) {
       inc = esc.response?.order_income
     } catch { continue }
     if (!inc) continue
-    // bruta − líquida = rebate. Líquida 0 = ainda não finalizada (só na entrega) → sem rebate por ora
-    const comm = Number(inc.commission_fee ?? 0)
-    const serv = Number(inc.service_fee ?? 0)
-    const rebC = Number(inc.net_commission_fee) > 0 ? Math.max(comm - Number(inc.net_commission_fee), 0) : 0
-    const rebS = Number(inc.net_service_fee) > 0 ? Math.max(serv - Number(inc.net_service_fee), 0) : 0
-    // Shopee: os DOIS cupons reduzem a receita (a Shopee desconta do repasse) —
-    // regra de 26/08/2026; diferente do ML. Ver sync-shopee.ts.
-    const cupom = Number(inc.voucher_from_seller ?? 0) + Number(inc.voucher_from_shopee ?? 0)
-    // repasse da Shopee = escrow_amount (Renda estimada). É a própria estimativa
-    // da Shopee (derivada das mesmas taxas + muda com a finalização), então NÃO é
-    // um repasse independente — fica só como referência, fora do alerta.
-    const escrow = Number(inc.escrow_amount ?? 0)
-    if (comm <= 0) continue // financeiro ainda não liberado
     const total = items.reduce((a, x) => a + x.gross_price, 0)
+    // comissão/serviço brutos, cupons e rebate ancorados no repasse — ver lib/marketplace/shopee-fees
+    const f = shopeeFees(inc, total)
+    if (f.comm <= 0) continue // financeiro ainda não liberado
+    const escrow = f.repasse
     for (const it of items) {
       const share = total > 0 ? it.gross_price / total : 1 / items.length
-      const nComm = Math.round(comm * share * 100) / 100
-      const nServ = Math.round(serv * share * 100) / 100
-      const nDisc = Math.round(cupom * share * 100) / 100
-      const nReb  = Math.round((rebC + rebS) * share * 100) / 100
+      const nComm = Math.round(f.comm * share * 100) / 100
+      const nServ = Math.round(f.serv * share * 100) / 100
+      const nDisc = Math.round(f.cupom * share * 100) / 100
+      const nReb  = Math.round(f.rebate * share * 100) / 100
       const nPay  = escrow > 0 ? Math.round(escrow * share * 100) / 100 : null
       // só grava se algo mudou de verdade — assim o loop converge (updated=0 → para)
       // em vez de reescrever os mesmos valores toda rodada.

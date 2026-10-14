@@ -3,6 +3,7 @@ import { getCredential } from '@/lib/integrations/credentials'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { toBrazilDate } from '@/lib/utils/brazil-time'
 import { upsertSale } from './upsert-sale'
+import { shopeeFees } from './shopee-fees'
 
 interface ShopeeOrderListResponse {
   response?: {
@@ -113,6 +114,7 @@ export async function syncShopee(startDate: string, endDate: string): Promise<nu
       // Shopee mascara o endereço (****) após a conclusão — só grava UF válida
       const ufRaw = (orderDetail as any).recipient_address?.state?.toUpperCase() ?? ''
       const uf = /^[A-Z]{2}$/.test(ufRaw) ? ufRaw : null
+      const fees = shopeeFees(escrow?.order_income as unknown as Record<string, unknown> | undefined, totalItems)
       for (const item of itemsAll) {
         // SKU da variação (model_sku) é o código real; item_sku é o do anúncio
         const sku = item.model_sku || item.item_sku
@@ -131,15 +133,11 @@ export async function syncShopee(startDate: string, endDate: string): Promise<nu
           quantity: item.model_quantity_purchased,
           gross_price: grossPrice,
           shipping_received: ((income as any)?.buyer_paid_shipping_fee ?? 0) * share, // info; frete é neutro pro vendedor
-          // Comissão e serviço BRUTOS + rebate (ajuste de ação comercial = bruta −
-          //   líquida) separado — mesma regra do ML (14/10/2026). A líquida só é
-          //   finalizada na entrega (antes vem 0) → sem rebate até lá; o
-          //   /api/sync/shopee/costs completa depois. Frete NÃO é custo do vendedor
-          //   (comprador paga e a Shopee repassa à logística — resultado zero).
-          marketplace_commission: (income?.commission_fee ?? 0) * share,
-          marketplace_fixed_fee:  (income?.service_fee ?? 0) * share,
-          rebate: (((income as any)?.net_commission_fee > 0 ? Math.max((income?.commission_fee ?? 0) - (income as any).net_commission_fee, 0) : 0)
-                 + ((income as any)?.net_service_fee > 0 ? Math.max((income?.service_fee ?? 0) - (income as any).net_service_fee, 0) : 0)) * share,
+          // comissão/serviço brutos + rebate ancorados no repasse (lib/marketplace/shopee-fees).
+          // Frete NÃO é custo do vendedor (comprador paga e a Shopee repassa à logística).
+          marketplace_commission: fees.comm * share,
+          marketplace_fixed_fee:  fees.serv * share,
+          rebate: fees.rebate * share,
           marketplace_shipping_fee: 0,
           ads_cost: ((income as any)?.ads_campaign_cost ?? 0) * share,
           // Cupom na SHOPEE: os DOIS reduzem a receita — voucher_from_seller E
@@ -147,7 +145,7 @@ export async function syncShopee(startDate: string, endDate: string): Promise<nu
           // 699 − comissão − serviço − voucher_from_shopee = escrow (Renda estimada).
           // DIFERENTE do ML (lá só a parte do vendedor). Revertido em 26/09 após
           // a auditoria de 22/09 aplicar a regra do ML aqui por engano.
-          discounts: (((income as any)?.voucher_from_seller ?? 0) + ((income as any)?.voucher_from_shopee ?? 0)) * share,
+          discounts: fees.cupom * share,
           // escrow_amount (Renda estimada) rateado — referência da Shopee, não é
           // repasse independente (fica fora do alerta). 0/ausente = não liberado.
           ...((Number((income as any)?.escrow_amount) > 0) ? { payout_actual: (income as any).escrow_amount * share } : {}),
