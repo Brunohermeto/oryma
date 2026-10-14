@@ -1,9 +1,10 @@
 /**
  * Custos e rebate de UM pedido Shopee a partir do escrow (get_escrow_detail).
  *
- * Âncora = repasse real (escrow_amount): comissão e serviço BRUTOS, cupons (os
- * dois, regra de 26/08/2026) e o resto é o que a Shopee devolve a nós (rebate):
- * desconto de preço bancado por ela, comissão zerada em campanha, cupom Shopee.
+ * Espelha o extrato "Informações de Pagamento" da Shopee. Âncora = repasse real
+ * (escrow_amount): comissão e serviço BRUTOS, descontos (cupons + ajuste PIX) e o
+ * resto é o que a Shopee devolve a nós (rebate) = "Ajuste por participação em
+ * ação comercial" (comissão/taxa) + "Cupons & descontos" (incentivos Shopee).
  *   rebate = repasse − (bruto − cupons − comissão − serviço)
  * Resíduo NEGATIVO (frete pago pelo vendedor, comissão de afiliado…) é custo →
  * vai para a tarifa fixa. Assim bruto − cupons − tarifas + rebate = repasse.
@@ -14,7 +15,8 @@ export function shopeeFees(inc: Record<string, unknown> | undefined, grossPedido
   const n = (k: string) => Number(inc?.[k] ?? 0)
   const comm  = n('commission_fee')
   const serv  = n('service_fee')
-  const cupom = n('voucher_from_seller') + n('voucher_from_shopee')
+  // descontos = os do "Subtotal dos Produtos" do extrato: cupons + ajuste PIX
+  const cupom = n('voucher_from_seller') + n('voucher_from_shopee') + n('pix_discount')
   const repasse = n('escrow_amount_after_adjustment') || n('escrow_amount')
   // repasse 0 = financeiro ainda não liberado → sem rebate por ora
   const residuo = repasse > 0 ? repasse - (grossPedido - cupom - comm - serv) : 0
