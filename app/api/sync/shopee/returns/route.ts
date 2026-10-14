@@ -37,7 +37,9 @@ export async function POST(request: NextRequest) {
   const returns: ReturnItem[] = []
   for (let from = now - days * 86400; from < now; from += 15 * 86400) {
     const to = Math.min(from + 15 * 86400 - 1, now)
-    for (let pageNo = 1; pageNo < 20; pageNo++) {
+    // page_no começa em 0 — começar em 1 pulava a 1ª página e a lista vinha
+    // SEMPRE vazia (14/10/2026: 76 devoluções de 2026 nunca tinham entrado)
+    for (let pageNo = 0; pageNo < 20; pageNo++) {
       const res = await shopeeGet<{ response?: { return: ReturnItem[]; more: boolean } }>('/returns/get_return_list', {
         page_no: String(pageNo), page_size: '50',
         create_time_from: String(from), create_time_to: String(to),
@@ -60,13 +62,17 @@ export async function POST(request: NextRequest) {
   }
   for (const [orderSn, refund] of porPedido) {
     const { data: sales } = await db.from('sales')
-      .select('id, gross_price, cancellation')
+      .select('id, gross_price, cancellation, discounts')
       .like('external_order_id', `shopee_${orderSn}_%`)
     if (!sales?.length) { semVenda.push(orderSn); continue }
     const total = sales.reduce((s, x) => s + Number(x.gross_price), 0)
+    // o reembolso é o que o comprador PAGOU (bruto − cupons): se cobre isso, é
+    // devolução integral → cancellation = bruto (sai do faturamento via isReturned)
+    const pago = total - sales.reduce((s, x) => s + Number(x.discounts ?? 0), 0)
+    const integral = refund >= pago - 0.05
     for (const s of sales) {
       const share = total > 0 ? Number(s.gross_price) / total : 1 / sales.length
-      const cancel = Math.round(refund * share * 100) / 100
+      const cancel = integral ? Number(s.gross_price) : Math.round(refund * share * 100) / 100
       if (Math.abs(Number(s.cancellation ?? 0) - cancel) < 0.01) continue
       const { error } = await db.from('sales').update({ cancellation: cancel }).eq('id', s.id)
       if (!error) updated++

@@ -292,7 +292,7 @@ except Exception as e:
 
 # ── 8e. devoluções Shopee → estorno ──
 try:
-    r = post("/api/sync/shopee/returns?days=30", timeout=170)
+    r = post("/api/sync/shopee/returns?days=60", timeout=170)  # 60d: a Shopee aceita a devolução semanas depois do pedido
     print(f"8e. shopee returns: {json.dumps(r, ensure_ascii=False)[:110]}", flush=True)
 except Exception as e:
     print(f"8e. shopee returns: ERRO {str(e)[:70]}", flush=True)
