@@ -17,12 +17,19 @@ export function shopeeFees(inc: Record<string, unknown> | undefined, grossPedido
   const serv  = n('service_fee')
   // descontos = os do "Subtotal dos Produtos" do extrato: cupons + ajuste PIX
   const cupom = n('voucher_from_seller') + n('voucher_from_shopee') + n('pix_discount')
-  const repasse = n('escrow_amount_after_adjustment') || n('escrow_amount')
+  // Débito de DIFAL cobrado na fiscalização (order_adjustment) já está nos impostos
+  // da NF-e (sale_taxes.icms_difal) — devolve ao repasse para não contar 2× (mesma
+  // regra do CDIFAL no ML). 14/10/2026: ~R$ 23 mil em 2026 entravam como tarifa.
+  const ajustes = Array.isArray(inc?.order_adjustment) ? inc.order_adjustment as Array<{ adjustment_reason?: string; amount?: number }> : []
+  const difal = ajustes.filter(a => /DIFAL|diferencial de al[ií]quota/i.test(a.adjustment_reason ?? ''))
+    .reduce((s, a) => s - Number(a.amount ?? 0), 0)
+  const repasseReal = n('escrow_amount_after_adjustment') || n('escrow_amount')
+  const repasse = repasseReal > 0 ? repasseReal + difal : 0
   // repasse 0 = financeiro ainda não liberado → sem rebate por ora
   const residuo = repasse > 0 ? repasse - (grossPedido - cupom - comm - serv) : 0
   const r2 = (v: number) => Math.round(v * 100) / 100
   return {
-    comm, cupom, repasse,
+    comm, cupom, repasse: repasseReal, difal,
     serv: r2(serv + Math.max(-residuo, 0)),
     rebate: r2(Math.max(residuo, 0)),
   }

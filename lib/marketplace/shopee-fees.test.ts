@@ -24,4 +24,8 @@ assert.equal(c.rebate, 0); assert.equal(c.serv, 20)
 
 // financeiro não liberado: sem rebate
 assert.equal(shopeeFees({ commission_fee: 10, service_fee: 5 }, 100).rebate, 0)
+// 260106A1138M31: Shopee debitou DIFAL da fiscalização (já está na NF) → não vira tarifa
+const d = shopeeFees({ commission_fee: 90, service_fee: 14, escrow_amount: 1495, escrow_amount_after_adjustment: 1233.47,
+  order_adjustment: [{ adjustment_reason: 'Outros - Débito por diferencial de alíquota do ICMS (DIFAL) cobrada pelo fisco', amount: -261.53 }] }, 1599)
+assert.equal(d.serv, 14); assert.equal(d.rebate, 0); assert.equal(d.repasse, 1233.47)
 console.log('ok — shopeeFees')

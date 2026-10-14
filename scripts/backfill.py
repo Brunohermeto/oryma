@@ -236,12 +236,22 @@ if "estoque" in STEPS:
     safe("stock CD Shopee", lambda: post("/api/sync/shopee/stock"))
     safe("stock FBA", lambda: post("/api/sync/amazon/stock"))
 
+# ── custos/rebate Shopee de TODOS os pedidos do periodo (offset pela fila inteira;
+#    o ate_convergir para no 1o updated=0 e deixava pedidos para tras) ──
+if "shopee_custos" in STEPS:
+    off = 0
+    while off < 8000:
+        r = safe(f"shopee custos off{off}", lambda: post(f"/api/sync/shopee/costs?days={N}&limit=40&offset={off}"))
+        if r and r.get("processed", 0) < 40:  # {} = erro (safe) → segue, não encerra
+            break
+        off += 40
+
 # ── relink em janelas de 30 dias (days = inicio da janela, until = fim) ──────
 if "relink" in STEPS:
     cur = INI
     while cur <= FIM:
-        # 15 dias: janeiro/março (meses cheios + recálculo dos lotes) davam 504 em 30
-        fim = min(cur + datetime.timedelta(days=14), FIM)
+        # 5 dias: com 15, março/maio/setembro davam 504 (14/10/2026)
+        fim = min(cur + datetime.timedelta(days=4), FIM)
         safe(f"relink {cur}..{fim}", lambda: post("/api/landed-cost/relink", {"days": (TODAY - cur).days + 1, "until": fim.isoformat(), "skipOrders": True}))
         cur = fim + datetime.timedelta(days=1)
 
