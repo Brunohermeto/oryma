@@ -2,8 +2,10 @@
  * Auditoria de repasse: compara o que o Oryma ESPERA que o marketplace repasse
  * com o que ele REALMENTE repassou (payout_actual, vindo da API de cada canal).
  *
- * Esperado = bruto − devolução − comissão − taxa fixa − frete do vendedor − ADS
- *            − cupom + rebate. Frete do COMPRADOR não entra (é neutro: comprador
+ * Esperado = bruto − devolução − comissão − taxa fixa − frete do vendedor
+ *            − cupom + rebate. ADS NÃO entra: é cobrado à parte (saldo de
+ *            anúncios / fatura), nunca sai do repasse do pedido (15/10/2026: a
+ *            Shopee aparecia com R$ 16 mil "a mais" recebido por isso). Frete do COMPRADOR não entra (é neutro: comprador
  *            paga, marketplace repassa à logística), seguindo a regra canônica.
  */
 // Canais cujo repasse vem de um extrato INDEPENDENTE (dá pra auditar de verdade).
@@ -30,7 +32,7 @@ const n = (v: unknown) => Number(v ?? 0)
 export function expectedPayout(s: PayoutSale): number {
   return n(s.gross_price) - n(s.cancellation)
     - n(s.marketplace_commission) - n(s.marketplace_fixed_fee)
-    - n(s.marketplace_shipping_fee) - n(s.ads_cost) - n(s.discounts)
+    - n(s.marketplace_shipping_fee) - n(s.discounts)
     + n(s.rebate)
 }
 

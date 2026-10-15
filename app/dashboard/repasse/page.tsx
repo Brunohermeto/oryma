@@ -140,7 +140,7 @@ export default async function RepassePage({
           </div>
         </div>
         <p className="text-[11px]" style={{ color: B.muted }}>
-          Esperado = bruto − devolução − comissão − taxa fixa − frete do vendedor − ADS − cupom + rebate. Frete do comprador não entra (neutro).
+          Esperado = bruto − devolução − comissão − taxa fixa − frete do vendedor − cupom + rebate. Ads não entram (são cobrados à parte, fora do repasse do pedido). Frete do comprador não entra (neutro).
           Só aparecem pedidos cujo repasse já foi registrado. A <b>Shopee</b> entra como referência (a API devolve a Renda estimada dela, não um extrato independente), então não é marcada como divergente — a conciliação com alerta vale para Mercado Livre, Amazon e Magalu.
         </p>
       </div>

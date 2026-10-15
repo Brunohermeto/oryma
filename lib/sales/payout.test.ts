@@ -8,7 +8,7 @@ function eq(a: number, b: number, msg: string) {
 // esperado = bruto - devolução - comissão - fixa - frete vendedor - ads - cupom + rebate
 eq(expectedPayout({ gross_price: 100, marketplace_commission: 12, marketplace_fixed_fee: 4, discounts: 2 }), 82, 'basico')
 eq(expectedPayout({ gross_price: 100, cancellation: 100 }), 0, 'devolvido integral')
-eq(expectedPayout({ gross_price: 100, marketplace_shipping_fee: 10, ads_cost: 5, rebate: 3 }), 88, 'frete+ads+rebate')
+eq(expectedPayout({ gross_price: 100, marketplace_shipping_fee: 10, ads_cost: 5, rebate: 3 }), 93, 'frete+rebate (ads fora do repasse)')
 
 // diferença = real - esperado
 eq(payoutDiff({ gross_price: 100, marketplace_commission: 12, payout_actual: 88 }), 0, 'bate certinho')
