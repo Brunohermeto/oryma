@@ -351,10 +351,10 @@ except Exception as e:
 #        ~9600 vendas estourava os 60s da Vercel (504) e deixava as margens sem
 #        recalcular. days=45 cobre o que muda; recálculo completo roda manual. ──
 #        90 dias numa chamada só dava 504 com o banco novo (~200 ms por consulta):
-#        fatia em janelas de 15 dias (mesmo padrão do backfill).
+#        fatia em janelas de 5 dias (15 dava 504 em setembro — 15/10/2026).
 _hoje = datetime.date.today()
-for _ini in range(89, -1, -15):
-    _de, _ate = _hoje - datetime.timedelta(days=_ini), min(_hoje - datetime.timedelta(days=_ini - 14), _hoje)
+for _ini in range(89, -1, -5):
+    _de, _ate = _hoje - datetime.timedelta(days=_ini), min(_hoje - datetime.timedelta(days=_ini - 4), _hoje)
     try:
         r = post("/api/landed-cost/relink", {"days": _ini + 1, "until": _ate.isoformat(), "skipOrders": True}, timeout=170)
         print(f"10. relink {_de}..{_ate}: {json.dumps(r, ensure_ascii=False)[:100]}", flush=True)
