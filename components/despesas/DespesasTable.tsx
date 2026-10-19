@@ -12,7 +12,7 @@ export type Despesa = {
   supplier: string | null; amount: number; valor_original: number | null; observacao: string | null; source: string | null
 }
 
-export function DespesasTable({ despesas }: { despesas: Despesa[] }) {
+export function DespesasTable({ despesas, titulo = 'Despesas do mês' }: { despesas: Despesa[]; titulo?: string }) {
   const router = useRouter()
   const [aberta, setAberta] = useState<string | null>(null)
   const [valor, setValor] = useState(''); const [obs, setObs] = useState('')
@@ -39,7 +39,7 @@ export function DespesasTable({ despesas }: { despesas: Despesa[] }) {
   return (
     <div className="bg-white rounded-xl overflow-hidden" style={{ border: `1px solid ${B.border}` }}>
       <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid ${B.border}` }}>
-        <div className="font-semibold text-sm" style={{ color: B.text }}>Despesas do mês</div>
+        <div className="font-semibold text-sm" style={{ color: B.text }}>{titulo}</div>
         <div className="text-sm" style={{ color: B.muted }}>
           Total no DRE: <span className="font-semibold" style={{ color: B.text, fontFamily: 'var(--font-geist-mono)' }}>{fmtR(total)}</span>
         </div>

@@ -5,7 +5,7 @@ import { buildDRE } from '@/lib/dre/engine'
 import { Button } from '@/components/ui/button'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { ContaAzulUpload } from '@/components/despesas/ContaAzulUpload'
-import { DespesasTable, type Despesa } from '@/components/despesas/DespesasTable'
+import type { Despesa } from '@/components/despesas/DespesasTable'
 
 export const dynamic = 'force-dynamic'
 export const preferredRegion = 'gru1'
@@ -31,7 +31,7 @@ export default async function DREPage({
         actions={
           <div className="flex items-center gap-2">
             <a href="#despesas">
-              <Button variant="outline" size="sm">Despesas e envio Conta Azul ↓</Button>
+              <Button variant="outline" size="sm">Enviar relatório Conta Azul ↓</Button>
             </a>
             <a href={`/dashboard/dre?month=${formatMonth(prevMonth(period))}`}>
               <Button variant="outline" size="sm">← Mês anterior</Button>
@@ -43,10 +43,8 @@ export default async function DREPage({
         }
       />
       <div className="px-4 md:px-8 py-6 space-y-6">
-        <DRETable rows={rows} />
+        <DRETable rows={rows} despesas={(despesas ?? []) as Despesa[]} />
         <div id="despesas" className="space-y-4">
-          <div className="text-sm font-semibold" style={{ color: '#0B1023' }}>Despesas de {currentMonth} — clique em ✎ editar para corrigir valor, excluir ou anotar</div>
-          <DespesasTable despesas={(despesas ?? []) as Despesa[]} />
           <ContaAzulUpload />
         </div>
       </div>

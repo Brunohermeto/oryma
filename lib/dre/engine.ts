@@ -202,12 +202,12 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
 
     headerRow('Despesas com Pessoal'),
     ...pessoalCats.filter(c => expensesByCategory[c]?.total).map(c =>
-      toRow(`(-) ${EXPENSE_CATEGORY_LABELS[c as OperationalExpenseCategory] ?? c.replace(/_/g, ' ')}`, expensesByCategory[c], { negate: true })
+      ({ ...toRow(`(-) ${EXPENSE_CATEGORY_LABELS[c as OperationalExpenseCategory] ?? c.replace(/_/g, ' ')}`, expensesByCategory[c], { negate: true }), categoria: c })
     ),
 
     headerRow('Despesas Operacionais'),
     ...opCats.filter(c => expensesByCategory[c]?.total).map(c =>
-      toRow(`(-) ${EXPENSE_CATEGORY_LABELS[c as OperationalExpenseCategory] ?? c.replace(/_/g, ' ')}`, expensesByCategory[c], { negate: true })
+      ({ ...toRow(`(-) ${EXPENSE_CATEGORY_LABELS[c as OperationalExpenseCategory] ?? c.replace(/_/g, ' ')}`, expensesByCategory[c], { negate: true }), categoria: c })
     ),
 
     { ...toRow('= EBITDA', ebitda, { isTotal: true, isHighlight: true }), label: `= EBITDA  (${ebitdaMarginPct.toFixed(1)}% mg. EBITDA)` },
@@ -215,7 +215,7 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
     ...(totalFin.total ? [
       headerRow('Resultado Financeiro'),
       ...finCats.filter(c => expensesByCategory[c]?.total).map(c =>
-        toRow(`(-) ${EXPENSE_CATEGORY_LABELS[c as OperationalExpenseCategory] ?? c.replace(/_/g, ' ')}`, expensesByCategory[c], { negate: true })),
+        ({ ...toRow(`(-) ${EXPENSE_CATEGORY_LABELS[c as OperationalExpenseCategory] ?? c.replace(/_/g, ' ')}`, expensesByCategory[c], { negate: true }), categoria: c })),
       toRow('= Resultado antes do IR/CSLL', antesIR, { isTotal: true }),
     ] : []),
 

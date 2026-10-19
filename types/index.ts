@@ -211,6 +211,7 @@ export interface DRERow {
   isHeader?: boolean
   isTotal?: boolean
   isHighlight?: boolean
+  categoria?: string      // linha de despesa → expande os lançamentos editáveis
   mercado_livre: number
   shopee: number
   amazon: number

@@ -1,5 +1,7 @@
 'use client'
+import { useState } from 'react'
 import type { DRERow } from '@/types'
+import { DespesasTable, type Despesa } from '@/components/despesas/DespesasTable'
 
 // Oryma brand
 const B = {
@@ -34,7 +36,8 @@ function fmtFull(v: number): string {
   return v < 0 ? `(${s})` : s
 }
 
-export function DRETable({ rows }: { rows: DRERow[] }) {
+export function DRETable({ rows, despesas = [] }: { rows: DRERow[]; despesas?: Despesa[] }) {
+  const [aberta, setAberta] = useState<string | null>(null)
   return (
     <div className="bg-white rounded-xl overflow-hidden" style={{ border: `1px solid ${B.border}` }}>
       <table className="w-full text-sm">
@@ -100,10 +103,16 @@ export function DRETable({ rows }: { rows: DRERow[] }) {
               )
             }
 
-            // ── Linhas normais ──
-            return (
-              <tr key={i} className="hover-row" style={{ borderBottom: `1px solid ${B.bgSubtle}` }}>
-                <td className="px-5 py-2.5 pl-8" style={{ color: 'oklch(0.40 0.020 258)' }}>{row.label}</td>
+            // ── Linhas normais (despesa: clique abre os lançamentos para editar) ──
+            const cat = row.categoria
+            const open = !!cat && aberta === cat
+            return [
+              <tr key={i} className="hover-row" onClick={cat ? () => setAberta(open ? null : cat) : undefined}
+                  style={{ borderBottom: `1px solid ${B.bgSubtle}`, cursor: cat ? 'pointer' : undefined, background: open ? B.bgSubtle : undefined }}>
+                <td className="px-5 py-2.5 pl-8" style={{ color: 'oklch(0.40 0.020 258)' }}>
+                  {row.label}
+                  {cat && <span className="ml-2 text-[11px] font-semibold px-1.5 py-0.5 rounded" style={{ color: B.brand, border: `1px solid ${B.border}` }}>{open ? '▾ fechar' : '✎ editar'}</span>}
+                </td>
                 {/* TOTAL */}
                 <td className="text-right px-5 py-2.5 font-semibold num" style={{
                   color: row.total < 0 ? '#dc2626' : B.text,
@@ -122,8 +131,15 @@ export function DRETable({ rows }: { rows: DRERow[] }) {
                     {fmt(row[mp.key])}
                   </td>
                 ))}
-              </tr>
-            )
+              </tr>,
+              open && (
+                <tr key={i + '-desp'}>
+                  <td colSpan={7} className="px-4 py-3" style={{ background: B.bgSubtle }}>
+                    <DespesasTable titulo={`Lançamentos de ${row.label.replace('(-) ', '')}`} despesas={despesas.filter(d => d.dre_category === cat)} />
+                  </td>
+                </tr>
+              ),
+            ]
           })}
         </tbody>
       </table>
