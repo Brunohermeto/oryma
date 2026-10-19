@@ -14,3 +14,8 @@ CREATE TABLE IF NOT EXISTS despesa_ajustes (
   updated_at     TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE (period, categoria, descricao, valor_original)
 );
+
+-- só o servidor (service role) acessa; a chave pública não lê nem grava
+ALTER TABLE despesa_ajustes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE contaazul_categorias ENABLE ROW LEVEL SECURITY;
+ALTER TABLE operational_expenses ENABLE ROW LEVEL SECURITY;
