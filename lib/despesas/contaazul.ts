@@ -19,7 +19,14 @@ export const MAPA_PADRAO: Record<string, Destino> = {
   'publicidade': 'ignorar',            // "ADS Mercado Livre" — já vem da API de Ads
   'icms difal compra': 'ignorar',      // DIFAL das NFs de venda — já está nos impostos
   'impostos - icms': 'ignorar',
+  // Empréstimo: só os JUROS são despesa; o principal é amortização (fora do DRE).
+  // Com a parcela inteira em "Empréstimos" ela entra toda como financeira — o ideal
+  // é ratear na Conta Azul em "Empréstimos" (principal) + "Juros e Encargos" (19/10/2026)
   'empréstimos': 'despesas_financeiras',
+  'juros': 'despesas_financeiras',
+  'juros e encargos': 'despesas_financeiras',
+  'juros e encargos financeiros': 'despesas_financeiras',
+  'despesas financeiras': 'despesas_financeiras',
   'cartão de crédito': 'cartao_credito',
   'aluguel': 'aluguel',
   'salários': 'salarios',
