@@ -1,7 +1,7 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { fetchAll } from '@/lib/supabase/fetch-all'
 import { isReturned } from '@/lib/sales/returned'
-import type { DRERow } from '@/types'
+import { EXPENSE_CATEGORY_LABELS, type DRERow, type OperationalExpenseCategory } from '@/types'
 import { startOfMonth, endOfMonth, format } from 'date-fns'
 
 // Auditoria 22/09/2026: a Magalu ficava FORA do DRE inteiro (canal virou
@@ -203,12 +203,12 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
 
     headerRow('Despesas com Pessoal'),
     ...pessoalCats.filter(c => expensesByCategory[c]?.total).map(c =>
-      toRow(`(-) ${c.replace(/_/g, ' ')}`, expensesByCategory[c], { negate: true })
+      toRow(`(-) ${EXPENSE_CATEGORY_LABELS[c as OperationalExpenseCategory] ?? c.replace(/_/g, ' ')}`, expensesByCategory[c], { negate: true })
     ),
 
     headerRow('Despesas Operacionais'),
     ...opCats.filter(c => expensesByCategory[c]?.total).map(c =>
-      toRow(`(-) ${c.replace(/_/g, ' ')}`, expensesByCategory[c], { negate: true })
+      toRow(`(-) ${EXPENSE_CATEGORY_LABELS[c as OperationalExpenseCategory] ?? c.replace(/_/g, ' ')}`, expensesByCategory[c], { negate: true })
     ),
 
     { ...toRow('= EBITDA', ebitda, { isTotal: true, isHighlight: true }), label: `= EBITDA  (${ebitdaMarginPct.toFixed(1)}% mg. EBITDA)` },
@@ -216,7 +216,7 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
     ...(totalFin.total ? [
       headerRow('Resultado Financeiro'),
       ...finCats.filter(c => expensesByCategory[c]?.total).map(c =>
-        toRow(`(-) ${c.replace(/_/g, ' ')}`, expensesByCategory[c], { negate: true })),
+        toRow(`(-) ${EXPENSE_CATEGORY_LABELS[c as OperationalExpenseCategory] ?? c.replace(/_/g, ' ')}`, expensesByCategory[c], { negate: true })),
       toRow('= Resultado antes do IR/CSLL', antesIR, { isTotal: true }),
     ] : []),
 
