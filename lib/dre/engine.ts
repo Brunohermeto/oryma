@@ -132,15 +132,15 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
   const grossBase = netMarket.total || 1
   const grossMarginPct = (grossProfit.total / grossBase) * 100
 
-  // ── Expenses: distribute by revenue share ────────────────────────────
+  // ── Expenses: SÓ na coluna Total — despesa da empresa não é de um canal
+  //    (Bruno 19/10/2026: rateio por marketplace não faz sentido). As colunas
+  //    de canal param no Lucro Bruto.
   const expensesByCategory: Record<string, MPNumbers> = {}
-  const revTotal = grossRevenue.total || 1
 
   for (const exp of expenses ?? []) {
     const cat = exp.dre_category as string
     if (!expensesByCategory[cat]) expensesByCategory[cat] = zero()
     const amount = Number(exp.amount)
-    for (const mp of MPs) expensesByCategory[cat][mp] += amount * (grossRevenue[mp] / revTotal)
     expensesByCategory[cat].total += amount
   }
 
@@ -155,10 +155,11 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
   const totalOp = sumCats(opCats)
   const totalExpenses = calc(k => totalPessoal[k] + totalOp[k])
 
-  const ebitda = subtract(grossProfit, totalExpenses)
+  const soTotal = (v: number) => calc(k => (k === 'total' ? v : 0))
+  const ebitda = soTotal(grossProfit.total - totalExpenses.total)
   const ebitdaMarginPct = (ebitda.total / grossBase) * 100
   const totalFin = sumCats(finCats)
-  const antesIR = subtract(ebitda, totalFin)
+  const antesIR = soTotal(ebitda.total - totalFin.total)
 
   // ── IRPJ / CSLL (Lucro Real — applied to total only, shown in total column) ──
   const lucroBase = antesIR.total
@@ -168,9 +169,7 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
   const csll = Math.max(0, lucroBase) * 0.09
 
   const irpjCsllTotal = irpj + irpjAdicional + csll
-  const resultadoLiquido = calc(k => k === 'total'
-    ? antesIR.total - irpjCsllTotal
-    : antesIR[k] - (antesIR.total > 0 ? irpjCsllTotal * (antesIR[k] / antesIR.total) : 0))
+  const resultadoLiquido = soTotal(antesIR.total - irpjCsllTotal)
   const netMarginPct = (resultadoLiquido.total / grossBase) * 100
 
   // ── Build rows ────────────────────────────────────────────────────────

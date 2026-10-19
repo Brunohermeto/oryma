@@ -45,11 +45,21 @@ export async function POST(request: NextRequest) {
     const { error } = await db.from('operational_expenses').delete().eq('source', 'contaazul').in('period', meses)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   }
+  // ajustes do mês feitos na tela (valor corrigido / excluído / observação) voltam a valer
+  const { data: ajustes } = meses.length
+    ? await db.from('despesa_ajustes').select('period, categoria, descricao, valor_original, valor, observacao').in('period', meses)
+    : { data: [] }
+  const chave = (p: string, c: string, d: string, v: number) => `${p}|${c}|${d}|${v.toFixed(2)}`
+  const aj = new Map((ajustes ?? []).map(a => [chave(a.period, a.categoria, a.descricao, Number(a.valor_original)), a]))
   if (entra.length) {
-    const { error } = await db.from('operational_expenses').insert(entra.map(l => ({
-      period: l.period, payment_date: l.payment_date, dre_category: l.destino, subcategory: l.categoria,
-      description: l.description, supplier: l.supplier, amount: l.amount, source: 'contaazul',
-    })))
+    const { error } = await db.from('operational_expenses').insert(entra.map(l => {
+      const a = aj.get(chave(l.period, l.categoria, l.description, l.amount))
+      return {
+        period: l.period, payment_date: l.payment_date, dre_category: l.destino, subcategory: l.categoria,
+        description: l.description, supplier: l.supplier, source: 'contaazul', valor_original: l.amount,
+        amount: a?.valor != null ? Number(a.valor) : l.amount, observacao: a?.observacao ?? null,
+      }
+    }))
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
