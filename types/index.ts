@@ -10,6 +10,8 @@ export type OperationalExpenseCategory =
   | 'energia' | 'agua' | 'escritorio'
   | 'aluguel' | 'frete_operacional' | 'publicidade_marketing'
   | 'sistemas_software' | 'contabilidade_consultoria' | 'outras_despesas'
+  | 'bonificacoes' | 'manutencao' | 'servicos_terceiros' | 'impostos_taxas' | 'certificacoes'
+  | 'cartao_credito' | 'despesas_financeiras'
 export type SyncSource = 'mercado_livre' | 'shopee' | 'amazon' | 'bling'
 export type SyncStatus = 'success' | 'error' | 'running'
 export type IntegrationId = 'mercado_livre' | 'shopee' | 'amazon' | 'bling' | 'magalu'
@@ -261,6 +263,13 @@ export const EXPENSE_CATEGORY_LABELS: Record<OperationalExpenseCategory, string>
   sistemas_software: 'Sistemas e Software',
   contabilidade_consultoria: 'Contabilidade e Consultoria',
   outras_despesas: 'Outras Despesas',
+  bonificacoes: 'Bonificações / Exames',
+  manutencao: 'Manutenção / Reforma',
+  servicos_terceiros: 'Serviços de Terceiros',
+  impostos_taxas: 'Impostos e Retenções',
+  certificacoes: 'Certificações (INMETRO)',
+  cartao_credito: 'Cartão de Crédito',
+  despesas_financeiras: 'Despesas Financeiras (empréstimos)',
 }
 
 export const MARKETPLACE_LABELS: Record<Marketplace, string> = {

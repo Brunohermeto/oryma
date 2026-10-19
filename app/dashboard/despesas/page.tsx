@@ -2,6 +2,7 @@ import { TopBar } from '@/components/layout/TopBar'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { EXPENSE_CATEGORY_LABELS } from '@/types'
 import { DespesaForm } from '@/components/despesas/DespesaForm'
+import { ContaAzulUpload } from '@/components/despesas/ContaAzulUpload'
 
 export const dynamic = 'force-dynamic'
 export const preferredRegion = 'gru1'
@@ -26,14 +27,15 @@ export default async function DespesasPage() {
     .select('*')
     .order('period', { ascending: false })
     .order('created_at', { ascending: false })
-    .limit(50)
+    .limit(300)
 
   const total = (expenses ?? []).reduce((s, e) => s + Number(e.amount), 0)
 
   return (
     <>
-      <TopBar title="Despesas Operacionais" subtitle="Lançamento manual de despesas por categoria" />
+      <TopBar title="Despesas Operacionais" subtitle="Importação mensal da Conta Azul + lançamento manual" />
       <div className="px-8 py-6 space-y-6">
+        <ContaAzulUpload />
         <DespesaForm />
 
         <div className="bg-white rounded-xl overflow-hidden" style={{ border: `1px solid ${B.border}` }}>

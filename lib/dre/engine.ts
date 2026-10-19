@@ -145,8 +145,10 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
   }
 
   // Group expenses for DRE
-  const pessoalCats = ['salarios', 'inss_patronal', 'fgts', 'vale_transporte', 'vale_alimentacao', 'plano_saude', 'ferias_13', 'prolabore']
-  const opCats = ['energia', 'agua', 'escritorio', 'aluguel', 'frete_operacional', 'publicidade_marketing', 'sistemas_software', 'contabilidade_consultoria', 'outras_despesas']
+  const pessoalCats = ['salarios', 'inss_patronal', 'fgts', 'vale_transporte', 'vale_alimentacao', 'plano_saude', 'ferias_13', 'prolabore', 'bonificacoes']
+  const opCats = ['energia', 'agua', 'escritorio', 'aluguel', 'manutencao', 'frete_operacional', 'publicidade_marketing', 'sistemas_software', 'contabilidade_consultoria', 'servicos_terceiros', 'certificacoes', 'impostos_taxas', 'cartao_credito', 'outras_despesas']
+  // financeiro fica ABAIXO do EBITDA (empréstimos — regra do Bruno 19/10/2026)
+  const finCats = ['despesas_financeiras']
 
   const sumCats = (cats: string[]) => calc(k => cats.reduce((s, c) => s + (expensesByCategory[c]?.[k] ?? 0), 0))
   const totalPessoal = sumCats(pessoalCats)
@@ -155,9 +157,11 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
 
   const ebitda = subtract(grossProfit, totalExpenses)
   const ebitdaMarginPct = (ebitda.total / grossBase) * 100
+  const totalFin = sumCats(finCats)
+  const antesIR = subtract(ebitda, totalFin)
 
   // ── IRPJ / CSLL (Lucro Real — applied to total only, shown in total column) ──
-  const lucroBase = ebitda.total
+  const lucroBase = antesIR.total
   const irpjBase = Math.max(0, lucroBase)
   const irpj = irpjBase * 0.15
   const irpjAdicional = Math.max(0, lucroBase - 20000) * 0.10
@@ -165,8 +169,8 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
 
   const irpjCsllTotal = irpj + irpjAdicional + csll
   const resultadoLiquido = calc(k => k === 'total'
-    ? ebitda.total - irpjCsllTotal
-    : ebitda[k] - (ebitda.total > 0 ? irpjCsllTotal * (ebitda[k] / ebitda.total) : 0))
+    ? antesIR.total - irpjCsllTotal
+    : antesIR[k] - (antesIR.total > 0 ? irpjCsllTotal * (antesIR[k] / antesIR.total) : 0))
   const netMarginPct = (resultadoLiquido.total / grossBase) * 100
 
   // ── Build rows ────────────────────────────────────────────────────────
@@ -208,6 +212,13 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
     ),
 
     { ...toRow('= EBITDA', ebitda, { isTotal: true, isHighlight: true }), label: `= EBITDA  (${ebitdaMarginPct.toFixed(1)}% mg. EBITDA)` },
+
+    ...(totalFin.total ? [
+      headerRow('Resultado Financeiro'),
+      ...finCats.filter(c => expensesByCategory[c]?.total).map(c =>
+        toRow(`(-) ${c.replace(/_/g, ' ')}`, expensesByCategory[c], { negate: true })),
+      toRow('= Resultado antes do IR/CSLL', antesIR, { isTotal: true }),
+    ] : []),
 
     headerRow('Apuração Tributária (Lucro Real)'),
     toRow('(-) IRPJ (15% + adicional 10%)', { ...zero(), total: irpj + irpjAdicional }, { negate: true }),
