@@ -48,8 +48,8 @@ export function DespesasTable({ despesas }: { despesas: Despesa[] }) {
         <table className="w-full text-sm">
           <thead>
             <tr style={{ background: B.bgSubtle, borderBottom: `1px solid ${B.border}` }}>
-              {['Linha do DRE', 'Categoria Conta Azul', 'Descrição', 'Valor', ''].map((h, i) => (
-                <th key={i} className={`py-3 px-4 text-[11px] font-semibold uppercase tracking-wide ${i === 3 ? 'text-right' : 'text-left'}`} style={{ color: B.muted }}>{h}</th>
+              {['', 'Linha do DRE', 'Categoria Conta Azul', 'Descrição', 'Valor'].map((h, i) => (
+                <th key={i} className={`py-3 px-4 text-[11px] font-semibold uppercase tracking-wide ${i === 4 ? 'text-right' : 'text-left'}`} style={{ color: B.muted }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -60,7 +60,13 @@ export function DespesasTable({ despesas }: { despesas: Despesa[] }) {
             {despesas.map(d => {
               const ajustada = d.valor_original != null && Number(d.valor_original) !== Number(d.amount)
               return [
-                <tr key={d.id} style={{ borderBottom: `1px solid ${B.bgSubtle}`, opacity: Number(d.amount) === 0 ? 0.55 : 1 }}>
+                <tr key={d.id} onClick={() => (aberta === d.id ? setAberta(null) : abrir(d))} className="cursor-pointer"
+                    title="Clique para editar o valor, excluir ou anotar uma observação"
+                    style={{ borderBottom: `1px solid ${B.bgSubtle}`, opacity: Number(d.amount) === 0 ? 0.55 : 1, background: aberta === d.id ? B.bgSubtle : undefined }}>
+                  <td className="pl-4 pr-1 py-2.5">
+                    <span className="text-[12px] font-semibold px-2 py-1 rounded-lg whitespace-nowrap"
+                          style={{ background: B.bgSubtle, color: B.brand, border: `1px solid ${B.border}` }}>✎ editar</span>
+                  </td>
                   <td className="px-4 py-2.5 text-xs">
                     <span className="font-semibold px-2 py-0.5 rounded-full" style={{ background: 'oklch(0.94 0.06 258)', color: B.brand }}>
                       {(EXPENSE_CATEGORY_LABELS as Record<string, string>)[d.dre_category] ?? d.dre_category}
@@ -74,10 +80,6 @@ export function DespesasTable({ despesas }: { despesas: Despesa[] }) {
                   <td className="px-4 py-2.5 text-right text-xs font-semibold whitespace-nowrap" style={{ color: B.text, fontFamily: 'var(--font-geist-mono)' }}>
                     {fmtR(Number(d.amount))}
                     {ajustada && <div className="text-[10px] font-normal line-through" style={{ color: B.muted }}>{fmtR(Number(d.valor_original))}</div>}
-                  </td>
-                  <td className="px-4 py-2.5 text-right">
-                    <button onClick={() => (aberta === d.id ? setAberta(null) : abrir(d))} className="text-[12px] px-2 py-1 rounded-lg cursor-pointer"
-                            style={{ background: B.bgSubtle, color: B.brand, border: `1px solid ${B.border}` }}>ajustar</button>
                   </td>
                 </tr>,
                 aberta === d.id && (
