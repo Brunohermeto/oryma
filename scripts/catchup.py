@@ -358,8 +358,17 @@ for _ini in range(89, -1, -5):
     try:
         r = post("/api/landed-cost/relink", {"days": _ini + 1, "until": _ate.isoformat(), "skipOrders": True}, timeout=170)
         print(f"10. relink {_de}..{_ate}: {json.dumps(r, ensure_ascii=False)[:100]}", flush=True)
-    except Exception as e:
-        print(f"10. relink {_de}..{_ate}: ERRO {str(e)[:70]}", flush=True)
+    except Exception:
+        # bloco estourou os 60s (dia cheio): refaz dia a dia antes de acusar erro (20/10/2026)
+        for _d in range(5):
+            _dia = _de + datetime.timedelta(days=_d)
+            if _dia > _ate:
+                break
+            try:
+                post("/api/landed-cost/relink", {"from": _dia.isoformat(), "until": _dia.isoformat(), "skipOrders": True}, timeout=170)
+                print(f"10. relink {_dia} (dia a dia): ok", flush=True)
+            except Exception as e:
+                print(f"10. relink {_dia}: ERRO {str(e)[:70]}", flush=True)
 
 # ── 11. vistoria de taxas (comissao/fixa vs tabela oficial + frete vs padrao) ──
 skip = 0
