@@ -48,7 +48,9 @@ export async function POST(request: NextRequest) {
   for (let i = 0; i < lote.length; i += 6) {
     await Promise.all(lote.slice(i, i + 6).map(async ([id, itens]) => {
       try {
+        // 404 = pedido sem nenhum desconto (o ML não cria o recurso) → conferido, sem cupom
         const d = await mlGet<{ details?: [] }>(`/orders/${id}/discounts`)
+          .catch(e => { if (String(e).includes(' 404')) return { details: [] as [] }; throw e })
         const total = itens.reduce((s, x) => s + Number(x.gross_price), 0)
         const c = cupomML(d.details, campanhas, itens[0].sale_date, total)
         if (c.codigo) comCupom++
