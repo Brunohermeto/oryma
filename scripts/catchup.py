@@ -291,15 +291,24 @@ for _j in _janelas:
 #        a Shopee finaliza o financeiro (o sync só relê 2 dias). Percorre a fila
 #        TODA por offset: parar no 1º "updated=0" deixava pedidos já com comissão
 #        sem o rebate, que só aparece quando a Shopee fecha o pedido (14/10/2026) ──
-try:
-    for off in range(0, 2000, 40):
-        r = post(f"/api/sync/shopee/costs?days=20&limit=40&offset={off}", timeout=170)
-        print(f"8d4. shopee custos off{off}: {json.dumps(r, ensure_ascii=False)[:100]}", flush=True)
-        if r.get("processed", 0) < 40:
+# lotes de 25; lote que estoura os 60s tenta de novo e segue (22/10/2026: o
+# cupom novo deixou cada lote mais pesado e um 504 derrubava a etapa inteira)
+for off in range(0, 2000, 25):
+    r = None
+    for _t in range(2):
+        try:
+            r = post(f"/api/sync/shopee/costs?days=20&limit=25&offset={off}", timeout=170)
             break
-        time.sleep(2)
-except Exception as e:
-    print(f"8d4. shopee custos: ERRO {str(e)[:70]}", flush=True)
+        except Exception as e:
+            # só a 2ª falha conta como ERRO (o ciclo acusa falha em qualquer "ERRO")
+            print(f"8d4. shopee custos off{off} t{_t}: {'ERRO' if _t else 'repetindo'} {str(e)[:70]}", flush=True)
+            time.sleep(10)
+    if r is None:
+        continue
+    print(f"8d4. shopee custos off{off}: {json.dumps(r, ensure_ascii=False)[:100]}", flush=True)
+    if r.get("processed", 0) < 25:
+        break
+    time.sleep(2)
 
 # ── 8e. devoluções Shopee → estorno ──
 try:

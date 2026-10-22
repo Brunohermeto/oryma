@@ -27,20 +27,16 @@ function getPageContext(pathname: string): string {
 }
 
 const SUGGESTED: Record<string, string[]> = {
-  '/dashboard':            ['Como está minha margem este mês?', 'Qual produto tem melhor desempenho?', 'O que significa margem bruta vs. líquida?'],
-  '/dashboard/dre':        ['Explique as linhas do DRE', 'Como reduzir as tarifas de marketplace?', 'O que é receita líquida neste contexto?'],
-  '/dashboard/tributario': ['Quando devo recolher o PIS/COFINS?', 'O que é DIFAL e como funciona?', 'Qual a alíquota de ICMS para MG?'],
-  '/dashboard/produtos':   ['Como é calculado o CMP?', 'O que compõe o landed cost?', 'Como reduzir o custo de importação?'],
-  '/dashboard/vendas':     ['Qual marketplace tem maior margem?', 'Como interpretar a coluna de impostos?', 'O que é CMV?'],
-  '/dashboard/velocidade': ['Como calcular dias de estoque ideal?', 'Quando devo repor o estoque?', 'O que significa un./dia?'],
-  '/dashboard/precificacao': ['Como calcular preço mínimo?', 'Qual a comissão do ML?', 'O que é margem-alvo de 40%?'],
-  '/dashboard/importacoes': ['Quais são os 14 componentes do landed cost?', 'Como importar uma NF-e XML?', 'O que é AFRMM?'],
-  '/dashboard/despesas':   ['Quais despesas entram no DRE?', 'Como categorizar pró-labore?', 'O que é competência?'],
+  '/dashboard':            ['Qual a tendência de faturamento nos últimos 6 meses?', 'Como está o mês atual e qual a projeção?', 'Quais produtos mais cresceram e mais caíram?'],
+  '/dashboard/dre':        ['Resuma o DRE do mês passado e o que mais pesou', 'Compare o resultado de setembro com agosto', 'Quais despesas cresceram?'],
+  '/dashboard/produtos':   ['Quais produtos correm risco de ruptura?', 'O que devo repor primeiro?', 'Quais produtos têm a menor margem?'],
+  '/dashboard/vendas':     ['Qual canal teve a melhor margem este mês?', 'Como está o ticket médio por canal?', 'Por que a margem da Shopee mudou?'],
+  '/dashboard/ads':        ['Qual canal tem o melhor retorno em Ads?', 'Os cupons de influenciador compensaram?', 'Onde estou gastando mais em Ads por produto?'],
+  '/dashboard/velocidade': ['Quais produtos estão acelerando?', 'Quanto tempo dura meu estoque atual?', 'O que devo repor primeiro?'],
 }
-
 function getSuggestions(pathname: string): string[] {
   const match = Object.entries(SUGGESTED).find(([k]) => pathname === k || pathname.startsWith(k + '/'))
-  return match ? match[1] : ['Como usar a Oryma?', 'Me explique o Lucro Real', 'Como melhorar minha margem?']
+  return match ? match[1] : ['Qual a tendência de faturamento nos últimos 6 meses?', 'Como está o mês atual?', 'Quais produtos devo repor?']
 }
 
 export function OrymaIntelligence() {
@@ -127,8 +123,8 @@ export function OrymaIntelligence() {
         <div
           className="fixed bottom-6 right-6 z-50 flex flex-col rounded-2xl overflow-hidden shadow-2xl transition-all duration-200"
           style={{
-            width: '380px',
-            height: minimized ? '56px' : '560px',
+            width: 'min(520px, calc(100vw - 32px))',
+            height: minimized ? '56px' : 'min(680px, calc(100vh - 48px))',
             background: '#ffffff',
             border: '1px solid oklch(0.88 0.016 258)',
             boxShadow: '0 20px 60px rgba(18,91,255,0.15)',
@@ -190,7 +186,7 @@ export function OrymaIntelligence() {
                         Olá! Sou a Oryma Intelligence ✦
                       </p>
                       <p className="text-xs" style={{ color: 'oklch(0.50 0.025 258)' }}>
-                        Estou aqui para ajudar com análises financeiras, tributação Lucro Real e estratégias de precificação. O que você precisa?
+                        Consulto os dados da plataforma em tempo real: faturamento e tendência, margem, produtos, estoque, DRE, Ads e cupons. O que você quer saber?
                       </p>
                     </div>
 
