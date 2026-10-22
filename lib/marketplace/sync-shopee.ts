@@ -4,6 +4,7 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { toBrazilDate } from '@/lib/utils/brazil-time'
 import { upsertSale } from './upsert-sale'
 import { shopeeFees } from './shopee-fees'
+import { cupomShopee } from '@/lib/marketing/cupons'
 
 interface ShopeeOrderListResponse {
   response?: {
@@ -114,6 +115,7 @@ export async function syncShopee(startDate: string, endDate: string): Promise<nu
       // Shopee mascara o endereço (****) após a conclusão — só grava UF válida
       const ufRaw = (orderDetail as any).recipient_address?.state?.toUpperCase() ?? ''
       const uf = /^[A-Z]{2}$/.test(ufRaw) ? ufRaw : null
+      const cp = cupomShopee(escrow?.order_income as unknown as Record<string, unknown> | undefined)
       const fees = shopeeFees(escrow?.order_income as unknown as Record<string, unknown> | undefined, totalItems)
       for (const item of itemsAll) {
         // SKU da variação (model_sku) é o código real; item_sku é o do anúncio
@@ -138,6 +140,7 @@ export async function syncShopee(startDate: string, endDate: string): Promise<nu
           marketplace_commission: fees.comm * share,
           marketplace_fixed_fee:  fees.serv * share,
           rebate: fees.rebate * share,
+          ...(escrow ? { cupom_codigo: cp.codigo, cupom_vendedor: cp.vendedor * share, cupom_marketplace: cp.marketplace * share } : {}),
           marketplace_shipping_fee: 0,
           ads_cost: ((income as any)?.ads_campaign_cost ?? 0) * share,
           // Cupom na SHOPEE: os DOIS reduzem a receita — voucher_from_seller E

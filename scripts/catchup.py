@@ -187,6 +187,17 @@ loop_rota("6. shipping", "/api/sync/ml/shipping", {"days": 4, "limit": 12}, paus
 # nunca entrava (14/10/2026)
 loop_rota("7. tariffs", "/api/sync/ml/tariffs", {"days": 12, "limit": 30}, max_rodadas=25, pausa=14)
 
+# ── 7b. cupom de cada pedido do ML (painel Marketing → Cupons; Shopee vem no 8d4) ──
+for _i in range(15):
+    try:
+        r = post("/api/sync/ml/coupons?limit=60", timeout=170)
+        print(f"7b. ml cupons r{_i}: {r.get('processed')} pedidos, {r.get('com_cupom')} com cupom, restam {r.get('restantes')}", flush=True)
+        if not r.get("processed"):
+            break
+    except Exception as e:
+        print(f"7b. ml cupons: ERRO {str(e)[:70]}", flush=True)
+        break
+
 # ── 8. Mercado Ads por anúncio e por dia (API de publicidade) → rateio por venda
 #       do mesmo anúncio no dia (lib/marketing/allocate-ads). Relê 7 dias porque o
 #       ML consolida as métricas com atraso. Substitui o rateio pelo extrato (billing).

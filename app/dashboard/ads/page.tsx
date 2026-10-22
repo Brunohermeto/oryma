@@ -70,6 +70,33 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
       return q.order('id')
     }),
   ])
+  // ── cupons do mês (lib/marketing/cupons) — consulta à parte: se as colunas
+  //    ainda não existirem, o resto da página segue funcionando
+  type CupomSale = Sale & { external_order_id: string; cupom_codigo: string; cupom_vendedor: number; cupom_marketplace: number }
+  const cupomSales = await fetchAll<CupomSale>(() => {
+    let q = db.from('sales').select('id, external_order_id, marketplace, gross_price, cancellation, discounts, cupom_codigo, cupom_vendedor, cupom_marketplace, sale_costs(margin_value)')
+      .gte('sale_date', ini).lte('sale_date', fim).not('cupom_codigo', 'is', null)
+    if (canal) q = q.eq('marketplace', canal)
+    return q.order('id')
+  }).catch(() => [] as CupomSale[])
+  type CAgg = { mp: string; cupom: string; pedidos: Set<string>; fat: number; vend: number; mkt: number; mv: number; base: number }
+  const cupAgg = new Map<string, CAgg>()
+  for (const s of cupomSales) {
+    if (isReturned(s)) continue
+    const cupom = s.cupom_codigo || '— sem cupom'
+    const k = `${s.marketplace}|${cupom}`
+    const a = cupAgg.get(k) ?? { mp: s.marketplace, cupom, pedidos: new Set<string>(), fat: 0, vend: 0, mkt: 0, mv: 0, base: 0 }
+    a.pedidos.add(s.external_order_id.replace(/^[a-z]+_/, '').split('_')[0])
+    const l = Number(s.gross_price ?? 0) - Number(s.cancellation ?? 0) - Number(s.discounts ?? 0)
+    a.fat += l; a.vend += Number(s.cupom_vendedor ?? 0); a.mkt += Number(s.cupom_marketplace ?? 0)
+    const mv = (Array.isArray(s.sale_costs) ? s.sale_costs[0] : s.sale_costs)?.margin_value
+    if (mv != null) { a.mv += Number(mv); a.base += l }
+    cupAgg.set(k, a)
+  }
+  // cupons de vocês primeiro (custo do desconto), depois os bancados pelo canal e "sem cupom"
+  const ordemCupom = (c: CAgg) => c.cupom === '— sem cupom' ? 2 : c.vend > 0 ? 0 : 1
+  const cupons = [...cupAgg.values()].sort((a, b) => ordemCupom(a) - ordemCupom(b) || b.fat - a.fat)
+
   const prodById = new Map((produtos ?? []).map(p => [p.id as string, p as { id: string; sku: string; name: string }]))
   const prodBySku = new Map((produtos ?? []).map(p => [p.sku as string, p as { id: string; sku: string; name: string }]))
   const n = (v: unknown) => Number(v ?? 0)
@@ -246,6 +273,29 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
                 <td className={td} style={mono}>{Math.round(c.clicks).toLocaleString('pt-BR')}</td><td className={td} style={mono}>{c.clicks ? `R$ ${(c.cost / c.clicks).toFixed(2)}` : '—'}</td>
                 <td className={td} style={mono}>{P(div(c.clicks, c.imp) !== null ? div(c.clicks, c.imp)! * 100 : null)}</td><td className={td} style={mono}>{Math.round(c.orders)}</td>
               </tr>))}
+          </tbody></table>
+        </div>
+
+        <div className="bg-white rounded-2xl p-5 overflow-x-auto" style={{ border: `1px solid ${B.border}` }}>
+          <div className="text-sm font-semibold mb-1" style={{ color: B.text }}>Cupons — vendas por cupom (influenciadores)</div>
+          <div className="text-[12px] mb-3" style={{ color: B.muted }}>
+            Shopee: código exato de cada pedido. Mercado Livre: o pedido traz só o valor do cupom do vendedor; o código vem da campanha de mesmo valor e vigência —
+            use um valor diferente por influenciador para a ligação ser exata. Margem já descontado o cupom e os anúncios.
+          </div>
+          <table className="w-full"><thead><tr style={{ color: B.muted, borderBottom: `1px solid ${B.border}` }}>
+            <th className={`${th} text-left`}>Cupom</th><th className={th}>Pedidos</th><th className={th}>Faturamento</th><th className={th}>Desconto pago por vocês</th><th className={th}>Desconto pago pelo canal</th><th className={th}>Custo / venda</th><th className={th}>Margem</th>
+          </tr></thead><tbody>
+            {cupons.map((c, i) => (
+              <tr key={i} style={{ borderBottom: `1px solid ${B.bg}`, opacity: c.cupom === '— sem cupom' ? 0.65 : 1 }}>
+                <td className="px-2 py-2 text-[12px]" style={{ color: B.text }}><span className="inline-block w-2 h-2 rounded-sm mr-2" style={{ background: MP[c.mp]?.color }} />{c.cupom}</td>
+                <td className={td} style={mono}>{c.pedidos.size}</td>
+                <td className={td} style={mono}>{R(c.fat)}</td>
+                <td className={td} style={{ ...mono, color: c.vend ? B.text : B.muted }}>{c.vend ? R(c.vend) : '—'}</td>
+                <td className={td} style={{ ...mono, color: c.mkt ? B.text : B.muted }}>{c.mkt ? R(c.mkt) : '—'}</td>
+                <td className={td} style={mono}>{c.vend && c.pedidos.size ? `R$ ${(c.vend / c.pedidos.size).toFixed(2)}` : '—'}</td>
+                <td className={td} style={mono}>{P(div(c.mv, c.base) !== null ? div(c.mv, c.base)! * 100 : null)}</td>
+              </tr>))}
+            {!cupons.length && <tr><td colSpan={7} className="px-2 py-6 text-center text-[13px]" style={{ color: B.muted }}>Cupons ainda não levantados para este mês.</td></tr>}
           </tbody></table>
         </div>
 

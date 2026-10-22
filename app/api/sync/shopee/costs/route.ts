@@ -13,6 +13,7 @@ import { fetchAll } from '@/lib/supabase/fetch-all'
 import { shopeeGet } from '@/lib/integrations/shopee'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { shopeeFees } from '@/lib/marketplace/shopee-fees'
+import { cupomShopee } from '@/lib/marketing/cupons'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -36,12 +37,12 @@ export async function POST(request: NextRequest) {
   const since = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10)
 
   const sales = await fetchAll<any>(() => db.from('sales')
-    .select('id, external_order_id, gross_price, marketplace_commission, marketplace_fixed_fee, marketplace_shipping_fee, discounts, rebate, payout_actual')
+    .select('id, external_order_id, gross_price, marketplace_commission, marketplace_fixed_fee, marketplace_shipping_fee, discounts, rebate, payout_actual, cupom_codigo')
     .eq('marketplace', 'shopee').gte('sale_date', since)
     .order('id', { ascending: true }))  // paginado: >1000 vendas sumiam da fila
 
   // agrupa por pedido; prioriza os que ainda estão SEM comissão
-  type Item = { id: string; gross_price: number; hasComm: boolean; comm: number; serv: number; ship: number; disc: number; reb: number; pay: number | null }
+  type Item = { id: string; gross_price: number; hasComm: boolean; comm: number; serv: number; ship: number; disc: number; reb: number; pay: number | null; cupom: string | null }
   const byOrder = new Map<string, Array<Item>>()
   for (const s of sales ?? []) {
     const sn = s.external_order_id.replace(/^shopee_/, '').split('_')[0]
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
     byOrder.get(sn)!.push({
       id: s.id, gross_price: Number(s.gross_price), hasComm: Number(s.marketplace_commission) > 0,
       comm: Number(s.marketplace_commission ?? 0), serv: Number(s.marketplace_fixed_fee ?? 0),
-      ship: Number(s.marketplace_shipping_fee ?? 0), disc: Number(s.discounts ?? 0), reb: Number(s.rebate ?? 0),
+      ship: Number(s.marketplace_shipping_fee ?? 0), disc: Number(s.discounts ?? 0), reb: Number(s.rebate ?? 0), cupom: s.cupom_codigo ?? null,
       pay: s.payout_actual == null ? null : Number(s.payout_actual),
     })
   }
@@ -78,6 +79,7 @@ export async function POST(request: NextRequest) {
     const f = shopeeFees(inc, total)
     if (f.comm <= 0) continue // financeiro ainda não liberado
     const escrow = f.repasse
+    const cp = cupomShopee(inc)
     for (const it of items) {
       const share = total > 0 ? it.gross_price / total : 1 / items.length
       const nComm = Math.round(f.comm * share * 100) / 100
@@ -87,13 +89,16 @@ export async function POST(request: NextRequest) {
       const nPay  = escrow > 0 ? Math.round(escrow * share * 100) / 100 : null
       // só grava se algo mudou de verdade — assim o loop converge (updated=0 → para)
       // em vez de reescrever os mesmos valores toda rodada.
-      if (it.comm === nComm && it.serv === nServ && it.ship === 0 && it.disc === nDisc && it.reb === nReb && it.pay === nPay) continue
+      if (it.comm === nComm && it.serv === nServ && it.ship === 0 && it.disc === nDisc && it.reb === nReb && it.pay === nPay && it.cupom === cp.codigo) continue
       const { error } = await db.from('sales').update({
         marketplace_commission: nComm,
         marketplace_fixed_fee: nServ,
         marketplace_shipping_fee: 0,
         discounts: nDisc,
         rebate: nReb,
+        cupom_codigo: cp.codigo,
+        cupom_vendedor: Math.round(cp.vendedor * share * 100) / 100,
+        cupom_marketplace: Math.round(cp.marketplace * share * 100) / 100,
         payout_actual: nPay,
       }).eq('id', it.id)
       if (!error) updated++
