@@ -37,10 +37,15 @@ async function vendas(de: string, ate: string, canal?: string | null): Promise<V
     meses.push([ini < de ? de : ini, fim > ate ? ate : fim])
   }
   const canais = canal ? [canal] : CANAIS
-  const partes = await Promise.all(meses.flatMap(([i, f]) => canais.map(c => fetchAll<Venda & { sale_costs: unknown }>(() =>
-    db.from('sales').select('id, external_order_id, marketplace, product_id, sku, sale_date, quantity, gross_price, cancellation, discounts, ads_cost, rebate, cupom_codigo, cupom_vendedor, sale_costs(margin_value)')
-      .eq('marketplace', c).gte('sale_date', i).lte('sale_date', f).order('id')).catch(() => []))))
-  return partes.flat().filter(s => !isReturned(s)).map(s => {
+  // um mês por vez (no máx. 4 consultas simultâneas — 1 por canal)
+  const partes: Array<Venda & { sale_costs: unknown }> = []
+  for (const [i, f] of meses) {
+    const r = await Promise.all(canais.map(c => fetchAll<Venda & { sale_costs: unknown }>(() =>
+      db.from('sales').select('id, external_order_id, marketplace, product_id, sku, sale_date, quantity, gross_price, cancellation, discounts, ads_cost, rebate, cupom_codigo, cupom_vendedor, sale_costs(margin_value)')
+        .eq('marketplace', c).gte('sale_date', i).lte('sale_date', f).order('id')).catch(() => [])))
+    partes.push(...r.flat())
+  }
+  return partes.filter(s => !isReturned(s)).map(s => {
     const sc = (s as { sale_costs: unknown }).sale_costs as { margin_value: number | null } | { margin_value: number | null }[] | null
     return { ...s, margin_value: (Array.isArray(sc) ? sc[0] : sc)?.margin_value ?? null }
   })
@@ -94,7 +99,12 @@ export const TOOLS = [
 
 export async function runTool(name: string, input: Record<string, unknown>): Promise<unknown> {
   const hoje = brazilToday()
-  const de = iso(input.de, brazilDaysAgo(30)), ate = iso(input.ate, hoje)
+  // período saneado: datas válidas, invertidas trocadas, até hoje e no máx. 24 meses
+  let de = iso(input.de, brazilDaysAgo(30)), ate = iso(input.ate, hoje)
+  if (de > ate) [de, ate] = [ate, de]
+  if (ate > hoje) ate = hoje
+  const minDe = new Date(new Date(`${ate}T12:00:00`).getTime() - 730 * 864e5).toISOString().slice(0, 10)
+  if (de < minDe) de = minDe
   const canal = CANAIS.includes(String(input.canal)) ? String(input.canal) : null
   const db = createSupabaseServiceClient()
 
