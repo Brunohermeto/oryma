@@ -47,8 +47,8 @@ function extractStr(xml: string, tag: string): string | null {
 
 function parseInfoAdicionais(xml: string): { canal: string | null; numeroPedido: string | null } {
   const infCpl = extractStr(xml, 'infCpl') ?? ''
-  const canalMatch = infCpl.match(/Canal:\s*(Mercado Livre|Shopee|Amazon|Magalu|Magazine Luiza)/i)
-  const canal = canalMatch?.[1]?.toLowerCase().replace('mercado livre', 'mercado_livre').replace('magazine luiza', 'magalu') ?? null
+  const canalMatch = infCpl.match(/Canal:\s*(Mercado Livre|Shopee|Amazon|Magalu|Magazine Luiza|TikTok(?: Shop)?)/i)
+  const canal = canalMatch?.[1]?.toLowerCase().replace('mercado livre', 'mercado_livre').replace('magazine luiza', 'magalu').replace(/^tiktok.*/, 'tiktok') ?? null
   const pedidoMatch = infCpl.match(/Numero Pedido Loja:\s*([^\s]+)/i)
   const numeroPedido = pedidoMatch?.[1] ?? null
   return { canal, numeroPedido }

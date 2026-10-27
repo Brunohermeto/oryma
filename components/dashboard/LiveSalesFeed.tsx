@@ -233,7 +233,7 @@ export function LiveSalesFeed() {
   }, [days, fetchSales])
 
   // Agrupa por canal
-  const byChannel: Record<string, Sale[]> = { mercado_livre: [], magalu: [], amazon: [], shopee: [] }
+  const byChannel: Record<string, Sale[]> = { mercado_livre: [], magalu: [], amazon: [], shopee: [], tiktok: [] }
   for (const s of sales) {
     if (byChannel[s.marketplace]) byChannel[s.marketplace].push(s)
   }

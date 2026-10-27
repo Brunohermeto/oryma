@@ -98,7 +98,7 @@ def loop_rota(nome, path, body_base, max_rodadas=8, pausa=3):
 #        1 dia × 1 canal cabe sempre. Amazon tem o backfill 1b (D-2..D-15). ──
 for k in range(0, 3):  # D-0, D-1, D-2
     dia = (TODAY - datetime.timedelta(days=k)).isoformat()
-    for canal in ("mercado_livre", "shopee", "amazon", "magalu"):
+    for canal in ("mercado_livre", "shopee", "amazon", "magalu", "tiktok"):
         try:
             r = post(f"/api/sync/marketplaces?channel={canal}&from={dia}&to={dia}")
             sid = r.get("sync_id")
@@ -108,16 +108,16 @@ for k in range(0, 3):  # D-0, D-1, D-2
                 st = get(f"/api/sync/marketplaces/status?id={sid}")
                 if st.get("status") != "running":
                     break
-            if canal == "shopee" and st.get("status") != "success":
+            if canal in ("shopee", "tiktok") and st.get("status") != "success":
                 # dia de pico não coube nos 60s: refaz em 4 faixas de 6h (27/10/2026)
                 for _h in range(0, 24, 6):
-                    r = post(f"/api/sync/marketplaces?channel=shopee&from={dia}&to={dia}&h_ini={_h}&h_fim={_h + 6}")
+                    r = post(f"/api/sync/marketplaces?channel={canal}&from={dia}&to={dia}&h_ini={_h}&h_fim={_h + 6}")
                     for _ in range(15):
                         time.sleep(6)
                         st = get(f"/api/sync/marketplaces/status?id={r.get('sync_id')}")
                         if st.get("status") != "running":
                             break
-                    print(f"1. vendas {dia} shopee {_h}h-{_h + 6}h: {st.get('status')} {st.get('records_synced')}", flush=True)
+                    print(f"1. vendas {dia} {canal} {_h}h-{_h + 6}h: {st.get('status')} {st.get('records_synced')}", flush=True)
                 continue
             print(f"1. vendas {dia} {canal}: {json.dumps(st, ensure_ascii=False)[:90]}", flush=True)
         except Exception as e:
@@ -150,8 +150,8 @@ print(f"1b. amazon backfill por dia: {amz_ok}/14 dias ok", flush=True)
 def _sync_dia(canal, dia, faixas):
     for _h in range(0, 24, 24 // faixas):
         _f = _h + 24 // faixas
-        if canal == "shopee":
-            q = f"channel=shopee&from={dia}&to={dia}&h_ini={_h}&h_fim={_f}"
+        if canal in ("shopee", "tiktok"):
+            q = f"channel={canal}&from={dia}&to={dia}&h_ini={_h}&h_fim={_f}"
         elif canal == "mercado_livre" and faixas > 1:
             q = f"channel=mercado_livre&from={dia}T{_h:02d}:00:00&to={dia}T{_f - 1:02d}:59:59"
         else:
@@ -167,7 +167,7 @@ def _sync_dia(canal, dia, faixas):
         if canal in ("amazon", "magalu"):
             break  # sem fatia por hora: o dia inteiro de uma vez
 
-for canal in ("mercado_livre", "shopee", "amazon", "magalu"):
+for canal in ("mercado_livre", "shopee", "amazon", "magalu", "tiktok"):
     for k in range(0, 7):
         dia = (TODAY - datetime.timedelta(days=k)).isoformat()
         try:
@@ -365,6 +365,20 @@ for off in range(0, 2000, 25):
     if r.get("processed", 0) < 25:
         break
     time.sleep(2)
+
+# ── 8h. TikTok Shop: extrato por pedido (comissão, tarifas, devolução, repasse) —
+#        sai depois da entrega; a fila é só de pedidos ainda sem repasse ──
+_off = 0
+for _i in range(20):
+    try:
+        r = post(f"/api/sync/tiktok/fees?days=45&limit=30&offset={_off}", timeout=170)
+        print(f"8h. tiktok extrato off{_off}: {r.get('processed')} pedidos, {r.get('updated')} vendas, sem extrato {r.get('sem_extrato')} {r.get('erros') or ''}", flush=True)
+        if r.get("processed", 0) < 30:
+            break
+        _off += r.get("pulados", 0)  # os resolvidos saem da fila; avança só pelos que ficaram
+    except Exception as e:
+        print(f"8h. tiktok extrato: ERRO {str(e)[:70]}", flush=True)
+        break
 
 # ── 8e. devoluções Shopee → estorno ──
 try:

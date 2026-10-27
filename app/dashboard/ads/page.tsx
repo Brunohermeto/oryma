@@ -20,8 +20,9 @@ const MP: Record<string, { label: string; color: string }> = {
   shopee: { label: 'Shopee', color: '#EE4D2D' },
   amazon: { label: 'Amazon', color: '#232F3E' },
   magalu: { label: 'Magalu', color: '#0086FF' },
+  tiktok: { label: 'TikTok Shop', color: '#111111' },
 }
-const CANAIS = ['mercado_livre', 'shopee', 'amazon', 'magalu']
+const CANAIS = ['mercado_livre', 'shopee', 'amazon', 'magalu', 'tiktok']
 const B = { border: 'oklch(0.88 0.016 258)', bg: 'oklch(0.97 0.008 258)', text: '#0B1023', muted: 'oklch(0.50 0.025 258)' }
 
 const R = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`

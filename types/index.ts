@@ -216,6 +216,7 @@ export interface DRERow {
   shopee: number
   amazon: number
   magalu: number
+  tiktok: number
   total: number
 }
 

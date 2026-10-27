@@ -17,12 +17,14 @@ const MP_LABELS: Record<string, string> = {
   shopee: 'Shopee',
   amazon: 'Amazon',
   magalu: 'Magalu',
+  tiktok: 'TikTok Shop',
 }
 const MP_COLORS: Record<string, string> = {
   mercado_livre: '#125BFF',
   shopee: '#7B61FF',
   amazon: '#0097b2',
   magalu: '#0086FF',
+  tiktok: '#111111',
 }
 const FULFILLMENT: Record<string, string> = {
   galpao: 'Galpão', full_ml: 'Full ML', fba_amazon: 'FBA', full_shopee: 'Full Shopee', full_magalu: 'Full Magalu',

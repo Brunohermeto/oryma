@@ -99,7 +99,7 @@ export default async function RepassePage({
         {/* Filtros */}
         <div className="flex flex-wrap items-center gap-2">
           {chip('Todos os canais', `/dashboard/repasse?only=${onlyDiff ? '1' : '0'}`, !mp)}
-          {['mercado_livre', 'shopee', 'amazon', 'magalu'].map(m =>
+          {['mercado_livre', 'shopee', 'amazon', 'magalu', 'tiktok'].map(m =>
             chip(mpLabel(m), `/dashboard/repasse?mp=${m}&only=${onlyDiff ? '1' : '0'}`, mp === m))}
           <span className="mx-1" style={{ color: B.border }}>|</span>
           {chip(onlyDiff ? 'Mostrando só divergências' : 'Mostrando tudo', `/dashboard/repasse?${mp ? `mp=${mp}&` : ''}only=${onlyDiff ? '0' : '1'}`, false)}

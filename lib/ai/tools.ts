@@ -11,7 +11,7 @@ import { aggBy, liq, newAgg, addSale, pctOf, type Agg } from '@/lib/sales/metric
 import { buildDRE } from '@/lib/dre/engine'
 import { brazilToday, brazilDaysAgo } from '@/lib/utils/brazil-time'
 
-const CANAIS = ['mercado_livre', 'shopee', 'amazon', 'magalu']
+const CANAIS = ['mercado_livre', 'shopee', 'amazon', 'magalu', 'tiktok']
 type Venda = {
   id: string; external_order_id: string; marketplace: string; product_id: string | null; sku: string | null; sale_date: string
   quantity: number; gross_price: number; cancellation: number | null; discounts: number | null; ads_cost: number | null

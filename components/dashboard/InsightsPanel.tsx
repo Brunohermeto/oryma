@@ -97,7 +97,7 @@ export function InsightsPanel({ data }: { data: InsightsData }) {
   }
 
   // 5. Melhor/pior marketplace
-  const LABELS: Record<string, string> = { mercado_livre: 'Mercado Livre', shopee: 'Shopee', amazon: 'Amazon', magalu: 'Magalu' }
+  const LABELS: Record<string, string> = { mercado_livre: 'Mercado Livre', shopee: 'Shopee', amazon: 'Amazon', magalu: 'Magalu', tiktok: 'TikTok Shop' }
   const margins = data.channels
     .filter((c): c is { mp: string; pct: number } => c.pct !== null)
     .sort((a, b) => b.pct - a.pct)

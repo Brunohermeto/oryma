@@ -6,13 +6,13 @@ import { startOfMonth, endOfMonth, format } from 'date-fns'
 
 // Auditoria 22/09/2026: a Magalu ficava FORA do DRE inteiro (canal virou
 // marketplace depois do DRE nascer). Canal novo = entra aqui e no DRETable.
-const MPs = ['mercado_livre', 'shopee', 'amazon', 'magalu'] as const
+const MPs = ['mercado_livre', 'shopee', 'amazon', 'magalu', 'tiktok'] as const
 type MP = typeof MPs[number]
 type Key = MP | 'total'
 type MPNumbers = Record<Key, number>
 const KEYS: readonly Key[] = [...MPs, 'total']
 
-const zero = (): MPNumbers => ({ mercado_livre: 0, shopee: 0, amazon: 0, magalu: 0, total: 0 })
+const zero = (): MPNumbers => ({ mercado_livre: 0, shopee: 0, amazon: 0, magalu: 0, tiktok: 0, total: 0 })
 
 function add(a: MPNumbers, mp: MP, value: number): void {
   a[mp] += value

@@ -155,7 +155,7 @@ export default async function DashboardPage(
       mes: MESES_PT[Number(mm) - 1], total: a.revenue, pedidos: a.orders,
       margem: pct === null ? null : Math.round(pct * 10) / 10,
       mercado_livre: mpRev('mercado_livre'), magalu: mpRev('magalu'),
-      amazon: mpRev('amazon'), shopee: mpRev('shopee'),
+      amazon: mpRev('amazon'), shopee: mpRev('shopee'), tiktok: mpRev('tiktok'),
     }
   })
   // acumulado do ano por canal (até o momento)

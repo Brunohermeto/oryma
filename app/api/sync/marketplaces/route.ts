@@ -4,6 +4,7 @@ import { syncMercadoLivre } from '@/lib/marketplace/sync-ml'
 import { syncShopee } from '@/lib/marketplace/sync-shopee'
 import { syncAmazon } from '@/lib/marketplace/sync-amazon'
 import { syncMagalu } from '@/lib/marketplace/sync-magalu'
+import { syncTiktok } from '@/lib/marketplace/sync-tiktok'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { brazilToday, brazilDaysAgo } from '@/lib/utils/brazil-time'
 
@@ -55,6 +56,7 @@ export async function POST(request: NextRequest) {
     shopee:        (s, e) => syncShopee(s, e, hIni, hFim),
     amazon:        syncAmazon,
     magalu:        syncMagalu,
+    tiktok:        (s, e) => syncTiktok(s, e, hIni, hFim),
   }
   // ?channel=amazon roda só um canal (fatiado); sem o parâmetro roda os 4 EM
   // PARALELO — em série ML+Shopee estouravam os 60s e Amazon/Magalu sumiam

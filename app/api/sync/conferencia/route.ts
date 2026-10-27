@@ -11,6 +11,7 @@ import { mlGet, getMercadoLivreSellerId } from '@/lib/integrations/mercado-livre
 import { shopeeGet } from '@/lib/integrations/shopee'
 import { amazonGet } from '@/lib/integrations/amazon'
 import { magaluGet } from '@/lib/integrations/magalu'
+import { tiktokPedidos, TIKTOK_STATUS_INVALIDO } from '@/lib/marketplace/sync-tiktok'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { fetchAll } from '@/lib/supabase/fetch-all'
 import { toBrazilDate } from '@/lib/utils/brazil-time'
@@ -19,7 +20,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 export const preferredRegion = 'gru1'
 
-const PREFIXO: Record<string, string> = { mercado_livre: 'ml', shopee: 'shopee', amazon: 'amz', magalu: 'magalu' }
+const PREFIXO: Record<string, string> = { mercado_livre: 'ml', shopee: 'shopee', amazon: 'amz', magalu: 'magalu', tiktok: 'tiktok' }
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
 async function pedidosDoCanal(canal: string, dia: string): Promise<string[]> {
@@ -65,6 +66,8 @@ async function pedidosDoCanal(canal: string, dia: string): Promise<string[]> {
       if (!next) break
       await sleep(1000)
     }
+  } else if (canal === 'tiktok') {
+    for (const p of await tiktokPedidos(dia, dia)) if (!TIKTOK_STATUS_INVALIDO.has(p.status)) ids.push(p.id)
   } else if (canal === 'magalu') {
     outer: for (let offset = 0; offset < 4000; offset += 50) {
       const r = await magaluGet<{ results?: Array<{ code: string; status: string; purchased_at: string }> }>('/seller/v1/orders',
