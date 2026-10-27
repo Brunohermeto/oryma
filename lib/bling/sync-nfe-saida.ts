@@ -50,7 +50,8 @@ function parseInfoAdicionais(xml: string): { canal: string | null; numeroPedido:
   const canalMatch = infCpl.match(/Canal:\s*(Mercado Livre|Shopee|Amazon|Magalu|Magazine Luiza|TikTok(?: Shop)?)/i)
   const canal = canalMatch?.[1]?.toLowerCase().replace('mercado livre', 'mercado_livre').replace('magazine luiza', 'magalu').replace(/^tiktok.*/, 'tiktok') ?? null
   const pedidoMatch = infCpl.match(/Numero Pedido Loja:\s*([^\s]+)/i)
-  const numeroPedido = pedidoMatch?.[1] ?? null
+  // TikTok: o Bling grava "pedido-pacote" (586805258153330492-1216182081134430012) → só o pedido
+  const numeroPedido = (canal === 'tiktok' ? pedidoMatch?.[1]?.split('-')[0] : pedidoMatch?.[1]) ?? null
   return { canal, numeroPedido }
 }
 
