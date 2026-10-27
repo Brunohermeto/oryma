@@ -231,10 +231,11 @@ except Exception as e:
     print(f"4. bling entrada: ERRO {str(e)[:70]}", flush=True)
 
 # ── 5. notas via ML (impostos Full + vinculo por EAN) ──
-loop_rota("5. invoices", "/api/sync/ml/invoices", {"days": 4, "limit": 20})
+# 15 dias: a rota só pega quem está SEM NF/frete; venda que entra atrasada (1c) também é coberta
+loop_rota("5. invoices", "/api/sync/ml/invoices", {"days": 15, "limit": 20}, max_rodadas=20)
 
 # ── 6. frete do vendedor ──
-loop_rota("6. shipping", "/api/sync/ml/shipping", {"days": 4, "limit": 12}, pausa=1)
+loop_rota("6. shipping", "/api/sync/ml/shipping", {"days": 15, "limit": 12}, max_rodadas=20, pausa=1)
 
 # ── 7. tarifas/estorno/UF por pedido (rate limit 5/min) ──
 # days=12: a rota reconfere toda venda dos últimos 10 dias (o ML lança estorno/
