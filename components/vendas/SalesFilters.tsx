@@ -227,6 +227,8 @@ export function SalesFilters({ products, currentFilters }: Props) {
               <SelectItem value="mercado_livre">Mercado Livre</SelectItem>
               <SelectItem value="shopee">Shopee</SelectItem>
               <SelectItem value="amazon">Amazon</SelectItem>
+              <SelectItem value="magalu">Magalu</SelectItem>
+              <SelectItem value="tiktok">TikTok Shop</SelectItem>
             </SelectContent>
           </Select>
         </div>
