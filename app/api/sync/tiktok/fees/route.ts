@@ -42,11 +42,18 @@ export async function POST(request: NextRequest) {
   const n = (t: Tx, k: string) => Number(t[k] ?? 0)
   let processed = 0, updated = 0, semExtrato = 0, falhas = 0
   const erros: string[] = []
-  for (let i = 0; i < fila.length; i += 5) {
-    await Promise.all(fila.slice(i, i + 5).map(async ([id, itens]) => {
+  // 2 por vez + nova tentativa: o financeiro do TikTok responde 36009002 ("too many requests") em rajada
+  const extrato = async (id: string) => {
+    for (let t = 0; ; t++) {
+      try { return await tiktokApi<{ statement_transactions?: Tx[] }>('GET', `/finance/202309/orders/${id}/statement_transactions`) }
+      catch (e) { if (!String(e).includes('36009002') || t === 3) throw e; await new Promise(r => setTimeout(r, 1500 * (t + 1))) }
+    }
+  }
+  for (let i = 0; i < fila.length; i += 2) {
+    await Promise.all(fila.slice(i, i + 2).map(async ([id, itens]) => {
       processed++
       try {
-        const d = await tiktokApi<{ statement_transactions?: Tx[] }>('GET', `/finance/202309/orders/${id}/statement_transactions`)
+        const d = await extrato(id)
         const txs = d.statement_transactions ?? []
         if (!txs.length) { semExtrato++; return }
         const soma = (k: string) => txs.reduce((s, t) => s + n(t, k), 0)
