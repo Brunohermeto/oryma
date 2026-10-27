@@ -143,6 +143,49 @@ for k in range(2, 16):  # dias D-2 a D-15 (D-0 e D-1 ja vieram na etapa 1)
         pass
 print(f"1b. amazon backfill por dia: {amz_ok}/14 dias ok", flush=True)
 
+# ── 1c. CONFERÊNCIA de completude (pedido do Bruno 27/10/2026): para cada canal e
+#        cada um dos últimos 7 dias, compara os pedidos válidos do marketplace com
+#        o Oryma; faltou → re-sincroniza o dia (em faixas de 6h); continuou
+#        faltando → ERRO (o e-mail de falha avisa). Origem: 10/10 da Shopee pela metade.
+def _sync_dia(canal, dia, faixas):
+    for _h in range(0, 24, 24 // faixas):
+        _f = _h + 24 // faixas
+        if canal == "shopee":
+            q = f"channel=shopee&from={dia}&to={dia}&h_ini={_h}&h_fim={_f}"
+        elif canal == "mercado_livre" and faixas > 1:
+            q = f"channel=mercado_livre&from={dia}T{_h:02d}:00:00&to={dia}T{_f - 1:02d}:59:59"
+        else:
+            q = f"channel={canal}&from={dia}&to={dia}"
+        try:
+            r = post(f"/api/sync/marketplaces?{q}")
+            for _ in range(15):
+                time.sleep(6)
+                if get(f"/api/sync/marketplaces/status?id={r.get('sync_id')}").get("status") != "running":
+                    break
+        except Exception as e:
+            print(f"1c. re-sync {canal} {dia} {_h}h: falhou ({str(e)[:50]})", flush=True)
+        if canal in ("amazon", "magalu"):
+            break  # sem fatia por hora: o dia inteiro de uma vez
+
+for canal in ("mercado_livre", "shopee", "amazon", "magalu"):
+    for k in range(0, 7):
+        dia = (TODAY - datetime.timedelta(days=k)).isoformat()
+        try:
+            c = get(f"/api/sync/conferencia?canal={canal}&dia={dia}")
+            for tentativa in (1, 4):  # 1ª: dia inteiro; 2ª: 4 faixas de 6h
+                if not c.get("faltando"):
+                    break
+                print(f"1c. conferência {canal} {dia}: faltam {c['faltando']} de {c['no_canal']} → re-sincronizando", flush=True)
+                _sync_dia(canal, dia, tentativa)
+                c = get(f"/api/sync/conferencia?canal={canal}&dia={dia}")
+            if c.get("faltando"):
+                print(f"1c. conferência {canal} {dia}: ERRO ainda faltam {c['faltando']} pedidos: {c.get('pedidos_faltando', [])[:5]}", flush=True)
+            elif k == 0 or c.get("no_canal"):
+                print(f"1c. conferência {canal} {dia}: ok ({c.get('no_canal')} pedidos)", flush=True)
+        except Exception as e:
+            print(f"1c. conferência {canal} {dia}: ERRO {str(e)[:80]}", flush=True)
+            break  # canal fora do ar (ex.: Magalu desconectada) — não insiste nos outros dias
+
 # ── 2. produtos/estoque galpao (Bling) ──
 try:
     r = post("/api/sync/bling/products", timeout=170)
