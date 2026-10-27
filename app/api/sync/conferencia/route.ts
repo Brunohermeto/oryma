@@ -50,9 +50,16 @@ async function pedidosDoCanal(canal: string, dia: string): Promise<string[]> {
     let next: string | undefined
     const antes = new Date(Math.min(fim.getTime(), Date.now() - 5 * 60_000)).toISOString().replace(/\.\d{3}Z$/, 'Z')
     for (let i = 0; i < 20; i++) {
-      const r = await amazonGet<{ payload?: { Orders?: Array<{ AmazonOrderId: string; OrderStatus: string }>; NextToken?: string } }>('/orders/v0/orders',
-        next ? { MarketplaceIds: 'A2Q3Y263D00KWC', NextToken: next }
-             : { MarketplaceIds: 'A2Q3Y263D00KWC', CreatedAfter: ini.toISOString().replace(/\.\d{3}Z$/, 'Z'), CreatedBefore: antes, MaxResultsPerPage: '100' })
+      type Resp = { payload?: { Orders?: Array<{ AmazonOrderId: string; OrderStatus: string }>; NextToken?: string } }
+      const params = next ? { MarketplaceIds: 'A2Q3Y263D00KWC', NextToken: next }
+        : { MarketplaceIds: 'A2Q3Y263D00KWC', CreatedAfter: ini.toISOString().replace(/\.\d{3}Z$/, 'Z'), CreatedBefore: antes, MaxResultsPerPage: '100' }
+      // getOrders aceita ~1 chamada/min em rajada: 429 → espera e tenta de novo
+      let r: Resp | undefined
+      for (let t = 0; t < 4 && !r; t++) {
+        try { r = await amazonGet<Resp>('/orders/v0/orders', params) }
+        catch (e) { if (!String(e).includes('429') || t === 3) throw e; await sleep(8000 * (t + 1)) }
+      }
+      if (!r) break
       for (const o of r.payload?.Orders ?? []) if (!['Canceled', 'Pending'].includes(o.OrderStatus)) ids.push(o.AmazonOrderId)
       next = r.payload?.NextToken
       if (!next) break
