@@ -92,21 +92,24 @@ export async function syncShopee(startDate: string, endDate: string): Promise<nu
     })
 
     const SKIP_STATUS = new Set(['CANCELLED', 'UNPAID', 'IN_CANCEL'])
+    // financeiro (escrow) dos pedidos da página em PARALELO, 8 por vez — um a um,
+    // dia de pico (10/10/2026: 104 pedidos) passava dos 60s e o sync parava no meio
+    const escrows = new Map<string, ShopeeEscrowResponse['response']>()
+    const validos = (detailRes.response?.order_list ?? []).filter(o => !SKIP_STATUS.has((o as any).order_status ?? ''))
+    for (let i = 0; i < validos.length; i += 8) {
+      await Promise.all(validos.slice(i, i + 8).map(async o => {
+        try {
+          const r = await shopeeGet<ShopeeEscrowResponse>('/payment/get_escrow_detail', { order_sn: o.order_sn })
+          escrows.set(o.order_sn, r.response)
+        } catch { /* segue sem escrow — o /api/sync/shopee/costs completa depois */ }
+      }))
+    }
     for (const orderDetail of detailRes.response?.order_list ?? []) {
       if (SKIP_STATUS.has((orderDetail as any).order_status ?? '')) continue
       const createTime = orders.find(o => o.order_sn === orderDetail.order_sn)?.create_time
         ?? (orderDetail as any).create_time
       if (!createTime) continue
-      // Fetch escrow (financial) data per order
-      let escrow: ShopeeEscrowResponse['response'] | undefined
-      try {
-        const escrowRes = await shopeeGet<ShopeeEscrowResponse>('/payment/get_escrow_detail', {
-          order_sn: orderDetail.order_sn,
-        })
-        escrow = escrowRes.response
-      } catch {
-        // proceed without escrow data
-      }
+      const escrow = escrows.get(orderDetail.order_sn)
 
       // rateio do escrow por item (o escrow é do PEDIDO inteiro)
       const itemsAll = orderDetail.item_list ?? []
