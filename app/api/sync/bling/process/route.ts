@@ -112,13 +112,15 @@ export async function POST(request: NextRequest) {
     const canalIntermediador =
       intermediadorNome.includes('shopee') ? 'shopee' :
       intermediadorNome.includes('mercado') ? 'ml' :
-      intermediadorNome.includes('amazon') ? 'amazon' : null
+      intermediadorNome.includes('amazon') ? 'amazon' :
+      intermediadorNome.includes('tiktok') ? 'tiktok' : null
 
     // ── Matching ─────────────────────────────────────────────────────────────
 
     let saleId: string | null = null
     let matchedSaleIds: string[] = []  // pode ser >1 para pedidos multi-item
-    const numeroPedidoLoja = nfeData.numeroPedidoLoja?.trim() ?? null
+    // TikTok grava "pedido-pacote" (586805258153330492-1216182081134430012) → só o pedido (27/10/2026)
+    const numeroPedidoLoja = nfeData.numeroPedidoLoja?.trim().replace(/^(\d{15,})-\d+$/, '$1') ?? null
 
     // Todos os itens do pedido ainda sem NF (a NF é do pedido inteiro; o
     // imposto é rateado entre eles). Pedido da Shopee é ALFANUMÉRICO — o regex
@@ -134,8 +136,8 @@ export async function POST(request: NextRequest) {
     // Usa o canal do intermediador como primeira tentativa (mais preciso)
     if (numeroPedidoLoja) {
       const canaisParaTentar = canalIntermediador
-        ? [canalIntermediador, ...['ml', 'shopee', 'amazon'].filter(c => c !== canalIntermediador)]
-        : ['ml', 'shopee', 'amazon']
+        ? [canalIntermediador, ...['ml', 'shopee', 'amazon', 'tiktok'].filter(c => c !== canalIntermediador)]
+        : ['ml', 'shopee', 'amazon', 'tiktok']
       for (const canal of canaisParaTentar) {
         const { data } = await db.from('sales').select('id, external_order_id')
           .like('external_order_id', `${canal}_${numeroPedidoLoja}_%`).limit(1)
@@ -165,10 +167,10 @@ export async function POST(request: NextRequest) {
     // Estratégia 2: infCpl do XML
     if (!saleId && xml && xml.includes('<')) {
       const infCpl = extractStr(xml, 'infCpl') ?? ''
-      const canalMatch  = infCpl.match(/Canal:\s*(Mercado Livre|Shopee|Amazon)/i)
+      const canalMatch  = infCpl.match(/Canal:\s*(Mercado Livre|Shopee|Amazon|TikTok)/i)
       const canal       = canalMatch?.[1]?.toLowerCase().replace('mercado livre', 'mercado_livre') ?? null
       const pedidoMatch = infCpl.match(/Numero Pedido Loja:\s*([^\s]+)/i)
-      const numeroPedido = pedidoMatch?.[1] ?? null
+      const numeroPedido = (canal === 'tiktok' ? pedidoMatch?.[1]?.split('-')[0] : pedidoMatch?.[1]) ?? null
       if (canal && numeroPedido) {
         // prefixo real das chaves: ml_ / shopee_ / amz_ (não 'mercado_livre_'/'amazon_')
         const prefixo = canal === 'mercado_livre' ? 'ml' : canal === 'amazon' ? 'amz' : canal
