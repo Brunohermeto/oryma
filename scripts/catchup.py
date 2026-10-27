@@ -195,7 +195,8 @@ except Exception as e:
 
 # ── 3. NF-e SAIDA Bling (start/process — confiavel, sem timeout) ──
 try:
-    start = post("/api/sync/bling/start", {"daysTo": 5, "limit": 60})
+    # 15 dias: venda que entra atrasada (conferência 1c) também acha a NF (27/10/2026)
+    start = post("/api/sync/bling/start", {"daysTo": 15, "limit": 80})
     pend = start.get("pending", [])
     print(f"3. bling saida: {len(pend)} notas pendentes", flush=True)
     casadas = 0
