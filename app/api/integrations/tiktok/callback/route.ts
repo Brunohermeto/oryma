@@ -10,6 +10,8 @@ export async function GET(request: NextRequest) {
   const code = sp.get('code')
   const volta = (q: string) => NextResponse.redirect(`${base}/dashboard/configuracoes?tiktok=${encodeURIComponent(q)}`)
   if (!code) return volta(`erro_${sp.get('error') ?? 'sem_code'}`)
+  // só aceita a autorização de quem está logado no Oryma (mesmo navegador do /authorize)
+  if (request.cookies.get('mi_auth')?.value !== process.env.APP_PASSWORD) return NextResponse.redirect(`${base}/login`)
   // state confere com o cookie gravado no /authorize (proteção contra CSRF)
   if (!sp.get('state') || sp.get('state') !== request.cookies.get('tt_state')?.value) return volta('erro_state_invalido')
   try {

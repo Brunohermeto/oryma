@@ -41,9 +41,16 @@ export default async function ConfiguracoesPage({
   const oauthSuccess = params.connected ?? null
 
   const credentials = await getAllCredentials()
-  // o App Secret do TikTok nunca vai para o navegador
-  const credMap = Object.fromEntries(credentials.map(c => [c.id, c.id === 'tiktok'
-    ? { ...c, extra: { ...(c.extra as Record<string, unknown>), app_secret: undefined } } : c]))
+  // Para o navegador vai SÓ o status (conectado / chaves salvas) — nunca tokens,
+  // App Key/Secret ou ids de loja (revisão de segurança 27/10/2026)
+  const credMap = Object.fromEntries(credentials.map(c => {
+    const ex = (c.extra ?? {}) as Record<string, unknown>
+    return [c.id, {
+      id: c.id, updated_at: c.updated_at, expires_at: c.expires_at,
+      access_token: c.access_token ? 'ok' : null,
+      extra: { seller_id: ex.seller_id ? 'ok' : undefined, app_key: ex.app_key ? 'ok' : undefined, shop_name: ex.shop_name },
+    }]
+  }))
 
   // Último sync bem-sucedido por fonte
   const db = createSupabaseServiceClient()
