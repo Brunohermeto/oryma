@@ -47,9 +47,12 @@ export async function POST(request: NextRequest) {
   const mlSync = (s: string, e: string) =>
     syncMercadoLivre(s, e, { fetchShipmentCosts: false })
 
+  // ?h_ini=&h_fim= (horas, Brasília): fatia o dia da Shopee em dia de pico
+  const hIni = Math.max(0, Math.min(24, Number(request.nextUrl.searchParams.get('h_ini') ?? 0)))
+  const hFim = Math.max(0, Math.min(24, Number(request.nextUrl.searchParams.get('h_fim') ?? 24)))
   const allFns: Record<string, (s: string, e: string) => Promise<number>> = {
     mercado_livre: mlSync,
-    shopee:        syncShopee,
+    shopee:        (s, e) => syncShopee(s, e, hIni, hFim),
     amazon:        syncAmazon,
     magalu:        syncMagalu,
   }

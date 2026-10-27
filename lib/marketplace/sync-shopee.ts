@@ -57,7 +57,9 @@ interface ShopeeEscrowResponse {
   }
 }
 
-export async function syncShopee(startDate: string, endDate: string): Promise<number> {
+// hIni/hFim (0–24, horário de Brasília): fatia o dia — dia de pico (10/10/2026,
+// 104 pedidos) não cabe nos 60s numa chamada só
+export async function syncShopee(startDate: string, endDate: string, hIni = 0, hFim = 24): Promise<number> {
   const db = createSupabaseServiceClient()
   const cred = await getCredential('shopee')
   if (!cred?.access_token) return 0
@@ -68,8 +70,9 @@ export async function syncShopee(startDate: string, endDate: string): Promise<nu
 
   let cursor = ''
   let synced = 0
-  const fromTs = Math.floor(new Date(startDate).getTime() / 1000)
-  const toTs = Math.floor(new Date(endDate + 'T23:59:59').getTime() / 1000)
+  const ts = (d: string, h: number) => Math.floor(new Date(`${d}T00:00:00-03:00`).getTime() / 1000) + h * 3600
+  const fromTs = ts(startDate, hIni)
+  const toTs = ts(endDate, hFim) - 1
 
   while (true) {
     const params: Record<string, string> = {

@@ -108,6 +108,17 @@ for k in range(0, 3):  # D-0, D-1, D-2
                 st = get(f"/api/sync/marketplaces/status?id={sid}")
                 if st.get("status") != "running":
                     break
+            if canal == "shopee" and st.get("status") != "success":
+                # dia de pico não coube nos 60s: refaz em 4 faixas de 6h (27/10/2026)
+                for _h in range(0, 24, 6):
+                    r = post(f"/api/sync/marketplaces?channel=shopee&from={dia}&to={dia}&h_ini={_h}&h_fim={_h + 6}")
+                    for _ in range(15):
+                        time.sleep(6)
+                        st = get(f"/api/sync/marketplaces/status?id={r.get('sync_id')}")
+                        if st.get("status") != "running":
+                            break
+                    print(f"1. vendas {dia} shopee {_h}h-{_h + 6}h: {st.get('status')} {st.get('records_synced')}", flush=True)
+                continue
             print(f"1. vendas {dia} {canal}: {json.dumps(st, ensure_ascii=False)[:90]}", flush=True)
         except Exception as e:
             print(f"1. vendas {dia} {canal}: ERRO {str(e)[:70]}", flush=True)
