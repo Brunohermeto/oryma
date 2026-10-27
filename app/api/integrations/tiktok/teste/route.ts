@@ -15,6 +15,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   try {
     const { extra } = await tiktokCred()
+    // ?pedido=ID → extrato financeiro do pedido (taxas, repasse) para montar as regras
+    const pedido = request.nextUrl.searchParams.get('pedido')
+    if (pedido && /^\d+$/.test(pedido))
+      return NextResponse.json({ financeiro: limpa(await tiktokApi('GET', `/finance/202309/orders/${pedido}/statement_transactions`)) })
     const dias = Math.min(Number(request.nextUrl.searchParams.get('dias') ?? 7), 30)
     const agora = Math.floor(Date.now() / 1000)
     const d = await tiktokApi<{ orders?: unknown[]; total_count?: number }>('POST', '/order/202309/orders/search', { page_size: '20' },
