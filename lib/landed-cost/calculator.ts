@@ -1,5 +1,5 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
-import { isReturned } from '@/lib/sales/returned'
+import { isReturned, comissaoApurada } from '@/lib/sales/returned'
 
 /**
  * Recalculates unit costs for all items in an import order,
@@ -348,7 +348,7 @@ export async function applyCmpToSale(saleId: string): Promise<void> {
   // Comissão ausente = dados incompletos (a Amazon libera a taxa com lag de
   // quinzena; sem ela a margem aparecia 40% em vez de ~23%). Todos os 4 canais
   // SEMPRE cobram comissão, então 0 = ainda não veio → margem "em cálculo".
-  const hasComm     = Number(sale.marketplace_commission ?? 0) > 0
+  const hasComm     = comissaoApurada(sale)
   const contaMargem = hasTaxes && hasComm && !isReturned(sale as any)
   const marginValue = contaMargem ? netRevenue - totalCost : null
   // Margem % sobre o faturamento LÍQUIDO (bruto − devolução − cupom) — mesma

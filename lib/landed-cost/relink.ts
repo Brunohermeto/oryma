@@ -13,7 +13,7 @@
 import { fetchAll as fetchAllRows } from '@/lib/supabase/fetch-all'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { recalculateLandedCost } from '@/lib/landed-cost/calculator'
-import { isReturned } from '@/lib/sales/returned'
+import { isReturned, comissaoApurada } from '@/lib/sales/returned'
 import { SKU_ALIASES } from '@/lib/sales/sku-aliases'
 import { brazilDaysAgo } from '@/lib/utils/brazil-time'
 
@@ -268,7 +268,7 @@ export async function runRelink(body: RelinkBody = {}) {
     // a taxa dias depois). Sem ela a margem infla (Amazon aparecia 40% em vez de
     // ~23%). Todos os 4 canais SEMPRE cobram comissão, então 0 = ainda não veio →
     // margem fica NULL ("em cálculo") até a taxa chegar.
-    const hasComm     = Number(sale.marketplace_commission ?? 0) > 0
+    const hasComm     = comissaoApurada(sale)
     const contaMargem = hasTaxes && hasComm && !isReturned(sale)
     const marginValue = contaMargem ? netRevenue - totalCost : null
     // Margem % sobre o FATURAMENTO líquido (bruto − devolução − cupom) — mesma base
