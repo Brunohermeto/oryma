@@ -14,7 +14,7 @@ export type OperationalExpenseCategory =
   | 'cartao_credito' | 'despesas_financeiras'
 export type SyncSource = 'mercado_livre' | 'shopee' | 'amazon' | 'bling'
 export type SyncStatus = 'success' | 'error' | 'running'
-export type IntegrationId = 'mercado_livre' | 'shopee' | 'amazon' | 'bling' | 'magalu'
+export type IntegrationId = 'mercado_livre' | 'shopee' | 'amazon' | 'bling' | 'magalu' | 'tiktok'
 
 export interface Credential {
   id: IntegrationId

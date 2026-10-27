@@ -41,7 +41,9 @@ export default async function ConfiguracoesPage({
   const oauthSuccess = params.connected ?? null
 
   const credentials = await getAllCredentials()
-  const credMap = Object.fromEntries(credentials.map(c => [c.id, c]))
+  // o App Secret do TikTok nunca vai para o navegador
+  const credMap = Object.fromEntries(credentials.map(c => [c.id, c.id === 'tiktok'
+    ? { ...c, extra: { ...(c.extra as Record<string, unknown>), app_secret: undefined } } : c]))
 
   // Último sync bem-sucedido por fonte
   const db = createSupabaseServiceClient()
@@ -178,6 +180,15 @@ export default async function ConfiguracoesPage({
           credential={credMap['magalu']}
           connectUrl="/api/integrations/magalu/authorize"
           type="oauth"
+        />
+
+        <ConfigCard
+          id="tiktok"
+          name="TikTok Shop"
+          description="Pedidos, taxas e repasses — app do Partner Center + autorização da loja"
+          guide="https://partner.tiktokshop.com"
+          credential={credMap['tiktok']}
+          type="manual_tiktok"
         />
 
         <ConfigCard

@@ -18,7 +18,7 @@ interface ConfigCardProps {
   guide?: string          // URL para guia de como obter credenciais
   connectUrl?: string
   credential?: { access_token?: string | null; extra?: Record<string, unknown> | null; updated_at?: string } | null
-  type: 'oauth' | 'manual_shopee' | 'manual_amazon'
+  type: 'oauth' | 'manual_shopee' | 'manual_amazon' | 'manual_tiktok'
 }
 
 function Field({
@@ -68,6 +68,11 @@ export function ConfigCard({ id, name, description, guide, connectUrl, credentia
   const [shopeeShopId, setShopeeShopId]       = useState('')
   const [shopeeToken, setShopeeToken]         = useState('')
 
+  const [ttServiceId, setTtServiceId] = useState('')
+  const [ttKey, setTtKey]             = useState('')
+  const [ttSecret, setTtSecret]       = useState('')
+  const ttChaves = !!(credential?.extra as Record<string, unknown>)?.app_key
+
   const [amazonSellerId, setAmazonSellerId]       = useState('')
   const [amazonRefreshToken, setAmazonRefreshToken] = useState('')
 
@@ -82,6 +87,21 @@ export function ConfigCard({ id, name, description, guide, connectUrl, credentia
     setSuccess(res.ok)
     setMessage(res.ok ? 'Shopee conectada com sucesso' : 'Erro ao salvar — verifique as credenciais')
     setLoading(false)
+  }
+
+  async function handleSaveTiktok(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    const res = await fetch('/api/integrations/tiktok/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ service_id: ttServiceId, app_key: ttKey, app_secret: ttSecret }),
+    })
+    const d = await res.json().catch(() => ({}))
+    setSuccess(res.ok)
+    setMessage(res.ok ? 'Chaves salvas — agora clique em "Conectar loja"' : (d.error ?? 'Erro ao salvar'))
+    setLoading(false)
+    if (res.ok) { setTtSecret(''); window.location.reload() }
   }
 
   async function handleSaveAmazon(e: React.FormEvent) {
@@ -187,6 +207,40 @@ export function ConfigCard({ id, name, description, guide, connectUrl, credentia
             )}
           </div>
         </form>
+      )}
+
+      {/* TikTok Shop: chaves do app (uma vez) + autorização da loja */}
+      {type === 'manual_tiktok' && (
+        <div className="px-5 py-4 space-y-3">
+          {(!ttChaves || !isConnected) && (
+            <form onSubmit={handleSaveTiktok} className="space-y-3">
+              <div className="text-[12px]" style={{ color: B.muted }}>
+                Partner Center → seu app: <b>ID</b> (número no topo), <b>Chave do aplicativo</b> e <b>Segredo do aplicativo</b>.
+                {ttChaves && ' Chaves já salvas — preencha de novo só se quiser trocar.'}
+              </div>
+              <Field label="Service ID (ID do app)" value={ttServiceId} onChange={setTtServiceId} placeholder="7701…" />
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="App Key (Chave do aplicativo)" value={ttKey} onChange={setTtKey} placeholder="6ln…" />
+                <Field label="App Secret (Segredo)" value={ttSecret} onChange={setTtSecret} placeholder="••••••••" type="password" />
+              </div>
+              <div className="flex items-center gap-3">
+                <button type="submit" disabled={loading} className="text-sm font-semibold px-4 py-2 rounded-lg"
+                        style={{ background: ttChaves ? B.bgSubtle : B.brand, color: ttChaves ? B.text : 'white', opacity: loading ? 0.7 : 1 }}>
+                  {loading ? 'Salvando…' : 'Salvar chaves'}
+                </button>
+                {message && <span className="text-[12px]" style={{ color: success ? '#16a34a' : '#dc2626' }}>{success ? '✓' : '✗'} {message}</span>}
+              </div>
+            </form>
+          )}
+          {ttChaves && (
+            <a href="/api/integrations/tiktok/authorize">
+              <button className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-lg"
+                      style={{ background: isConnected ? B.bgSubtle : B.brand, color: isConnected ? B.text : 'white', border: isConnected ? `1px solid ${B.border}` : 'none' }}>
+                <RefreshCw size={13} /> {isConnected ? 'Reconectar loja' : 'Conectar loja'}
+              </button>
+            </a>
+          )}
+        </div>
       )}
 
       {/* Amazon manual form */}
