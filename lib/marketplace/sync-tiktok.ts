@@ -14,7 +14,8 @@ import { toBrazilDate } from '@/lib/utils/brazil-time'
 import { upsertSale } from './upsert-sale'
 
 type Item = { seller_sku?: string; original_price?: string; seller_discount?: string; sale_price?: string; platform_discount?: string }
-type Pedido = { id: string; status: string; create_time: number; line_items?: Item[] }
+type Pedido = { id: string; status: string; create_time: number; line_items?: Item[]
+  recipient_address?: { district_info?: Array<{ address_level_name?: string; address_name?: string }> } }
 
 export const TIKTOK_STATUS_INVALIDO = new Set(['UNPAID', 'CANCELLED'])
 
@@ -52,6 +53,9 @@ export async function syncTiktok(startDate: string, endDate: string, hIni = 0, h
     }
     if (TIKTOK_STATUS_INVALIDO.has(p.status)) continue
 
+    // UF de destino: nível "state" do endereço vem como sigla (SP, RJ…)
+    const ufRaw = p.recipient_address?.district_info?.find(x => /state/i.test(x.address_level_name ?? ''))?.address_name?.toUpperCase() ?? ''
+    const uf = /^[A-Z]{2}$/.test(ufRaw) ? ufRaw : null
     const porSku = new Map<string, { qtd: number; bruto: number }>()
     for (const it of p.line_items ?? []) {
       const sku = (it.seller_sku ?? '').replace(/[ \s]+/g, '')
@@ -68,6 +72,7 @@ export async function syncTiktok(startDate: string, endDate: string, hIni = 0, h
         quantity: a.qtd, gross_price: Math.round(a.bruto * 100) / 100,
         shipping_received: 0, marketplace_commission: 0, marketplace_fixed_fee: 0, marketplace_shipping_fee: 0,
         ads_cost: 0, discounts: 0, cancellation: 0,
+        ...(uf ? { uf_destino: uf } : {}),
         synced_at: new Date().toISOString(),
       })
       synced++
