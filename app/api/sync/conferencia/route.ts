@@ -51,7 +51,7 @@ async function pedidosDoCanal(canal: string, dia: string): Promise<string[]> {
     const antes = new Date(Math.min(fim.getTime(), Date.now() - 5 * 60_000)).toISOString().replace(/\.\d{3}Z$/, 'Z')
     for (let i = 0; i < 20; i++) {
       type Resp = { payload?: { Orders?: Array<{ AmazonOrderId: string; OrderStatus: string }>; NextToken?: string } }
-      const params = next ? { MarketplaceIds: 'A2Q3Y263D00KWC', NextToken: next }
+      const params: Record<string, string> = next ? { MarketplaceIds: 'A2Q3Y263D00KWC', NextToken: next }
         : { MarketplaceIds: 'A2Q3Y263D00KWC', CreatedAfter: ini.toISOString().replace(/\.\d{3}Z$/, 'Z'), CreatedBefore: antes, MaxResultsPerPage: '100' }
       // getOrders aceita ~1 chamada/min em rajada: 429 → espera e tenta de novo
       let r: Resp | undefined
