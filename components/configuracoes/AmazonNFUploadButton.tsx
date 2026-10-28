@@ -10,23 +10,42 @@ export function AmazonNFUploadButton() {
   const inputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
+  // O .zip do mês inteiro passava dos 60s da Vercel numa chamada só ("An error o…"
+  // em vez de JSON). Agora a tela abre o .zip e envia as notas em lotes de 40.
   async function handleFiles(files: FileList | null) {
     if (!files?.length) return
-    setStatus('uploading'); setMsg('')
+    setStatus('uploading'); setMsg('Abrindo o arquivo…')
     try {
-      const form = new FormData()
-      Array.from(files).forEach(f => form.append('files', f))
-      const res = await fetch('/api/sync/amazon/nfe-vendas', { method: 'POST', body: form })
-      const data = await res.json()
-      if (!res.ok || !data.ok) { setMsg(data.error ?? 'Falha ao importar'); setStatus('error'); return }
+      const { unzipSync, strFromU8 } = await import('fflate')
+      const xmls: Array<{ nome: string; conteudo: string }> = []
+      for (const f of Array.from(files)) {
+        const nome = f.name.toLowerCase()
+        if (nome.endsWith('.zip')) {
+          for (const [n, u8] of Object.entries(unzipSync(new Uint8Array(await f.arrayBuffer()))))
+            if (n.toLowerCase().endsWith('.xml')) xmls.push({ nome: n.split('/').pop() ?? n, conteudo: strFromU8(u8) })
+        } else if (nome.endsWith('.xml')) xmls.push({ nome: f.name, conteudo: await f.text() })
+      }
+      if (!xmls.length) { setMsg('Nenhum XML encontrado no arquivo.'); setStatus('error'); return }
+
+      const tot = { notas_venda: 0, vendas_vinculadas: 0, pedidos_ja_com_nf: 0, ignoradas_nao_venda: 0 }
+      const LOTE = 40
+      for (let i = 0; i < xmls.length; i += LOTE) {
+        setMsg(`Enviando notas ${i + 1}–${Math.min(i + LOTE, xmls.length)} de ${xmls.length}…`)
+        const form = new FormData()
+        for (const x of xmls.slice(i, i + LOTE)) form.append('files', new File([x.conteudo], x.nome, { type: 'text/xml' }))
+        const res = await fetch('/api/sync/amazon/nfe-vendas', { method: 'POST', body: form })
+        const data = await res.json().catch(() => ({ ok: false, error: `servidor respondeu ${res.status} no lote ${Math.floor(i / LOTE) + 1}` }))
+        if (!res.ok || !data.ok) { setMsg(`${data.error ?? 'Falha ao importar'} — reenviar o mesmo arquivo é seguro`); setStatus('error'); return }
+        for (const k of Object.keys(tot) as Array<keyof typeof tot>) tot[k] += Number(data[k] ?? 0)
+      }
 
       // recalcula as margens das vendas recém-vinculadas
       setStatus('relink')
-      setMsg(`${data.vendas_vinculadas} vendas vinculadas — recalculando margens...`)
+      setMsg(`${tot.vendas_vinculadas} vendas vinculadas — recalculando margens...`)
       await fetch('/api/landed-cost/relink', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ days: 45 }),
-      })
-      setMsg(`✓ ${data.vendas_vinculadas} vendas Amazon vinculadas · ${data.notas_venda} notas de venda no arquivo · ${data.pedidos_ja_com_nf} já tinham NF · ${data.ignoradas_nao_venda} remessas ignoradas`)
+      }).catch(() => null)
+      setMsg(`✓ ${tot.vendas_vinculadas} vendas Amazon vinculadas · ${tot.notas_venda} notas de venda no arquivo · ${tot.pedidos_ja_com_nf} já tinham NF · ${tot.ignoradas_nao_venda} remessas ignoradas`)
       setStatus('done')
       router.refresh()
     } catch (err) {
