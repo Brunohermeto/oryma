@@ -186,6 +186,13 @@ for canal in ("mercado_livre", "shopee", "amazon", "magalu", "tiktok"):
             print(f"1c. conferência {canal} {dia}: ERRO {str(e)[:80]}", flush=True)
             break  # canal fora do ar (ex.: Magalu desconectada) — não insiste nos outros dias
 
+# ── 1d. NFs da Amazon (Faturador) guardadas à espera do pedido — liga as que já têm venda ──
+try:
+    r = post("/api/sync/amazon/nfe-vendas?pendentes=1", timeout=170)
+    print(f"1d. NFs Amazon pendentes: {json.dumps(r, ensure_ascii=False)[:120]}", flush=True)
+except Exception as e:
+    print(f"1d. NFs Amazon pendentes: ERRO {str(e)[:70]}", flush=True)
+
 # ── 2. produtos/estoque galpao (Bling) ──
 try:
     r = post("/api/sync/bling/products", timeout=170)

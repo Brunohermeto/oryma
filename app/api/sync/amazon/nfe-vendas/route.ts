@@ -8,6 +8,10 @@
  * Para cada XML de VENDA: casa pelo número do pedido Amazon (formato 3-7-7 que
  * está no próprio XML) e grava chave + impostos (rateado por item) + UF destino.
  * Só preenche vendas SEM NF (idempotente). Ignora remessas/retornos simbólicos.
+ *
+ * Nota de venda cujo pedido ainda não está no Oryma (a Amazon emite a NF com o
+ * pedido ainda "Pending") fica em amazon_nfe_pendente e o ciclo diário tenta de
+ * novo com POST ?pendentes=1 (28/10/2026 — 12 notas do pacote de outubro).
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { unzipSync, strFromU8 } from 'fflate'
@@ -28,10 +32,15 @@ export async function POST(request: NextRequest) {
   }
   const db = createSupabaseServiceClient()
 
-  // 1. Coleta todos os XMLs (aceita .xml soltos e/ou .zip)
-  const form = await request.formData()
-  const files = form.getAll('files') as File[]
+  const pendentes = request.nextUrl.searchParams.get('pendentes') === '1'
   const xmls: string[] = []
+  if (pendentes) {
+    const { data } = await db.from('amazon_nfe_pendente').select('xml').order('criado_em').limit(150)
+    xmls.push(...(data ?? []).map(d => d.xml as string))
+    if (!xmls.length) return NextResponse.json({ ok: true, pendentes: 0 })
+  }
+  // 1. Coleta todos os XMLs (aceita .xml soltos e/ou .zip)
+  const files = pendentes ? [] : ((await request.formData()).getAll('files') as File[])
   for (const f of files) {
     const name = (f.name || '').toLowerCase()
     if (name.endsWith('.zip')) {
@@ -65,8 +74,14 @@ export async function POST(request: NextRequest) {
       .select('id, gross_price, nfe_saida_key')
       .eq('marketplace', 'amazon')
       .ilike('external_order_id', `%${order}%`)
-    if (!rows?.length) { semVenda++; continue }
+    if (!rows?.length) {
+      semVenda++
+      // guarda para o ciclo diário tentar de novo quando o pedido entrar
+      await db.from('amazon_nfe_pendente').upsert({ chave, pedido: order, xml }, { onConflict: 'chave' })
+      continue
+    }
     const todo = rows.filter(r => !r.nfe_saida_key)
+    await db.from('amazon_nfe_pendente').delete().eq('chave', chave)
     if (!todo.length) { jaTinham++; continue }
 
     const total = todo.reduce((s, r) => s + Number(r.gross_price ?? 0), 0) || 1
