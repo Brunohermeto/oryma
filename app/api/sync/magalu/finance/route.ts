@@ -73,10 +73,17 @@ export async function POST(request: NextRequest) {
 
       for (const [sku, agg] of bySku) {
         if (!agg.rebate && !agg.freight) continue
+        const id = `magalu_${code}_${sku}`
+        // SHIPPING_COST = frete que o COMPRADOR pagou e a Magalu (Magalu Entregas)
+        // retém — passa direto, não é custo nosso. Custo = só o que excede.
+        // 29/10/2026: pedido 1542770112937123 cobrava R$ 199,90 (83 vendas, R$ 4,2 mil).
+        // ponytail: coparticipação de frete não vem na API (está só no extrato do portal)
+        const { data: venda } = await db.from('sales').select('shipping_received').eq('external_order_id', id).maybeSingle()
+        const frete = Math.max(0, Math.round((agg.freight - Number(venda?.shipping_received ?? 0)) * 100) / 100)
         const { data } = await db.from('sales').update({
           ...(agg.rebate > 0 ? { rebate: agg.rebate } : {}),
-          ...(agg.freight > 0 ? { marketplace_shipping_fee: agg.freight } : {}),
-        }).eq('external_order_id', `magalu_${code}_${sku}`).select('id')
+          ...(agg.freight > 0 ? { marketplace_shipping_fee: frete } : {}),
+        }).eq('external_order_id', id).select('id')
         if (data?.length) updated++
       }
     }
