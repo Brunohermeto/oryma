@@ -53,6 +53,17 @@ interface MagaluSkuEntry {
   identifiers?: Array<{ type?: string; value?: string | null }>
 }
 
+/**
+ * Coparticipação de frete (Magalu Entregas, envio do galpão): NÃO vem na API —
+ * só no extrato do portal. Provisão = 9% do faturamento do item (pedido
+ * 1542770112937123: R$ 49,45 sobre R$ 549 = 9,0%). Decisão do Bruno 29/10/2026:
+ * melhor margem menor do que inflada. ponytail: % fixo calibrado em 1 pedido;
+ * trocar pelo valor real quando houver upload do extrato Magalu.
+ */
+export const MAGALU_COPART_PCT = 0.09
+export const magaluCopart = (fulfillment: string, gross: number) =>
+  fulfillment === 'galpao' ? Math.round(gross * MAGALU_COPART_PCT * 100) / 100 : 0
+
 // pedidos que não viram venda (cancelado / ainda não pago)
 const SKIP_STATUS = new Set(['cancelled', 'new', 'pending_payment'])
 
@@ -181,7 +192,7 @@ export async function syncMagalu(startDate: string, endDate: string): Promise<nu
           shipping_received: cents(freight),
           marketplace_commission: cents(it.amounts?.commission?.total),
           marketplace_fixed_fee: cents(fixedFeeTotal * share),
-          marketplace_shipping_fee: 0,
+          marketplace_shipping_fee: magaluCopart(fulfillment, cents(itemTotal - freight)),
           ads_cost: 0,
           rebate: 0,
           discounts: 0,
