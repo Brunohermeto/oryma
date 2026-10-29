@@ -54,15 +54,17 @@ export async function POST(request: NextRequest) {
     await sleep(120)
   }
 
-  // 3. Estoque fulfillment por inventory
-  const stockByMlb = new Map<string, number>()
-  for (const it of withInventory) {
+  // 3. Estoque fulfillment por inventory — anúncio de catálogo e o tradicional do
+  // mesmo produto compartilham o inventory_id (mesmo estoque físico): conta 1×.
+  // 29/10/2026: RAGA003-BG mostrava 832 no Full com 416 reais.
+  const mlbsByInv = new Map<string, string[]>()
+  for (const it of withInventory) mlbsByInv.set(it.inventoryId, [...(mlbsByInv.get(it.inventoryId) ?? []), it.mlb])
+  const stockByInv = new Map<string, number>()
+  for (const inv of mlbsByInv.keys()) {
     try {
       await sleep(120)
-      const s = await mlGet<{ available_quantity?: number }>(
-        `/inventories/${it.inventoryId}/stock/fulfillment`
-      )
-      stockByMlb.set(it.mlb, Number(s.available_quantity ?? 0))
+      const s = await mlGet<{ available_quantity?: number }>(`/inventories/${inv}/stock/fulfillment`)
+      stockByInv.set(inv, Number(s.available_quantity ?? 0))
     } catch { /* inventory sem stock — ignora */ }
   }
 
@@ -82,10 +84,11 @@ export async function POST(request: NextRequest) {
 
   const fullByProduct = new Map<string, number>()
   const unmatched: string[] = []
-  for (const [mlb, qty] of stockByMlb) {
-    const pid = productByMlb.get(mlb)
+  for (const [inv, qty] of stockByInv) {
+    const mlbs = mlbsByInv.get(inv)!
+    const pid = mlbs.map(m => productByMlb.get(m)).find(Boolean)
     if (pid) fullByProduct.set(pid, (fullByProduct.get(pid) ?? 0) + qty)
-    else if (qty > 0) unmatched.push(`${mlb}:${qty}`)
+    else if (qty > 0) unmatched.push(`${mlbs.join('/')}:${qty}`)
   }
 
   // 5. Grava: zera e aplica os valores atuais
@@ -101,7 +104,7 @@ export async function POST(request: NextRequest) {
     anuncios_ativos: itemIds.length,
     anuncios_full: withInventory.length,
     produtos_atualizados: updated,
-    unidades_full_total: [...stockByMlb.values()].reduce((s, v) => s + v, 0),
+    unidades_full_total: [...stockByInv.values()].reduce((s, v) => s + v, 0),
     anuncios_sem_vinculo: unmatched.slice(0, 10),
   })
 }
