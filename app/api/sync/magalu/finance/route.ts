@@ -5,14 +5,12 @@
  * janela máxima de 15 dias). Grava por item (regras canônicas):
  *  - rebate  = CRÉDITOS de PROMOTION (reembolso da Magalu em campanha
  *    coparticipada — o "estorno" deles; soma positivo na margem)
- *  - marketplace_shipping_fee = DÉBITOS − CRÉDITOS de SHIPPING_COST
- *    (frete que a Magalu efetivamente cobra do seller)
+ *  - marketplace_shipping_fee = coparticipação de frete (SHIPPING_SHARE, em
+ *    /transactions); SHIPPING_COST é o frete do comprador — não é custo nosso
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { magaluGet } from '@/lib/integrations/magalu'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
-import { magaluCopart } from '@/lib/marketplace/sync-magalu'
-
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 export const preferredRegion = 'gru1'
@@ -61,37 +59,52 @@ export async function POST(request: NextRequest) {
       const code = order.extras?.order_code ?? order.external_id
       if (!code) continue
 
-      const bySku = new Map<string, { rebate: number; freight: number }>()
+      // SHIPPING_COST do pedido = frete que o COMPRADOR pagou e a Magalu Entregas
+      // retém — passa direto, não é custo nosso (29/10/2026: pedido
+      // 1542770112937123 cobrava R$ 199,90 indevidos). O custo de frete real é a
+      // coparticipação, que vem à parte (abaixo).
+      const bySku = new Map<string, number>()
       for (const tx of order.transactions ?? []) {
         const sku = tx.entity?.extras?.sku ?? tx.entity?.id
-        if (!sku) continue
-        const v = (tx.value ?? 0) / (tx.normalizer ?? 100)
-        if (!bySku.has(sku)) bySku.set(sku, { rebate: 0, freight: 0 })
-        const agg = bySku.get(sku)!
-        if (tx.category === 'PROMOTION' && tx.type === 'CREDIT') agg.rebate += v
-        if (tx.category === 'SHIPPING_COST') agg.freight += tx.type === 'DEBIT' ? v : -v
+        if (!sku || tx.category !== 'PROMOTION' || tx.type !== 'CREDIT') continue
+        bySku.set(sku, (bySku.get(sku) ?? 0) + (tx.value ?? 0) / (tx.normalizer ?? 100))
       }
-
-      for (const [sku, agg] of bySku) {
-        const id = `magalu_${code}_${sku}`
-        const { data: venda } = await db.from('sales').select('shipping_received, gross_price, fulfillment_type')
-          .eq('external_order_id', id).maybeSingle()
-        if (!venda) continue
-        // SHIPPING_COST = frete que o COMPRADOR pagou e a Magalu (Magalu Entregas)
-        // retém — passa direto, não é custo nosso. Custo = o que excede, mas nunca
-        // menos que a provisão de coparticipação (que a API não informa).
-        // 29/10/2026: pedido 1542770112937123 cobrava R$ 199,90 (83 vendas, R$ 4,2 mil).
-        const excede = Math.max(0, Math.round((agg.freight - Number(venda.shipping_received ?? 0)) * 100) / 100)
-        const frete = Math.max(excede, magaluCopart(venda.fulfillment_type, Number(venda.gross_price)))
-        const { data } = await db.from('sales').update({
-          ...(agg.rebate > 0 ? { rebate: agg.rebate } : {}),
-          marketplace_shipping_fee: frete,
-        }).eq('external_order_id', id).select('id')
+      for (const [sku, rebate] of bySku) {
+        const { data } = await db.from('sales').update({ rebate })
+          .eq('external_order_id', `magalu_${code}_${sku}`).select('id')
         if (data?.length) updated++
       }
     }
     if (results.length < 50) break
   }
 
-  return NextResponse.json({ ok: true, orders, updated, window: `${gte}..${lte}` })
+  // Coparticipação de frete (SHIPPING_SHARE): lançamento SEPARADO do pedido, só em
+  // /transactions (por data de criação, 1–23 dias após a venda) — é o "Coparticipação
+  // de frete" do extrato. Vale para galpão E Full. Existe na API a partir de jul/26.
+  const copart = new Map<string, number>()
+  for (let offset = 0; offset < 5000; offset += 100) {
+    const res = await magaluGet<{ results?: Array<{ category?: string; type?: string; value?: number; normalizer?: number; order_id?: string }> }>(
+      '/seller/v1/financial-analysis/transactions', {
+        created_at__gte: gte, created_at__lte: `${lte}T23:59:59Z`, _limit: '100', _offset: String(offset),
+      })
+    const rs = res.results ?? []
+    for (const t of rs) {
+      if (t.category !== 'SHIPPING_SHARE' || !t.order_id) continue
+      const v = (t.value ?? 0) / (t.normalizer ?? 100)
+      copart.set(t.order_id, (copart.get(t.order_id) ?? 0) + (t.type === 'DEBIT' ? v : -v))
+    }
+    if (rs.length < 100) break
+  }
+  let copartGravados = 0
+  for (const [code, total] of copart) {
+    const { data: linhas } = await db.from('sales').select('id, gross_price').like('external_order_id', `magalu_${code}_%`)
+    const soma = (linhas ?? []).reduce((s, l) => s + Number(l.gross_price), 0)
+    for (const l of linhas ?? []) {
+      const share = soma > 0 ? Number(l.gross_price) / soma : 1 / linhas!.length
+      await db.from('sales').update({ marketplace_shipping_fee: Math.round(Math.max(total, 0) * share * 100) / 100 }).eq('id', l.id)
+      copartGravados++
+    }
+  }
+
+  return NextResponse.json({ ok: true, orders, updated, coparticipacao: copartGravados, window: `${gte}..${lte}` })
 }
