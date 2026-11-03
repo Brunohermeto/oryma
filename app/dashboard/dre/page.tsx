@@ -2,6 +2,8 @@ import { TopBar } from '@/components/layout/TopBar'
 import { brazilToday } from '@/lib/utils/brazil-time'
 import { DRETable } from '@/components/dre/DRETable'
 import { buildDRE } from '@/lib/dre/engine'
+import { buildDREComparativo } from '@/lib/dre/comparativo'
+import { DREComparativo } from '@/components/dre/DREComparativo'
 import { Button } from '@/components/ui/button'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { ContaAzulUpload } from '@/components/despesas/ContaAzulUpload'
@@ -16,7 +18,30 @@ export default async function DREPage({
   searchParams: Promise<{ month?: string }>
 }) {
   const params = await searchParams
-  const period = params.month ? new Date(`${params.month}-01`) : new Date(brazilToday() + 'T12:00:00')
+  // sem mês escolhido → comparativo de 12 meses (visão principal, 03/11/2026)
+  if (!params.month) {
+    const hoje = new Date(brazilToday() + 'T12:00:00')
+    const { meses, linhas, semDespesas } = await buildDREComparativo(hoje)
+    return (
+      <>
+        <TopBar
+          title="DRE & Despesas"
+          subtitle="Comparativo dos últimos 12 meses"
+          actions={
+            <div className="flex items-center gap-2">
+              <a href="#despesas"><Button variant="outline" size="sm">Enviar relatório Conta Azul ↓</Button></a>
+              <a href={`/dashboard/dre?month=${formatMonth(hoje)}`}><Button variant="outline" size="sm">Mês atual por marketplace →</Button></a>
+            </div>
+          }
+        />
+        <div className="px-4 md:px-8 py-6 space-y-6">
+          <DREComparativo meses={meses} linhas={linhas} semDespesas={semDespesas} />
+          <div id="despesas"><ContaAzulUpload /></div>
+        </div>
+      </>
+    )
+  }
+  const period = new Date(`${params.month}-01T12:00:00`)
   const rows = await buildDRE(period)
   const currentMonth = period.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
   // despesas do mesmo mês, editáveis aqui mesmo (Bruno não achava a aba Despesas — 19/10/2026)
@@ -30,6 +55,9 @@ export default async function DREPage({
         subtitle={`Demonstração de Resultado — ${currentMonth}`}
         actions={
           <div className="flex items-center gap-2">
+            <a href="/dashboard/dre">
+              <Button variant="outline" size="sm">← Comparativo 12 meses</Button>
+            </a>
             <a href="#despesas">
               <Button variant="outline" size="sm">Enviar relatório Conta Azul ↓</Button>
             </a>
