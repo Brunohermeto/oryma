@@ -4,6 +4,7 @@
  * Conta Azul o ajuste fica salvo em despesa_ajustes e é reaplicado a cada reenvio.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -31,5 +32,7 @@ export async function POST(request: NextRequest) {
   }
   const { error } = await db.from('operational_expenses')
     .update({ amount: v ?? original, valor_original: original, observacao: observacao || null }).eq('id', id)
-  return error ? NextResponse.json({ error: error.message }, { status: 500 }) : NextResponse.json({ ok: true })
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  revalidateTag('dre-12m', { expire: 0 })  // comparativo do DRE reflete a edição na hora
+  return NextResponse.json({ ok: true })
 }

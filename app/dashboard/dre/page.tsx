@@ -3,6 +3,7 @@ import { brazilToday } from '@/lib/utils/brazil-time'
 import { DRETable } from '@/components/dre/DRETable'
 import { buildDRE } from '@/lib/dre/engine'
 import { buildDREComparativo } from '@/lib/dre/comparativo'
+import { unstable_cache } from 'next/cache'
 import { DREComparativo } from '@/components/dre/DREComparativo'
 import { Button } from '@/components/ui/button'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
@@ -21,7 +22,9 @@ export default async function DREPage({
   // sem mês escolhido → comparativo de 12 meses (visão principal, 03/11/2026)
   if (!params.month) {
     const hoje = new Date(brazilToday() + 'T12:00:00')
-    const { meses, linhas, semDespesas } = await buildDREComparativo(hoje)
+    // 12 meses de vendas = ~17s; cache de 30 min (ciclo de vendas é diário)
+    const { meses, linhas, semDespesas } = await unstable_cache(
+      () => buildDREComparativo(hoje), ['dre-12m', formatMonth(hoje)], { revalidate: 1800, tags: ['dre-12m'] })()
     return (
       <>
         <TopBar

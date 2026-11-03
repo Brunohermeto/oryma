@@ -5,6 +5,7 @@
  *  - JSON { categoria, destino }: grava o destino de uma categoria nova.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { classificar, lerXlsx, MAPA_PADRAO, type Lancamento } from '@/lib/despesas/contaazul'
 
@@ -68,6 +69,7 @@ export async function POST(request: NextRequest) {
     for (const l of lancs.filter(f)) m[l.categoria] = Math.round(((m[l.categoria] ?? 0) + l.amount) * 100) / 100
     return m
   }
+  revalidateTag('dre-12m', { expire: 0 })  // comparativo do DRE reflete o upload na hora
   return NextResponse.json({
     ok: true, meses, lancamentos: lancs.length,
     no_dre: Math.round(entra.reduce((s, l) => s + l.amount, 0) * 100) / 100,
