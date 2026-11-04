@@ -356,7 +356,13 @@ export async function applyCmpToSale(saleId: string): Promise<void> {
   const fatLiquido  = Number(sale.gross_price) - Number(sale.cancellation ?? 0) - Number(sale.discounts ?? 0)
   const marginPct   = contaMargem && fatLiquido > 0 ? (netRevenue - totalCost) / fatLiquido : null
 
-  await db.from('sale_costs').upsert({
+  // Grava o novo ANTES de apagar o antigo, como o relink: sale_costs não tem UNIQUE
+  // em sale_id, e o upsert que havia aqui falhava (42P10) sem ninguém ver.
+  // Morrer no meio deixa no máximo duas linhas, e o próximo relink limpa.
+  const { data: antigas, error: selErr } = await db.from('sale_costs').select('id').eq('sale_id', saleId)
+  if (selErr) throw new Error(`sale_costs (leitura): ${selErr.message}`)
+
+  const { error: insErr } = await db.from('sale_costs').insert({
     sale_id:           saleId,
     cmp_cost_id:       cmp.id,
     unit_cost_applied: cmp.value,
@@ -364,5 +370,11 @@ export async function applyCmpToSale(saleId: string): Promise<void> {
     margin_value:      marginValue,
     margin_pct:        marginPct,
     import_credit:     Math.round(importCredit * 100) / 100,
-  }, { onConflict: 'sale_id' })
+  })
+  if (insErr) throw new Error(`sale_costs (gravação): ${insErr.message}`)
+
+  if (antigas?.length) {
+    const { error: delErr } = await db.from('sale_costs').delete().in('id', antigas.map(a => a.id))
+    if (delErr) throw new Error(`sale_costs (limpeza): ${delErr.message}`)
+  }
 }
