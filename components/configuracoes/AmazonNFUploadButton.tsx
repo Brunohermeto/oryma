@@ -41,11 +41,19 @@ export function AmazonNFUploadButton() {
 
       // recalcula as margens das vendas recém-vinculadas
       setStatus('relink')
-      setMsg(`${tot.vendas_vinculadas} vendas vinculadas — recalculando margens...`)
-      await fetch('/api/landed-cost/relink', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ days: 45 }),
-      }).catch(() => null)
-      setMsg(`✓ ${tot.vendas_vinculadas} vendas Amazon vinculadas · ${tot.notas_venda} notas de venda no arquivo · ${tot.pedidos_ja_com_nf} já tinham NF · ${tot.ignoradas_nao_venda} remessas ignoradas`)
+      // 45 dias numa chamada só passava dos 60s da Vercel: fatias de 5 dias, sem
+      // refazer lotes (NF de venda não muda o custo). Fatia que falhar o ciclo refaz.
+      let falhas = 0
+      const dia = (n: number) => new Date(Date.now() - n * 864e5 - 3 * 36e5).toISOString().slice(0, 10)
+      for (let k = 45; k > 0; k -= 5) {
+        setMsg(`${tot.vendas_vinculadas} vendas vinculadas — recalculando margens (${(45 - k) / 5 + 1}/9)...`)
+        const r = await fetch('/api/landed-cost/relink', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ from: dia(k), until: dia(k - 5 + (k === 5 ? 0 : 1)), skipOrders: true }),
+        }).catch(() => null)
+        if (!r?.ok) falhas++
+      }
+      setMsg(`✓ ${tot.vendas_vinculadas} vendas Amazon vinculadas · ${tot.notas_venda} notas de venda no arquivo · ${tot.pedidos_ja_com_nf} já tinham NF · ${tot.ignoradas_nao_venda} remessas ignoradas${falhas ? ` · ${falhas} de 9 partes do recálculo falharam: o ciclo diário refaz` : ''}`)
       setStatus('done')
       router.refresh()
     } catch (err) {

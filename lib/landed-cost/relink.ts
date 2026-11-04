@@ -283,34 +283,38 @@ export async function runRelink(body: RelinkBody = {}) {
     })
   }
 
-  // Delete + insert (sem dependência de UNIQUE constraint)
+  // Grava o novo ANTES de apagar o antigo, lote a lote (sale_costs não tem UNIQUE).
+  // 04/11/2026: apagar tudo e depois inserir, com a janela de 45 dias do upload da
+  // Amazon, estourava os 60s da Vercel entre os dois passos e ~90% das vendas desde
+  // 20/09 ficaram sem custo. Morrer no meio agora deixa no máximo duas linhas de um
+  // lote, e o próximo relink limpa (apaga todas as antigas da venda).
   let salesUpdated = 0
   let insertError: string | null = null
   const BATCH = 500
 
-  if (saleCostRows.length > 0) {
-    const saleIds = saleCostRows.map(r => r.sale_id)
+  for (let i = 0; i < saleCostRows.length; i += BATCH) {
+    const batch = saleCostRows.slice(i, i + BATCH)
+    const { data: antigas, error: selErr } = await db.from('sale_costs').select('id, sale_id')
+      .in('sale_id', batch.map(r => r.sale_id))
+    if (selErr) { insertError = selErr.message; continue }
 
-    // Delete existentes
-    for (let i = 0; i < saleIds.length; i += BATCH)
-      await db.from('sale_costs').delete().in('sale_id', saleIds.slice(i, i + BATCH))
-
-    // Insert — tenta primeiro em batch; se falhar, insere um a um para identificar o erro
-    for (let i = 0; i < saleCostRows.length; i += BATCH) {
-      const batch = saleCostRows.slice(i, i + BATCH)
-      const { error } = await db.from('sale_costs').insert(batch)
-      if (!error) {
-        salesUpdated += batch.length
-      } else {
-        insertError = error.message
-        // Tenta um a um para identificar linha problemática
-        for (const row of batch) {
-          const { error: rowErr } = await db.from('sale_costs').insert(row)
-          if (!rowErr) salesUpdated++
-          else if (!insertError) insertError = `row ${row.sale_id.slice(-6)}: ${rowErr.message}`
-        }
+    const gravadas = new Set<string>()
+    const { error } = await db.from('sale_costs').insert(batch)
+    if (!error) {
+      for (const r of batch) gravadas.add(r.sale_id)
+    } else {
+      insertError = error.message
+      // Tenta um a um para identificar linha problemática
+      for (const row of batch) {
+        const { error: rowErr } = await db.from('sale_costs').insert(row)
+        if (!rowErr) gravadas.add(row.sale_id)
       }
     }
+    salesUpdated += gravadas.size
+
+    // Só apaga o custo antigo de quem ganhou o novo
+    const apagar = (antigas ?? []).filter(a => gravadas.has(a.sale_id)).map(a => a.id)
+    if (apagar.length) await db.from('sale_costs').delete().in('id', apagar)
   }
 
   return {
