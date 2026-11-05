@@ -13,6 +13,7 @@ import { mlGet, getMercadoLivreSellerId } from '@/lib/integrations/mercado-livre
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { brazilDaysAgo } from '@/lib/utils/brazil-time'
 import { fetchAll } from '@/lib/supabase/fetch-all'
+import { impostosDaVenda, type MLInvoiceItem } from '@/lib/marketplace/ml-invoice-taxes'
 
 export const dynamic         = 'force-dynamic'
 export const maxDuration     = 60
@@ -20,35 +21,11 @@ export const preferredRegion = 'gru1'
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
-interface MLInvoiceItem {
-  external_product_id?: string
-  fiscal_data?: { rules?: Array<{ name?: string; attributes?: Record<string, unknown> | null }> }
-}
-
 interface MLInvoice {
   status?: string
   attributes?: { invoice_key?: string | null }
   recipient?: { address?: { state?: string | null } | null } | null
   items?: MLInvoiceItem[]
-}
-
-function taxesFromRules(rules: Array<{ name?: string; attributes?: Record<string, unknown> | null }>) {
-  const num = (a: Record<string, unknown> | null | undefined, k: string) => Number((a as any)?.[k] ?? 0)
-  let pis = 0, cofins = 0, icms = 0, difal = 0, ipi = 0
-  for (const r of rules) {
-    const a = r.attributes
-    switch (r.name) {
-      case 'PIS':    pis    += num(a, 'vpis');    break
-      case 'COFINS': cofins += num(a, 'vcofins'); break
-      case 'ICMS':
-        icms  += num(a, 'vicms')
-        // DIFAL + FCP destino — carga do estado de destino
-        difal += num(a, 'vicmsufdest') + num(a, 'vicmsufremet') + num(a, 'vfcpufdest')
-        break
-      case 'IPI':    ipi    += num(a, 'vipi');    break
-    }
-  }
-  return { pis, cofins, icms, difal, ipi }
 }
 
 export async function POST(request: NextRequest) {
@@ -71,13 +48,15 @@ export async function POST(request: NextRequest) {
 
   // Vendas ML sem NF-e vinculada, agrupadas por pedido
   // Paginado: com .limit(500) os pedidos sem NF no ML (skip) tampavam a janela
-  const rows = (await fetchAll<{ id: string; external_order_id: string; product_id: string | null; sale_date: string }>(() => db.from('sales')
-    .select('id, external_order_id, product_id, sale_date')
-    .eq('marketplace', 'mercado_livre')
-    .is('nfe_saida_key', null)
-    .gte('sale_date', brazilDaysAgo(days))
-    .order('id')))
-    .sort((a, b) => b.sale_date.localeCompare(a.sale_date))
+  // body.pedidos: relê a nota destes pedidos mesmo já tendo NF (correção de histórico)
+  const pedidos: string[] | null = Array.isArray(body.pedidos) ? body.pedidos.map(String) : null
+  const rows = (await fetchAll<{ id: string; external_order_id: string; product_id: string | null; sale_date: string }>(() => {
+    const q = db.from('sales').select('id, external_order_id, product_id, sale_date').eq('marketplace', 'mercado_livre')
+    return (pedidos
+      ? q.or(pedidos.map(p => `external_order_id.like.ml_${p.replace(/\D/g, '')}_*`).join(','))
+      : q.is('nfe_saida_key', null).gte('sale_date', brazilDaysAgo(days))
+    ).order('id')
+  })).sort((a, b) => b.sale_date.localeCompare(a.sale_date))
 
   // Cadastro por SKU (que nos produtos vindos do Bling é o EAN) — permite
   // vincular venda→produto pelo EAN do item da NF-e quando o SKU do anúncio difere
@@ -108,14 +87,8 @@ export async function POST(request: NextRequest) {
       if (inv?.status !== 'authorized' || !chave) { notFound++; continue }
 
       for (const sale of items) {
-        // casa item da nota com a venda pelo MLB id; fallback para o primeiro
-        // item SÓ quando a nota tem um item — em pedido multi-item o item que
-        // não casa herdava o imposto de outro (imposto em dobro)
-        const invItems = inv.items ?? []
-        const invItem = invItems.find(i => i.external_product_id === sale.mlb) ?? (invItems.length === 1 ? invItems[0] : undefined)
-        if (!invItem) { notFound++; continue }
-        const rules   = invItem?.fiscal_data?.rules ?? []
-        const t       = taxesFromRules(rules)
+        const t = impostosDaVenda(inv.items ?? [], sale.mlb)
+        if (!t) { notFound++; continue }
 
         // SEM vínculo venda→produto pelo EAN da nota (regra do Bruno 27/09/2026:
         // vínculo SÓ pelo SKU). Num kit (MOVE TRIO) a EAN do 1º item é a do
