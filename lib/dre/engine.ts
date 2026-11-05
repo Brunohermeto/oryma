@@ -120,7 +120,7 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
   // que formam o CMV já entram LÍQUIDAS de crédito (regra 5 do AGENTS.md,
   // 2026-09-15) — somar aqui contava em dobro e inflava lucro bruto/EBITDA/IRPJ.
   const creditoServicos = zero()
-  for (const mp of MPs) add(creditoServicos, mp, creditoTarifas(commissions[mp], fixedFees[mp], shippingFees[mp], rebates[mp]))
+  for (const mp of MPs) add(creditoServicos, mp, creditoTarifas(commissions[mp], fixedFees[mp], shippingFees[mp], ads[mp], rebates[mp]))
   const totalTaxes = calc(k => pis[k] + cofins[k] + icms[k] + icmsDifal[k] + ipi[k] - creditoServicos[k])
 
   const afterTaxes = subtract(netMarket, totalTaxes)
@@ -189,7 +189,7 @@ export async function buildDRE(period: Date): Promise<DRERow[]> {
     toRow('(-) ICMS', icms, { negate: true }),
     toRow('(-) ICMS DIFAL', icmsDifal, { negate: true }),
     ...(ipi.total > 0 ? [toRow('(-) IPI', ipi, { negate: true })] : []),
-    toRow('(+) Crédito PIS/COFINS s/ tarifas dos marketplaces', creditoServicos),
+    toRow('(+) Crédito PIS/COFINS s/ tarifas e Ads dos marketplaces', creditoServicos),
     toRow('= Receita após Impostos', afterTaxes, { isTotal: true }),
 
     headerRow('Custos do Canal de Venda'),
