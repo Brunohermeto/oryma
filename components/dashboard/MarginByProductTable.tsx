@@ -53,7 +53,7 @@ function marginColor(m: number) {
   return 'oklch(0.52 0.20 25)'
 }
 
-type SortKey = 'name' | 'units' | 'revenue' | 'icms' | 'icmsPct' | 'difal' | 'difalPct'
+type SortKey = 'name' | 'units' | 'revenue' | 'icms' | 'icmsPct' | 'difal' | 'difalPct' | 'icmsDifalPct'
   | 'piscofins' | 'freteMedio' | 'estornoMedio' | 'commissionPct' | 'adsPct' | 'ads' | 'cmvMedio' | 'marginPct' | 'velocityDay'
 
 export function MarginByProductTable({ rows, days, periodLabel }: { rows: ProductMarginRow[]; days: number; periodLabel?: string }) {
@@ -70,6 +70,7 @@ export function MarginByProductTable({ rows, days, periodLabel }: { rows: Produc
       case 'name':          return r.name.toLowerCase()
       case 'icmsPct':       return r.taxedRevenue > 0 ? r.icms  / r.taxedRevenue : -1
       case 'difalPct':      return r.taxedRevenue > 0 ? r.difal / r.taxedRevenue : -1
+      case 'icmsDifalPct':  return r.taxedRevenue > 0 ? (r.icms + r.difal) / r.taxedRevenue : -1
       case 'commissionPct': return r.revenue > 0 ? r.commission / r.revenue : -1
       case 'adsPct':        return r.revenue > 0 ? r.ads / r.revenue : -1
       case 'freteMedio':    return r.freteMedio ?? -1
@@ -169,6 +170,7 @@ export function MarginByProductTable({ rows, days, periodLabel }: { rows: Produc
               <HTH k="icmsPct" label="ICMS %" />
               <HTH k="difal" label="DIFAL R$" />
               <HTH k="difalPct" label="DIFAL %" />
+              <HTH k="icmsDifalPct" label="ICMS+DIFAL %" />
               <HTH k="piscofins" label="PIS+COFINS" />
               <HTH k="freteMedio" label="Frete méd" />
               <HTH k="estornoMedio" label="Estorno méd" />
@@ -215,6 +217,9 @@ export function MarginByProductTable({ rows, days, periodLabel }: { rows: Produc
                     <td className="px-2 py-2.5 text-right text-[12px]" style={{ color: B.muted, fontFamily: 'var(--font-geist-mono)' }}>
                       {semImpostos ? '—' : pctOf(r.difal, r.taxedRevenue)}
                     </td>
+                    <td className="px-2 py-2.5 text-right text-[12px] font-semibold" style={{ color: B.text, fontFamily: 'var(--font-geist-mono)' }}>
+                      {semImpostos ? '—' : pctOf(r.icms + r.difal, r.taxedRevenue)}
+                    </td>
                     <Num v={semImpostos ? null : r.piscofins} />
                     <Num v={r.freteMedio} />
                     <td className="px-2 py-2.5 text-right text-[13px]" style={{ color: r.estornoMedio !== null ? '#16a34a' : B.muted, fontFamily: 'var(--font-geist-mono)' }}>
@@ -245,7 +250,7 @@ export function MarginByProductTable({ rows, days, periodLabel }: { rows: Produc
                   </tr>
                   {isOpen && (
                     <tr key={`${r.productId}-uf`}>
-                      <td colSpan={16} className="px-2 pb-3 pt-1" style={{ background: B.bgSubtle }}>
+                      <td colSpan={17} className="px-2 pb-3 pt-1" style={{ background: B.bgSubtle }}>
                         <div className="flex flex-wrap gap-2 pl-6 pt-2">
                           {r.byUf.map(u => (
                             <div key={u.uf} className="flex items-center gap-2 bg-white rounded-lg px-2.5 py-1.5" style={{ border: `1px solid ${B.border}` }}>
@@ -266,7 +271,7 @@ export function MarginByProductTable({ rows, days, periodLabel }: { rows: Produc
               )
             })}
             {sorted.length === 0 && (
-              <tr><td colSpan={16} className="px-2 py-6 text-center text-[13px]" style={{ color: B.muted }}>Nenhum produto no período/busca.</td></tr>
+              <tr><td colSpan={17} className="px-2 py-6 text-center text-[13px]" style={{ color: B.muted }}>Nenhum produto no período/busca.</td></tr>
             )}
             {/* ── Linha TOTAL (produtos filtrados) ── */}
             {sorted.length > 0 && (() => {
@@ -293,6 +298,7 @@ export function MarginByProductTable({ rows, days, periodLabel }: { rows: Produc
                   <td className={td} style={mono}>{t.taxedRevenue > 0 ? pctOf(t.icms, t.taxedRevenue) : '—'}</td>
                   <td className={td} style={mono}>{fmtR0(t.difal)}</td>
                   <td className={td} style={mono}>{t.taxedRevenue > 0 ? pctOf(t.difal, t.taxedRevenue) : '—'}</td>
+                  <td className={td} style={mono}>{t.taxedRevenue > 0 ? pctOf(t.icms + t.difal, t.taxedRevenue) : '—'}</td>
                   <td className={td} style={mono}>{fmtR0(t.piscofins)}</td>
                   <td className={td} style={{ color: B.muted }}>—</td>
                   <td className={td} style={{ color: B.muted }}>—</td>
