@@ -22,7 +22,8 @@ function fmt(v: number): string {
 const fmtPct = (v: number) => (v === 0 ? '—' : `${v.toFixed(1).replace('.', ',')}%`)
 
 export function DREComparativo({ meses, linhas, semDespesas }: { meses: string[]; linhas: LinhaComparativo[]; semDespesas: boolean[] }) {
-  const [abertos, setAbertos] = useState<Set<string>>(new Set())
+  // Impostos já aberto: o crédito de PIS/COFINS fica à vista (Bruno não achou a linha)
+  const [abertos, setAbertos] = useState<Set<string>>(new Set(['g:Impostos sobre Vendas']))
   const toggle = (k: string) => setAbertos(s => { const n = new Set(s); if (n.has(k)) n.delete(k); else n.add(k); return n })
   const temDetalhe = new Set(linhas.filter(l => l.tipo === 'detalhe').map(l => l.grupo))
   const algumSemDespesa = semDespesas.some(Boolean)

@@ -24,7 +24,7 @@ export default async function DREPage({
     const hoje = new Date(brazilToday() + 'T12:00:00')
     // 12 meses de vendas = ~17s; cache de 30 min (ciclo de vendas é diário)
     const { meses, linhas, semDespesas } = await unstable_cache(
-      () => buildDREComparativo(hoje), ['dre-12m', formatMonth(hoje)], { revalidate: 1800, tags: ['dre-12m'] })()
+      () => buildDREComparativo(hoje), ['dre-12m-v2', formatMonth(hoje)], { revalidate: 1800, tags: ['dre-12m'] })()
     return (
       <>
         <TopBar

@@ -3,6 +3,7 @@
  * lê ads_metrics do período, rateia por produto (gravaAdsDoPeriodo) e
  * recalcula a margem só daquele período (runRelink from/until).
  */
+import { revalidateTag } from 'next/cache'
 import type { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { gravaAdsDoPeriodo } from './allocate-ads'
 import { indiceSkus } from './ads-products'
@@ -20,6 +21,7 @@ export async function aplicaPeriodoAds(db: Db, marketplace: string, de: string, 
     produtos: new Set((r.product_skus as string[] ?? []).map(s => idPorSku.get(s)).filter(Boolean) as string[]),
   }))
   const r = await gravaAdsDoPeriodo(db, marketplace, de, ate, grupos)
+  revalidateTag('dre-12m', { expire: 0 })  // comparativo do DRE reflete o Ads sem esperar o relink
   await runRelink({ from: de, until: ate, skipOrders: true })
   return { ...r, gasto: grupos.reduce((a, g) => a + g.custo, 0) }
 }
